@@ -13,4 +13,7 @@ pub enum Command {
         #[clap(short, long)]
         path: Option<String>,
     },
+
+    #[clap(about = "Connect to the daemon")]
+    Connect,
 }
