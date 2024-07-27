@@ -12,13 +12,13 @@ async fn main() {
     match args.commands {
         args::Command::Daemon { path } => {
             if let Err(e) = daemon::start_daemon(path).await {
-                println!("Error starting the daemon: {}", e)
+                println!("Error starting the daemon: {:?}", e)
             };
         }
 
         args::Command::Connect => {
             if let Err(e) = cli::client::connect_server().await {
-                println!("Error running the client: {}", e);
+                println!("Error running the client: {:?}", e);
             }
         }
     }
