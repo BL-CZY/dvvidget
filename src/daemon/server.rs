@@ -7,13 +7,13 @@ use tokio::net::unix::ReadHalf;
 use tokio::net::UnixStream;
 use tokio::sync::mpsc::UnboundedSender;
 
-use super::structs::DaemonCmd;
+use super::structs::DaemonEvt;
 
 const DEFAULT_SOCKET_PATH: &str = "/tmp/dvviget.sock";
 
 pub async fn run_server(
     path: Option<String>,
-    evt_sender: UnboundedSender<DaemonCmd>,
+    evt_sender: UnboundedSender<DaemonEvt>,
 ) -> Result<(), DaemonErr> {
     let socket_path: String = if let Some(p) = path {
         p
@@ -35,15 +35,18 @@ pub async fn run_server(
         let stream: UnixStream = if let Ok(res) = listener.accept().await {
             res.0
         } else {
-            break;
+            println!("Failed to establish the stream, ignoring");
+            continue;
         };
 
-        if let Err(e) = handle_connection(stream, evt_sender.clone()).await {
-            println!(
-                "Error reading the command: {:?}, shuting down the server",
-                e
-            );
-            break;
+        match handle_connection(stream, evt_sender.clone()).await {
+            Ok(evt) => {
+                if let DaemonEvt::ShutDown = evt {
+                    break;
+                }
+            }
+
+            Err(e) => println!("Error reading the command: {:?}, ignoring", e),
         }
     }
 
@@ -53,18 +56,19 @@ pub async fn run_server(
     Ok(())
 }
 
+// forwad the event to channel and return it
 async fn handle_connection(
     mut stream: UnixStream,
-    evt_sender: UnboundedSender<DaemonCmd>,
-) -> Result<(), DaemonErr> {
+    evt_sender: UnboundedSender<DaemonEvt>,
+) -> Result<DaemonEvt, DaemonErr> {
     let (mut reader, mut writer) = stream.split();
 
-    let cmd: DaemonCmd = match read_cmd(&mut reader).await {
+    let evt: DaemonEvt = match read_cmd(&mut reader).await {
         Ok(res) => res,
         Err(e) => return Err(e),
     };
 
-    if let Err(e) = evt_sender.send(cmd) {
+    if let Err(e) = evt_sender.send(evt.clone()) {
         return Err(DaemonErr::SendFailed(e.0));
     };
 
@@ -72,7 +76,7 @@ async fn handle_connection(
         return Err(DaemonErr::ShutdownFailed(e.to_string()));
     };
 
-    Ok(())
+    Ok(evt)
 }
 
 // the sender will send the struct in the following fashion:
@@ -81,7 +85,7 @@ async fn handle_connection(
  * | u32 size in littlen endian | actual data |
  * +----------------------------+-------------+
  */
-async fn read_cmd(reader: &mut ReadHalf<'_>) -> Result<DaemonCmd, DaemonErr> {
+async fn read_cmd(reader: &mut ReadHalf<'_>) -> Result<DaemonEvt, DaemonErr> {
     let mut msg_len_buf = [0u8; 4];
     if let Err(e) = reader.read_exact(&mut msg_len_buf).await {
         return Err(DaemonErr::ReadingFailed(e.to_string()));

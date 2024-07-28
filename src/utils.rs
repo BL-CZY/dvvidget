@@ -1,4 +1,4 @@
-use crate::daemon::structs::DaemonCmd;
+use crate::daemon::structs::DaemonEvt;
 
 #[derive(Debug)]
 pub enum DaemonErr {
@@ -6,7 +6,7 @@ pub enum DaemonErr {
     ServerAlreadyRunning,
     ReadingFailed(String),
     DeserializeError(String),
-    SendFailed(DaemonCmd),
+    SendFailed(DaemonEvt),
     ShutdownFailed(String),
 }
 
