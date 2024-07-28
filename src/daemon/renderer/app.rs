@@ -1,3 +1,4 @@
+use gio::ApplicationFlags;
 use gtk4::prelude::*;
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
 
@@ -41,9 +42,9 @@ fn activate(application: &gtk4::Application) {
 }
 
 pub fn start_app() {
-    let application = gtk4::Application::new(Some("org.dvida.dvvidgets"), Default::default());
+    let app = gtk4::Application::new(Some("org.dvida.dvvidgets"), ApplicationFlags::HANDLES_OPEN);
 
-    application.connect_activate(|app| activate(&app));
+    app.connect_activate(|app| activate(&app));
 
-    application.run();
+    app.run_with_args(&[""]);
 }

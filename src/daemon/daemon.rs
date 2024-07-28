@@ -1,3 +1,4 @@
+use super::renderer::app::start_app;
 use super::structs::DaemonEvt;
 use super::{renderer, server};
 use crate::utils::DaemonErr;
@@ -7,15 +8,17 @@ pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
     let (evt_sender, evt_receiver): (UnboundedSender<DaemonEvt>, UnboundedReceiver<DaemonEvt>) =
         mpsc::unbounded_channel();
 
-    if let Err(e) = renderer::init_gtk_async(evt_receiver) {
-        return Err(e);
-    }
-
     let rt = tokio::runtime::Builder::new_multi_thread()
         .thread_name("dvvidget server main")
         .enable_all()
         .build()
         .unwrap();
+
+    let handle = rt.handle().clone();
+
+    if let Err(e) = renderer::init_gtk_async(evt_receiver) {
+        return Err(e);
+    }
 
     // run the server in a different thread
     std::thread::Builder::new()
@@ -30,5 +33,10 @@ pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
             });
         })
         .expect("failed to start the async thread");
+
+    let _g = handle.enter();
+
+    start_app();
+
     Ok(())
 }
