@@ -210,6 +210,7 @@ dependencies = [
  "glib",
  "gtk4",
  "gtk4-layer-shell",
+ "once_cell",
  "serde",
  "simple-signal",
  "tokio",
@@ -711,6 +712,12 @@ checksum = "3f203fa8daa7bb185f760ae12bd8e097f63d17041dcdcaf675ac54cdf863170e"
 dependencies = [
  "memchr",
 ]
+
+[[package]]
+name = "once_cell"
+version = "1.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
 
 [[package]]
 name = "pango"

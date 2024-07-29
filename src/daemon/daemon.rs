@@ -23,7 +23,7 @@ pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
     simple_signal::set_handler(
         &[simple_signal::Signal::Int, simple_signal::Signal::Term],
         move |_| {
-            // TODO remove the socket file
+            crate::utils::shutdown();
         },
     );
 

@@ -13,3 +13,4 @@ bincode = "1.3"
 clap = { version = "4.5.10", features = ["derive"] }
 tokio = { version = "1.39.1", features = ["full"] }
 simple-signal = "1.1.1"
+once_cell = "1.19.0"

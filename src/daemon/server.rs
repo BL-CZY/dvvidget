@@ -1,4 +1,4 @@
-use crate::utils::DaemonErr;
+use crate::utils::{shutdown, DaemonErr};
 use std::fs;
 use std::path::Path;
 use tokio;
@@ -8,8 +8,9 @@ use tokio::net::UnixStream;
 use tokio::sync::mpsc::UnboundedSender;
 
 use super::structs::DaemonEvt;
+use crate::utils::receive_exit;
 
-const DEFAULT_SOCKET_PATH: &str = "/tmp/dvviget.sock";
+pub const DEFAULT_SOCKET_PATH: &str = "/tmp/dvviget.sock";
 
 pub async fn run_server(
     path: Option<String>,
@@ -32,24 +33,25 @@ pub async fn run_server(
     };
 
     loop {
-        let stream: UnixStream = if let Ok(res) = listener.accept().await {
-            res.0
-        } else {
-            println!("Failed to establish the stream, ignoring");
-            continue;
-        };
-
-        match handle_connection(stream, evt_sender.clone()).await {
-            Ok(evt) => {
-                if let DaemonEvt::ShutDown = evt {
-                    break;
-                }
+        tokio::select! {
+            Ok(()) = receive_exit() => {
+                break;
             }
 
-            Err(e) => println!("Error reading the command: {:?}, ignoring", e),
+            Ok(res) = listener.accept() => {
+                let stream: UnixStream = res.0;
+                let new_sender = evt_sender.clone();
+
+                tokio::spawn(async move {
+                    if let Err(e) = handle_connection(stream, new_sender).await {
+                        println!("Error reading the command: {:?}, ignoring", e)
+                    }
+                });
+            }
         }
     }
 
+    println!("shutting down the server..");
     drop(listener);
     fs::remove_file(socket_path).unwrap();
 
@@ -60,7 +62,7 @@ pub async fn run_server(
 async fn handle_connection(
     mut stream: UnixStream,
     evt_sender: UnboundedSender<DaemonEvt>,
-) -> Result<DaemonEvt, DaemonErr> {
+) -> Result<(), DaemonErr> {
     let (mut reader, mut writer) = stream.split();
 
     let evt: DaemonEvt = match read_cmd(&mut reader).await {
@@ -76,7 +78,11 @@ async fn handle_connection(
         return Err(DaemonErr::ShutdownFailed(e.to_string()));
     };
 
-    Ok(evt)
+    if let DaemonEvt::ShutDown = evt {
+        shutdown();
+    }
+
+    Ok(())
 }
 
 // the sender will send the struct in the following fashion:

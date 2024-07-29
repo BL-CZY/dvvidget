@@ -4,7 +4,6 @@ pub mod utils;
 
 use clap::Parser;
 use cli::args::{self, Args};
-use daemon::renderer::app::start_app;
 
 fn main() {
     let args = Args::parse();
