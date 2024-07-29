@@ -211,6 +211,7 @@ dependencies = [
  "gtk4",
  "gtk4-layer-shell",
  "serde",
+ "simple-signal",
  "tokio",
 ]
 
@@ -639,6 +640,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
+name = "lazy_static"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
+
+[[package]]
 name = "libc"
 version = "0.2.155"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -868,6 +875,16 @@ version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a9e9e0b4211b72e7b8b6e85c807d36c212bdb33ea8587f7569562a84df5465b1"
 dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "simple-signal"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53f7da44adcc42667d57483bd93f81295f27d66897804b757573b61b6f13288b"
+dependencies = [
+ "lazy_static",
  "libc",
 ]
 

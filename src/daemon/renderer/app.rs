@@ -42,7 +42,7 @@ fn activate(application: &gtk4::Application) {
 }
 
 pub fn start_app() {
-    let app = gtk4::Application::new(Some("org.dvida.dvvidgets"), ApplicationFlags::HANDLES_OPEN);
+    let app = gtk4::Application::new(Some("org.dvida.dvvidgets"), ApplicationFlags::default());
 
     app.connect_activate(|app| activate(&app));
 

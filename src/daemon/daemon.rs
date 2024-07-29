@@ -20,6 +20,13 @@ pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
         return Err(e);
     }
 
+    simple_signal::set_handler(
+        &[simple_signal::Signal::Int, simple_signal::Signal::Term],
+        move |_| {
+            // TODO remove the socket file
+        },
+    );
+
     // run the server in a different thread
     std::thread::Builder::new()
         .name("dvvidget server".into())

@@ -12,3 +12,4 @@ serde = { version = "1.0.204", features = ["derive"] }
 bincode = "1.3"
 clap = { version = "4.5.10", features = ["derive"] }
 tokio = { version = "1.39.1", features = ["full"] }
+simple-signal = "1.1.1"
