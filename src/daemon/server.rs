@@ -1,4 +1,5 @@
 use crate::utils::{shutdown, DaemonErr};
+use anyhow::Context;
 use std::fs;
 use std::path::Path;
 use tokio;
@@ -78,6 +79,8 @@ async fn handle_connection(
         return Err(DaemonErr::ShutdownFailed(e.to_string()));
     };
 
+    println!("handling connection: {:?}", evt);
+
     if let DaemonEvt::ShutDown = evt {
         shutdown();
     }
@@ -102,13 +105,19 @@ async fn read_cmd(reader: &mut ReadHalf<'_>) -> Result<DaemonEvt, DaemonErr> {
 
     // ensure we read all the info
     while msg_buf.len() < msg_len as usize {
-        if let Err(e) = reader.read_buf(&mut msg_buf).await {
+        if let Err(e) = reader
+            .read_buf(&mut msg_buf)
+            .await
+            .context("Failed to read the command from the client")
+        {
             return Err(DaemonErr::ReadingFailed(e.to_string()));
         };
     }
 
-    Ok(match bincode::deserialize(&msg_buf) {
-        Ok(val) => val,
-        Err(e) => return Err(DaemonErr::DeserializeError(e.to_string())),
-    })
+    Ok(
+        match bincode::deserialize(&msg_buf).context("Failed to deserialize command") {
+            Ok(val) => val,
+            Err(e) => return Err(DaemonErr::DeserializeError(e.to_string())),
+        },
+    )
 }

@@ -27,7 +27,11 @@ pub fn shutdown() {
         println!("Failed to shutdown, force exiting");
         // remove the socket
         if let Err(e) = fs::remove_file(crate::daemon::server::DEFAULT_SOCKET_PATH) {
-            println!("failed to remove the socket file: {}", e);
+            println!(
+                "No remaining socket file found at the default location {}: {}",
+                crate::daemon::server::DEFAULT_SOCKET_PATH,
+                e
+            );
         }
 
         std::process::exit(1);
@@ -47,4 +51,6 @@ pub enum DaemonErr {
 #[derive(Debug)]
 pub enum ClientErr {
     CannotConnectServer,
+    SerializeError(DaemonEvt, String),
+    WriteErr(String),
 }
