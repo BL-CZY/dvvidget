@@ -16,10 +16,6 @@ pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
 
     let handle = rt.handle().clone();
 
-    if let Err(e) = renderer::init_gtk_async(evt_receiver) {
-        return Err(e);
-    }
-
     simple_signal::set_handler(
         &[simple_signal::Signal::Int, simple_signal::Signal::Term],
         move |_| {
@@ -43,7 +39,7 @@ pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
 
     let _g = handle.enter();
 
-    start_app();
+    start_app(evt_receiver);
 
     Ok(())
 }
