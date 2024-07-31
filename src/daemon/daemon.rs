@@ -24,11 +24,12 @@ pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
     );
 
     // run the server in a different thread
+    let alt_path = path.clone();
     std::thread::Builder::new()
         .name("dvvidget server".into())
         .spawn(move || {
             rt.block_on(async {
-                if let Err(e) = server::run_server(path, evt_sender.clone()).await {
+                if let Err(e) = server::run_server(alt_path, evt_sender.clone()).await {
                     println!("Error running the server: {:?}, exiting...", e);
                     return;
                 }
@@ -39,7 +40,7 @@ pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
 
     let _g = handle.enter();
 
-    start_app(evt_receiver);
+    start_app(evt_receiver, path);
 
     Ok(())
 }

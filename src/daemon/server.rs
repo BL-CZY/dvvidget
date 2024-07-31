@@ -79,7 +79,7 @@ async fn handle_connection(
         return Err(DaemonErr::ShutdownFailed(e.to_string()));
     };
 
-    println!("handling connection: {:?}", evt);
+    println!("Event receiverd from client: {:?}", evt);
 
     if let DaemonEvt::ShutDown = evt {
         shutdown();
