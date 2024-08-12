@@ -11,7 +11,7 @@ fn main() {
 
     match args.commands {
         args::Command::Daemon { path, option } => {
-            if let None = option {
+            if option.is_none() {
                 if let Err(e) = daemon::start_daemon(path) {
                     println!("Error starting the daemon: {:?}", e)
                 };

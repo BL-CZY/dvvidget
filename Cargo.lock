@@ -213,6 +213,7 @@ dependencies = [
  "anyhow",
  "bincode",
  "clap",
+ "gdk4",
  "gio",
  "glib",
  "gtk4",
