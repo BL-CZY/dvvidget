@@ -3,8 +3,10 @@ use std::sync::Arc;
 use crate::daemon::structs::DaemonEvt;
 use crate::utils::DaemonErr;
 use gio::ApplicationFlags;
+use gtk4::gdk;
 use gtk4::prelude::*;
 use gtk4::Application;
+use gtk4::CssProvider;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use super::config::read_config;
@@ -52,6 +54,13 @@ pub fn init_gtk_async(
 
 fn activate(app: &gtk4::Application) {
     create_dock(app).present();
+    let css = CssProvider::new();
+    css.load_from_data(include_str!("style.css"));
+    gtk4::style_context_add_provider_for_display(
+        &gdk::Display::default().expect("Ughhhhhhhhhhhhhhh"),
+        &css,
+        gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
 }
 
 pub fn start_app(evt_receiver: UnboundedReceiver<DaemonEvt>, path: Option<String>) {
