@@ -1,3 +1,17 @@
-button:hover {
-    color: magenta;
+button.dock-unhovered-btn {
+    min-width: 50px;
+    min-height: 50px;
+    margin: 5px;
+    transition: all, 0.3s;
+}
+
+button.dock-hovered-btn {
+    min-width: 75px;
+    min-height: 75px;
+    margin: 7px;
+    transition: all, 0.3s;
+}
+
+window {
+    background-color: #00000000;
 }

@@ -23,7 +23,7 @@ pub fn adjust_btn(list: RefMut<Vec<Button>>, cursor_x: f64) {
     for btn in list.iter() {
         let location = btn.allocation().x() as f64;
         let width = btn.allocation().width() as f64;
-        let size = (150f64 - (cursor_x - (location + width / 2f64)).abs() * 0.3f64).max(75f64);
+        let size = (150f64 - (cursor_x - (location + width / 2f64)).abs() * 0.1f64).max(75f64);
         btn.set_height_request(size as i32);
         btn.set_width_request(size as i32);
     }
@@ -34,9 +34,11 @@ pub fn create_dock(app: &Application) -> ApplicationWindow {
     descriptor.anchor_bottom = true;
     descriptor.anchor_left = false;
     descriptor.anchor_right = false;
+    descriptor.margin_bottom = 10;
     let result = window::create_window(app, descriptor);
 
-    let list_box = Box::new(Orientation::Horizontal, 10);
+    let list_box = Box::new(Orientation::Horizontal, 0);
+    list_box.set_css_classes(&["dock-box"]);
     let btns: Rc<RefCell<Vec<Button>>> = Rc::new(RefCell::new(vec![]));
 
     for num in 0..10 {
@@ -45,6 +47,7 @@ pub fn create_dock(app: &Application) -> ApplicationWindow {
         btn.set_width_request(75);
         btn.set_halign(gtk4::Align::End);
         btn.set_valign(gtk4::Align::End);
+        btn.set_css_classes(&["dock-unhovered-btn"]);
         list_box.append(&btn);
         btns.borrow_mut().push(btn);
     }
@@ -58,6 +61,26 @@ pub fn create_dock(app: &Application) -> ApplicationWindow {
     motion.connect_motion(move |_, x, _| {
         let list_btn = btns_clone.borrow_mut();
         adjust_btn(list_btn, x);
+    });
+
+    let btns_clone = btns.clone();
+    motion.connect_enter(move |_, _, _| {
+        let list_btn = btns_clone.borrow_mut();
+        for btn in list_btn.iter() {
+            btn.set_css_classes(&["dock-hovered-btn"]);
+            btn.set_height_request(75);
+            btn.set_width_request(75);
+        }
+    });
+
+    let btns_clone = btns.clone();
+    motion.connect_leave(move |_| {
+        let list_btn = btns_clone.borrow_mut();
+        for btn in list_btn.iter() {
+            btn.set_css_classes(&["dock-unhovered-btn"]);
+            btn.set_height_request(75);
+            btn.set_width_request(75);
+        }
     });
 
     result.add_controller(motion);
