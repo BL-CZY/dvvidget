@@ -1,4 +1,4 @@
-use gtk4::{prelude::*, EventControllerMotion};
+use gtk4::{prelude::*, EventControllerMotion, Image};
 use gtk4::{Application, ApplicationWindow, Box, Button, Orientation};
 use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
@@ -34,14 +34,14 @@ pub fn create_dock(app: &Application) -> ApplicationWindow {
     descriptor.anchor_bottom = true;
     descriptor.anchor_left = false;
     descriptor.anchor_right = false;
-    descriptor.margin_bottom = 10;
+    descriptor.margin_bottom = 0;
     let result = window::create_window(app, descriptor);
 
     let list_box = Box::new(Orientation::Horizontal, 0);
     list_box.set_css_classes(&["dock-box"]);
     let btns: Rc<RefCell<Vec<Button>>> = Rc::new(RefCell::new(vec![]));
 
-    for num in 0..10 {
+    for num in 0..7 {
         let btn = Button::with_label(&num.to_string());
         btn.set_height_request(75);
         btn.set_width_request(75);
@@ -49,6 +49,10 @@ pub fn create_dock(app: &Application) -> ApplicationWindow {
         btn.set_valign(gtk4::Align::End);
         btn.set_css_classes(&["dock-unhovered-btn"]);
         list_box.append(&btn);
+
+        let img = Image::from_file("/home/tpl/projects/dvvidget/src/daemon/renderer/dog.svg");
+        btn.set_child(Some(&img));
+
         btns.borrow_mut().push(btn);
     }
 

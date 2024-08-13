@@ -2,6 +2,7 @@ button.dock-unhovered-btn {
     min-width: 50px;
     min-height: 50px;
     margin: 5px;
+    background-color: #00000000;
     transition: all, 0.3s;
 }
 
@@ -9,6 +10,7 @@ button.dock-hovered-btn {
     min-width: 75px;
     min-height: 75px;
     margin: 7px;
+    background-color: #00000000;
     transition: all, 0.3s;
 }
 
