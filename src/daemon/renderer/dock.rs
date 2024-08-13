@@ -1,3 +1,4 @@
+use glib::clone;
 use gtk4::{prelude::*, EventControllerMotion, Image};
 use gtk4::{Application, ApplicationWindow, Box, Button, Orientation};
 use std::cell::{RefCell, RefMut};
@@ -63,8 +64,14 @@ pub fn create_dock(app: &Application) -> ApplicationWindow {
 
     let btns_clone = btns.clone();
     motion.connect_motion(move |_, x, _| {
-        let list_btn = btns_clone.borrow_mut();
-        adjust_btn(list_btn, x);
+        glib::spawn_future_local(clone!(
+            #[weak]
+            btns_clone,
+            async move {
+                let list_btn = btns_clone.borrow_mut();
+                adjust_btn(list_btn, x);
+            }
+        ));
     });
 
     let btns_clone = btns.clone();
