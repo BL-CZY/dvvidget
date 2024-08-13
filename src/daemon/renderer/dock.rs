@@ -2,7 +2,9 @@ use glib::clone;
 use gtk4::{prelude::*, EventControllerMotion, Image};
 use gtk4::{Application, ApplicationWindow, Box, Button, Orientation};
 use std::cell::{RefCell, RefMut};
+use std::os::unix::thread;
 use std::rc::Rc;
+use std::time::Duration;
 
 use super::window::{self, WindowDescriptor};
 
@@ -30,6 +32,13 @@ pub fn adjust_btn(list: RefMut<Vec<Button>>, cursor_x: f64) {
     }
 }
 
+fn murph_btn(list: &mut Vec<Button>) {
+    for btn in &mut *list {
+        btn.set_height_request(75);
+        btn.set_width_request(75);
+    }
+}
+
 pub fn create_dock(app: &Application) -> ApplicationWindow {
     let mut descriptor = WindowDescriptor::new();
     descriptor.anchor_bottom = true;
@@ -48,7 +57,7 @@ pub fn create_dock(app: &Application) -> ApplicationWindow {
         btn.set_width_request(75);
         btn.set_halign(gtk4::Align::End);
         btn.set_valign(gtk4::Align::End);
-        btn.set_css_classes(&["dock-unhovered-btn"]);
+        btn.set_css_classes(&["dock-btn"]);
         list_box.append(&btn);
 
         let img = Image::from_file("/home/tpl/projects/dvvidget/src/daemon/renderer/dog.svg");
@@ -76,22 +85,26 @@ pub fn create_dock(app: &Application) -> ApplicationWindow {
 
     let btns_clone = btns.clone();
     motion.connect_enter(move |_, _, _| {
-        let list_btn = btns_clone.borrow_mut();
-        for btn in list_btn.iter() {
-            btn.set_css_classes(&["dock-hovered-btn"]);
-            btn.set_height_request(75);
-            btn.set_width_request(75);
-        }
+        glib::spawn_future_local(clone!(
+            #[weak]
+            btns_clone,
+            async move {
+                let mut list_btn = btns_clone.borrow_mut();
+                murph_btn(&mut list_btn);
+            }
+        ));
     });
 
     let btns_clone = btns.clone();
     motion.connect_leave(move |_| {
-        let list_btn = btns_clone.borrow_mut();
-        for btn in list_btn.iter() {
-            btn.set_css_classes(&["dock-unhovered-btn"]);
-            btn.set_height_request(75);
-            btn.set_width_request(75);
-        }
+        glib::spawn_future_local(clone!(
+            #[weak]
+            btns_clone,
+            async move {
+                let mut list_btn = btns_clone.borrow_mut();
+                murph_btn(&mut list_btn);
+            }
+        ));
     });
 
     result.add_controller(motion);

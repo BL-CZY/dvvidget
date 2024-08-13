@@ -1,17 +1,7 @@
-button.dock-unhovered-btn {
-    min-width: 50px;
-    min-height: 50px;
+button.dock-btn {
+    all: unset;
     margin: 5px;
     background-color: #00000000;
-    transition: all, 0.3s;
-}
-
-button.dock-hovered-btn {
-    min-width: 75px;
-    min-height: 75px;
-    margin: 7px;
-    background-color: #00000000;
-    transition: all, 0.3s;
 }
 
 window {
