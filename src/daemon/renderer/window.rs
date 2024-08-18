@@ -100,9 +100,5 @@ pub fn create_window(app: &Application, descriptor: WindowDescriptor) -> Applica
         window.set_anchor(anchor, state);
     }
 
-    // Set up a widget
-    let label = gtk4::Label::new(Some(""));
-    label.set_markup("<span font_desc=\"20.0\">GTK Layer Shell example!</span>");
-    window.set_child(Some(&label));
     window
 }

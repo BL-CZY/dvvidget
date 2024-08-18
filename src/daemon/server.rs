@@ -1,4 +1,4 @@
-use crate::utils::{shutdown, DaemonErr};
+use crate::utils::{self, shutdown, DaemonErr};
 use anyhow::Context;
 use std::fs;
 use std::path::Path;
@@ -24,12 +24,14 @@ pub async fn run_server(
     };
 
     if Path::new(&socket_path).exists() {
+        utils::send_exit().unwrap();
         return Err(DaemonErr::ServerAlreadyRunning);
     }
 
     let listener = if let Ok(res) = tokio::net::UnixListener::bind(Path::new(&socket_path)) {
         res
     } else {
+        utils::send_exit().unwrap();
         return Err(DaemonErr::InitServerFailed);
     };
 

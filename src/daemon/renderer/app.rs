@@ -12,6 +12,7 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use super::config::read_config;
 use super::dock::create_dock;
 use super::dock::DockDescriptor;
+use super::popup::create_sound_osd;
 
 pub struct AppDescriptor {
     pub dock: DockDescriptor,
@@ -54,12 +55,13 @@ pub fn init_gtk_async(
 
 fn activate(app: &gtk4::Application) {
     create_dock(app).present();
+    create_sound_osd(app).present();
     let css = CssProvider::new();
     css.load_from_data(include_str!("style.css"));
     gtk4::style_context_add_provider_for_display(
         &gdk::Display::default().expect("Ughhhhhhhhhhhhhhh"),
         &css,
-        gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        gtk4::STYLE_PROVIDER_PRIORITY_SETTINGS,
     );
 }
 
