@@ -1,0 +1,32 @@
+* {
+    all: unset;
+}
+
+.sound {
+    background-color: transparent;
+}
+
+.sound_scale {
+    background-color: yellow;
+    padding-left: 15px;
+    padding-right: 15px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    border-radius: 5px;
+    min-width: 200px;
+    min-height: 30px;
+}
+
+.sound_scale trough slider{
+    background-color: blue;
+}
+
+.sound_scale trough {
+    min-height: 20px;
+    border-radius: 10px;
+    background-color: green;
+}
+
+.sound_scale trough highlight {
+    background-color: red;
+}

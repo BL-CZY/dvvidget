@@ -1,16 +1,3 @@
-use super::{app::AppDescriptor, dock::DockDescriptor};
-use toml::{self, Value};
-
-impl AppDescriptor {
-    pub fn from_config(config: &str) -> Self {
-        // let table: Value = if let Err(e) = toml::from_str(config) {};
-
-        AppDescriptor {
-            dock: DockDescriptor::new(),
-        }
-    }
-}
-
 fn append_path(target: &str, append: &str) -> String {
     if !target.ends_with("/") {
         return target.to_owned() + "/" + append;
@@ -34,7 +21,7 @@ fn default_config_path() -> String {
     result
 }
 
-pub fn read_config(path: Option<String>) -> AppDescriptor {
+pub fn read_config(path: Option<String>) {
     let target_path: String = if let Some(p) = path {
         p
     } else {
@@ -42,10 +29,9 @@ pub fn read_config(path: Option<String>) -> AppDescriptor {
     };
 
     match std::fs::read_to_string(target_path) {
-        Ok(val) => AppDescriptor::from_config(&val),
+        Ok(val) => println!("there is a config: {}", val),
         Err(e) => {
             println!("Failed to get the cconfig: {:?}, go with default", e);
-            AppDescriptor::new()
         }
     }
 }
