@@ -4,4 +4,5 @@ use serde::{Deserialize, Serialize};
 pub enum DaemonEvt {
     CloseWindow,
     ShutDown,
+    AdjustVol(u32),
 }

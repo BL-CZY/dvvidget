@@ -31,6 +31,10 @@ fn main() {
             }
         }
 
-        args::Command::Connect => {}
+        args::Command::Volume { value } => {
+            if let Err(e) = cli::send_evt(DaemonEvt::AdjustVol(value)) {
+                println!("Err Sending event: {:?}", e);
+            }
+        }
     }
 }

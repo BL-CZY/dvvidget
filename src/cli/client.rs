@@ -13,11 +13,7 @@ async fn send_to_stream(evt: DaemonEvt, mut stream: UnixStream) -> Result<(), Cl
     };
 
     match stream.write(&(evt_buf.len() as u32).to_le_bytes()).await {
-        Ok(res) => {
-            if res != evt_buf.len() as usize {
-                println!("Size don't match");
-            }
-        }
+        Ok(_) => {}
         Err(e) => {
             return Err(ClientErr::WriteErr(e.to_string()));
         }
@@ -26,6 +22,8 @@ async fn send_to_stream(evt: DaemonEvt, mut stream: UnixStream) -> Result<(), Cl
     if let Err(e) = stream.write_all(&evt_buf).await {
         return Err(ClientErr::WriteErr(e.to_string()));
     }
+
+    println!("Done");
 
     Ok(())
 }

@@ -7,12 +7,11 @@ use gtk4::gdk;
 use gtk4::prelude::*;
 use gtk4::Application;
 use gtk4::CssProvider;
+use gtk4::Scale;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use super::config::read_config;
 use super::popup::create_sound_osd;
-
-pub fn handle_evt(evt: DaemonEvt, app: Arc<Application>) {}
 
 pub fn init_gtk_async(
     mut evt_receiver: UnboundedReceiver<DaemonEvt>,
@@ -27,11 +26,15 @@ pub fn init_gtk_async(
                 }
 
                 Some(evt) = evt_receiver.recv() => {
-                    if let DaemonEvt::ShutDown = evt {
-                        app.quit();
-                        break;
+                    match evt {
+                        DaemonEvt::ShutDown => {
+                            app.quit();
+                        },
+                        DaemonEvt::AdjustVol(val) => {
+                            app.windows().iter().nth(0).unwrap().child().and_downcast_ref::<Scale>().unwrap().set_value(val as f64);
+                        },
+                        _ => {}
                     }
-                    handle_evt(evt, app.clone());
                 }
             }
         }
@@ -40,7 +43,6 @@ pub fn init_gtk_async(
 }
 
 fn activate(app: &gtk4::Application) {
-    create_sound_osd(app).present();
     let css = CssProvider::new();
     css.load_from_data(include_str!("style.css"));
     gtk4::style_context_add_provider_for_display(
@@ -48,6 +50,7 @@ fn activate(app: &gtk4::Application) {
         &css,
         gtk4::STYLE_PROVIDER_PRIORITY_SETTINGS,
     );
+    create_sound_osd(app).present();
 }
 
 pub fn start_app(evt_receiver: UnboundedReceiver<DaemonEvt>, path: Option<String>) {
@@ -58,13 +61,11 @@ pub fn start_app(evt_receiver: UnboundedReceiver<DaemonEvt>, path: Option<String
         ApplicationFlags::default(),
     ));
 
-    if let Err(e) = init_gtk_async(evt_receiver, app.clone()) {
-        println!("failed to start app: {:?}", e);
-        return;
-    };
-
     let app_descriptor = read_config(path);
 
+    if let Err(e) = init_gtk_async(evt_receiver, app.clone()) {
+        println!("oh no {:?}", e);
+    };
     app.connect_activate(|app| activate(&app));
 
     app.run_with_args(&[""]);

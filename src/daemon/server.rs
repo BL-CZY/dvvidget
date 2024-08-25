@@ -24,14 +24,14 @@ pub async fn run_server(
     };
 
     if Path::new(&socket_path).exists() {
-        utils::send_exit().unwrap();
+        shutdown();
         return Err(DaemonErr::ServerAlreadyRunning);
     }
 
     let listener = if let Ok(res) = tokio::net::UnixListener::bind(Path::new(&socket_path)) {
         res
     } else {
-        utils::send_exit().unwrap();
+        shutdown();
         return Err(DaemonErr::InitServerFailed);
     };
 
@@ -85,6 +85,16 @@ async fn handle_connection(
 
     if let DaemonEvt::ShutDown = evt {
         shutdown();
+    }
+
+    match evt {
+        DaemonEvt::AdjustVol(_) => {
+            if let Err(e) = evt_sender.send(evt) {
+                println!("Failed to execute command {:?}, err: {}", evt, e);
+                return Err(DaemonErr::SendFailed(evt));
+            }
+        }
+        _ => {}
     }
 
     Ok(())

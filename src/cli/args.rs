@@ -17,7 +17,10 @@ pub enum Command {
     },
 
     #[clap(about = "Connect to the daemon")]
-    Connect,
+    Volume {
+        #[clap(short, long)]
+        value: u32,
+    },
 }
 
 #[derive(Subcommand)]
