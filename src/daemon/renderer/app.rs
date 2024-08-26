@@ -66,6 +66,9 @@ pub fn start_app(evt_receiver: UnboundedReceiver<DaemonEvt>, path: Option<String
     if let Err(e) = init_gtk_async(evt_receiver, app.clone()) {
         println!("oh no {:?}", e);
     };
+
+    let mut vol_id: u32 = 0;
+
     app.connect_activate(|app| activate(&app));
 
     app.run_with_args(&[""]);

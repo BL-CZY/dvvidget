@@ -1,5 +1,4 @@
 use super::window::{self, WindowDescriptor};
-use glib::{closure_local, subclass::object::ObjectImpl};
 use gtk4::{prelude::*, Adjustment, Application, ApplicationWindow, Scale};
 
 pub fn create_sound_osd(app: &Application) -> ApplicationWindow {
@@ -28,6 +27,7 @@ pub fn create_sound_osd(app: &Application) -> ApplicationWindow {
     });
 
     result.set_child(Some(scale).as_ref());
+    result.set_startup_id("vol-popup");
 
     result
 }
