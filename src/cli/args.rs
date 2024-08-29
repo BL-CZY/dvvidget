@@ -18,8 +18,8 @@ pub enum Command {
 
     #[clap(about = "Connect to the daemon")]
     Volume {
-        #[clap(short, long)]
-        value: u32,
+        #[clap(subcommand)]
+        actions: VolCmd,
     },
 }
 
@@ -29,4 +29,16 @@ pub enum DaemonCmd {
     Start,
     #[clap(about = "Shutdown the daemon")]
     Shutdown,
+}
+
+#[derive(Subcommand)]
+pub enum VolCmd {
+    #[clap(about = "Set the volume")]
+    Set { value: u32 },
+    #[clap(about = "Get the current scale")]
+    Get,
+    #[clap(about = "Increase the volume")]
+    Inc { value: u32 },
+    #[clap(about = "Decrease the volume")]
+    Dec { value: u32 },
 }

@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use crate::daemon::structs::DaemonEvt;
+use crate::utils;
 use crate::utils::DaemonErr;
 use gio::ApplicationFlags;
 use gtk4::gdk;
@@ -12,6 +13,78 @@ use tokio::sync::mpsc::UnboundedReceiver;
 
 use super::config::read_config;
 use super::popup::create_sound_osd;
+
+fn process_evt(evt: DaemonEvt, app: Arc<Application>) {
+    match evt {
+        DaemonEvt::ShutDown => {
+            app.quit();
+        }
+        DaemonEvt::SetVol(val) => {
+            app.windows()
+                .iter()
+                .nth(0)
+                .unwrap()
+                .child()
+                .and_downcast_ref::<Scale>()
+                .unwrap()
+                .set_value(utils::vol_round(val as f64));
+        }
+        DaemonEvt::GetVol => {
+            println!(
+                "{}",
+                app.windows()
+                    .iter()
+                    .nth(0)
+                    .unwrap()
+                    .child()
+                    .and_downcast_ref::<Scale>()
+                    .unwrap()
+                    .value()
+            );
+        }
+        DaemonEvt::IncVol(val) => {
+            let value = app
+                .windows()
+                .iter()
+                .nth(0)
+                .unwrap()
+                .child()
+                .and_downcast_ref::<Scale>()
+                .unwrap()
+                .value();
+
+            app.windows()
+                .iter()
+                .nth(0)
+                .unwrap()
+                .child()
+                .and_downcast_ref::<Scale>()
+                .unwrap()
+                .set_value(utils::vol_round(value + val as f64));
+        }
+        DaemonEvt::DecVol(val) => {
+            let value = app
+                .windows()
+                .iter()
+                .nth(0)
+                .unwrap()
+                .child()
+                .and_downcast_ref::<Scale>()
+                .unwrap()
+                .value();
+
+            app.windows()
+                .iter()
+                .nth(0)
+                .unwrap()
+                .child()
+                .and_downcast_ref::<Scale>()
+                .unwrap()
+                .set_value(utils::vol_round(value - val as f64));
+        }
+        _ => {}
+    }
+}
 
 pub fn init_gtk_async(
     mut evt_receiver: UnboundedReceiver<DaemonEvt>,
@@ -26,15 +99,7 @@ pub fn init_gtk_async(
                 }
 
                 Some(evt) = evt_receiver.recv() => {
-                    match evt {
-                        DaemonEvt::ShutDown => {
-                            app.quit();
-                        },
-                        DaemonEvt::AdjustVol(val) => {
-                            app.windows().iter().nth(0).unwrap().child().and_downcast_ref::<Scale>().unwrap().set_value(val as f64);
-                        },
-                        _ => {}
-                    }
+                    process_evt(evt, app.clone());
                 }
             }
         }

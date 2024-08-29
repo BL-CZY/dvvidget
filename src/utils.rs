@@ -54,3 +54,7 @@ pub enum ClientErr {
     SerializeError(DaemonEvt, String),
     WriteErr(String),
 }
+
+pub fn vol_round(val: f64) -> f64 {
+    val - val % 5.0
+}

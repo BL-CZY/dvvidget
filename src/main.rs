@@ -31,8 +31,14 @@ fn main() {
             }
         }
 
-        args::Command::Volume { value } => {
-            if let Err(e) = cli::send_evt(DaemonEvt::AdjustVol(value)) {
+        args::Command::Volume { actions } => {
+            let evt = match actions {
+                args::VolCmd::Get => DaemonEvt::GetVol,
+                args::VolCmd::Set { value } => DaemonEvt::SetVol(value),
+                args::VolCmd::Inc { value } => DaemonEvt::IncVol(value),
+                args::VolCmd::Dec { value } => DaemonEvt::DecVol(value),
+            };
+            if let Err(e) = cli::send_evt(evt) {
                 println!("Err Sending event: {:?}", e);
             }
         }

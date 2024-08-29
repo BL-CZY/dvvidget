@@ -88,7 +88,7 @@ async fn handle_connection(
     }
 
     match evt {
-        DaemonEvt::AdjustVol(_) => {
+        DaemonEvt::SetVol(_) => {
             if let Err(e) = evt_sender.send(evt) {
                 println!("Failed to execute command {:?}, err: {}", evt, e);
                 return Err(DaemonErr::SendFailed(evt));
