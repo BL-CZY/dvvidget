@@ -77,7 +77,7 @@ async fn handle_connection(
 
     let cmd = DaemonEvt {
         evt: evt.clone(),
-        sender: res_sender,
+        sender: Some(res_sender),
     };
 
     println!("Event receiverd from client: {:?}", evt);

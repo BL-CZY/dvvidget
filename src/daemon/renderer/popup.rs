@@ -1,4 +1,6 @@
-use crate::daemon::structs::DaemonRes;
+use std::time::Duration;
+
+use crate::daemon::structs::{DaemonEvt, DaemonRes, Vol};
 use crate::utils;
 use crate::{daemon::structs::DaemonCmd, utils::DaemonErr};
 
@@ -7,22 +9,27 @@ use super::{
     window::{self, WindowDescriptor},
 };
 use gtk4::{prelude::*, Adjustment, Application, ApplicationWindow, Scale, Window};
+use tokio::sync::mpsc::UnboundedSender;
 
-pub fn handle_vol_cmd(cmd: DaemonCmd, window: &Window) -> Result<DaemonRes, DaemonErr> {
+pub fn handle_vol_cmd(
+    cmd: Vol,
+    window: &Window,
+    sender: UnboundedSender<DaemonEvt>,
+) -> Result<DaemonRes, DaemonErr> {
     match cmd {
-        DaemonCmd::SetVol(val) => {
+        Vol::Set(val) => {
             window
                 .child()
                 .and_downcast_ref::<Scale>()
                 .unwrap()
                 .set_value(utils::vol_round(val as f64));
         }
-        DaemonCmd::GetVol => {
+        Vol::Get => {
             return Ok(DaemonRes::VolGet(
                 window.child().and_downcast_ref::<Scale>().unwrap().value(),
             ));
         }
-        DaemonCmd::IncVol(val) => {
+        Vol::Inc(val) => {
             let value = window.child().and_downcast_ref::<Scale>().unwrap().value();
 
             window
@@ -31,7 +38,7 @@ pub fn handle_vol_cmd(cmd: DaemonCmd, window: &Window) -> Result<DaemonRes, Daem
                 .unwrap()
                 .set_value(utils::vol_round(value + val as f64));
         }
-        DaemonCmd::DecVol(val) => {
+        Vol::Dec(val) => {
             let value = window.child().and_downcast_ref::<Scale>().unwrap().value();
 
             window
@@ -40,7 +47,24 @@ pub fn handle_vol_cmd(cmd: DaemonCmd, window: &Window) -> Result<DaemonRes, Daem
                 .unwrap()
                 .set_value(utils::vol_round(value - val as f64));
         }
-        _ => {}
+        Vol::Close => {
+            window.hide();
+        }
+        Vol::Open => {
+            window.show();
+        }
+        Vol::OpenTime(f64) => {
+            window.show();
+            tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_secs_f64(f64)).await;
+                if let Err(e) = sender.send(DaemonEvt {
+                    evt: DaemonCmd::Vol(Vol::Close),
+                    sender: None,
+                }) {
+                    println!("Err closing the openned window: {}", e);
+                }
+            });
+        }
     }
 
     Ok(DaemonRes::Success)

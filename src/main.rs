@@ -4,7 +4,7 @@ pub mod utils;
 
 use clap::Parser;
 use cli::args::{self, Args, DaemonSubCmd};
-use daemon::structs::DaemonCmd;
+use daemon::structs::{DaemonCmd, Vol};
 
 fn main() {
     let args = Args::parse();
@@ -33,10 +33,18 @@ fn main() {
 
         args::Command::Volume { actions } => {
             let evt = match actions {
-                args::VolCmd::Get => DaemonCmd::GetVol,
-                args::VolCmd::Set { value } => DaemonCmd::SetVol(value),
-                args::VolCmd::Inc { value } => DaemonCmd::IncVol(value),
-                args::VolCmd::Dec { value } => DaemonCmd::DecVol(value),
+                args::VolCmd::Get => DaemonCmd::Vol(Vol::Get),
+                args::VolCmd::Set { value } => DaemonCmd::Vol(Vol::Set(value)),
+                args::VolCmd::Inc { value } => DaemonCmd::Vol(Vol::Inc(value)),
+                args::VolCmd::Dec { value } => DaemonCmd::Vol(Vol::Dec(value)),
+                args::VolCmd::Close => DaemonCmd::Vol(Vol::Close),
+                args::VolCmd::Open { time } => {
+                    if time.is_none() {
+                        DaemonCmd::Vol(Vol::Open)
+                    } else {
+                        DaemonCmd::Vol(Vol::OpenTime(time.unwrap()))
+                    }
+                }
             };
             if let Err(e) = cli::send_evt(evt) {
                 println!("Err Sending event: {:?}", e);

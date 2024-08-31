@@ -41,4 +41,10 @@ pub enum VolCmd {
     Inc { value: u32 },
     #[clap(about = "Decrease the volume")]
     Dec { value: u32 },
+    #[clap(about = "Close the scale")]
+    Close,
+    #[clap(
+        about = "Show the scale. If there is a number given, close the scale after the given number seconds"
+    )]
+    Open { time: Option<f64> },
 }

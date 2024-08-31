@@ -25,6 +25,7 @@ pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
 
     // run the server in a different thread
     let alt_path = path.clone();
+    let evt_sender_clone = evt_sender.clone();
     std::thread::Builder::new()
         .name("dvvidget server".into())
         .spawn(move || {
@@ -40,7 +41,7 @@ pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
 
     let _g = handle.enter();
 
-    start_app(evt_receiver, path);
+    start_app(evt_receiver, evt_sender_clone.clone(), path);
 
     Ok(())
 }

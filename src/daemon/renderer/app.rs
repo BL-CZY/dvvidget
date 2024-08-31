@@ -38,13 +38,17 @@ lazy_static! {
     pub static ref IDS: Mutex<HashMap<Widget, u32>> = Mutex::new(HashMap::new());
 }
 
-fn process_evt(evt: DaemonCmd, app: Arc<Application>) -> Result<DaemonRes, DaemonErr> {
+fn process_evt(
+    evt: DaemonCmd,
+    app: Arc<Application>,
+    sender: UnboundedSender<DaemonEvt>,
+) -> Result<DaemonRes, DaemonErr> {
     match evt {
         DaemonCmd::ShutDown => {
             app.quit();
         }
 
-        DaemonCmd::GetVol | DaemonCmd::SetVol(_) | DaemonCmd::IncVol(_) | DaemonCmd::DecVol(_) => {
+        DaemonCmd::Vol(evt) => {
             let guard = match IDS.lock() {
                 Ok(g) => g,
                 Err(poisoned) => poisoned.into_inner(),
@@ -54,23 +58,27 @@ fn process_evt(evt: DaemonCmd, app: Arc<Application>) -> Result<DaemonRes, Daemo
                 evt,
                 &app.window_by_id(*guard.get(&Widget::Volume).unwrap())
                     .unwrap(),
+                sender,
             )?;
         }
-
-        _ => {}
     }
 
     Ok(DaemonRes::Success)
 }
 
-fn send_res(sender: UnboundedSender<DaemonRes>, res: DaemonRes) {
-    if let Err(e) = sender.send(res) {
+fn send_res(sender: Option<UnboundedSender<DaemonRes>>, res: DaemonRes) {
+    if sender.is_none() {
+        return;
+    }
+
+    if let Err(e) = sender.unwrap().send(res) {
         println!("Err sending daemon response to the server: {:?}", e);
     }
 }
 
 pub fn init_gtk_async(
     mut evt_receiver: UnboundedReceiver<DaemonEvt>,
+    evt_sender: UnboundedSender<DaemonEvt>,
     app: Arc<Application>,
 ) -> Result<(), DaemonErr> {
     glib::MainContext::default().spawn_local(async move {
@@ -82,8 +90,7 @@ pub fn init_gtk_async(
                 }
 
                 Some(evt) = evt_receiver.recv() => {
-                    // TODO do this
-                    match process_evt(evt.evt, app.clone()) {
+                    match process_evt(evt.evt, app.clone(), evt_sender.clone()) {
                         Err(e) => send_res(evt.sender, DaemonRes::Failure(format!("{:?}", e))),
                         Ok(res) => send_res(evt.sender, res),
                     }
@@ -107,7 +114,11 @@ fn activate(app: &gtk4::Application) {
     app.window_by_id(1).unwrap();
 }
 
-pub fn start_app(evt_receiver: UnboundedReceiver<DaemonEvt>, path: Option<String>) {
+pub fn start_app(
+    evt_receiver: UnboundedReceiver<DaemonEvt>,
+    evt_sender: UnboundedSender<DaemonEvt>,
+    path: Option<String>,
+) {
     gtk4::init().unwrap();
 
     let app = Arc::new(gtk4::Application::new(
@@ -117,7 +128,7 @@ pub fn start_app(evt_receiver: UnboundedReceiver<DaemonEvt>, path: Option<String
 
     let _app_descriptor = read_config(path);
 
-    if let Err(e) = init_gtk_async(evt_receiver, app.clone()) {
+    if let Err(e) = init_gtk_async(evt_receiver, evt_sender, app.clone()) {
         println!("Err handling command: {:?}", e);
     }
 
