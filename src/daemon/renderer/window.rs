@@ -15,6 +15,8 @@ pub struct WindowDescriptor {
     pub anchor_bottom: bool,
 
     pub exclusive: bool,
+
+    pub visible_on_start: bool,
 }
 
 impl WindowDescriptor {
@@ -33,6 +35,8 @@ impl WindowDescriptor {
             anchor_bottom: false,
 
             exclusive: false,
+
+            visible_on_start: false,
         }
     }
 
