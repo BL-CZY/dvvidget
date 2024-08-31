@@ -86,6 +86,11 @@ pub async fn send_evt_async(evt: DaemonCmd) -> Result<(), ClientErr> {
 
     send_to_stream(evt, stream.clone()).await?;
 
+    if let DaemonCmd::ShutDown = evt {
+        println!("Signal sent");
+        return Ok(());
+    }
+
     let response = read_res(stream.clone()).await?;
 
     match response {

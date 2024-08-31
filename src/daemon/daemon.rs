@@ -1,6 +1,6 @@
+use super::renderer::app::start_app;
 use super::server;
-use super::structs::{DaemonCmd, DaemonEvt};
-use super::{renderer::app::start_app, structs::DaemonRes};
+use super::structs::DaemonEvt;
 use crate::utils::DaemonErr;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 

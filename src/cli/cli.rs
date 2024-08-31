@@ -11,7 +11,7 @@ pub fn send_evt(evt: DaemonCmd) -> Result<(), ClientErr> {
 
     rt.block_on(async {
         if let Err(e) = client::send_evt_async(evt).await {
-            println!("Error sending event: {:?}", e);
+            println!("Error: {:?}", e);
             return;
         }
     });

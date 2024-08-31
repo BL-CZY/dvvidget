@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 use tokio;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::unix::{ReadHalf, WriteHalf};
+use tokio::net::unix::ReadHalf;
 use tokio::net::UnixStream;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
