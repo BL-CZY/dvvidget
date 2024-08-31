@@ -1,14 +1,14 @@
-use crate::utils::{self, shutdown, DaemonErr};
+use crate::utils::{shutdown, DaemonErr};
 use anyhow::Context;
 use std::fs;
 use std::path::Path;
 use tokio;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::unix::ReadHalf;
+use tokio::net::unix::{ReadHalf, WriteHalf};
 use tokio::net::UnixStream;
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
-use super::structs::DaemonEvt;
+use super::structs::{DaemonCmd, DaemonEvt, DaemonRes};
 use crate::utils::receive_exit;
 
 pub const DEFAULT_SOCKET_PATH: &str = "/tmp/dvviget.sock";
@@ -67,35 +67,52 @@ async fn handle_connection(
     evt_sender: UnboundedSender<DaemonEvt>,
 ) -> Result<(), DaemonErr> {
     let (mut reader, mut writer) = stream.split();
+    let (res_sender, mut res_receiver): (UnboundedSender<DaemonRes>, UnboundedReceiver<DaemonRes>) =
+        mpsc::unbounded_channel();
 
-    let evt: DaemonEvt = match read_cmd(&mut reader).await {
+    let evt: DaemonCmd = match read_cmd(&mut reader).await {
         Ok(res) => res,
         Err(e) => return Err(e),
     };
 
-    if let Err(e) = evt_sender.send(evt.clone()) {
-        return Err(DaemonErr::SendFailed(e.0));
-    };
-
-    if let Err(e) = writer.shutdown().await {
-        return Err(DaemonErr::ShutdownFailed(e.to_string()));
+    let cmd = DaemonEvt {
+        evt: evt.clone(),
+        sender: res_sender,
     };
 
     println!("Event receiverd from client: {:?}", evt);
 
-    if let DaemonEvt::ShutDown = evt {
+    if let DaemonCmd::ShutDown = evt {
         shutdown();
     }
 
-    match evt {
-        DaemonEvt::SetVol(_) => {
-            if let Err(e) = evt_sender.send(evt) {
-                println!("Failed to execute command {:?}, err: {}", evt, e);
-                return Err(DaemonErr::SendFailed(evt));
+    if let Err(e) = evt_sender.send(cmd.clone()) {
+        return Err(DaemonErr::SendFailed(e.0));
+    };
+
+    if let Some(res) = res_receiver.recv().await {
+        let evt_buf = match bincode::serialize(&res).context("Failed to serialize command") {
+            Ok(res) => res,
+            Err(e) => return Err(DaemonErr::SerializeError(res, e.to_string())),
+        };
+
+        match writer.write(&(evt_buf.len() as u32).to_le_bytes()).await {
+            Ok(_) => {}
+            Err(e) => {
+                return Err(DaemonErr::WriteErr(e.to_string()));
             }
         }
-        _ => {}
+
+        if let Err(e) = writer.write_all(&evt_buf).await {
+            return Err(DaemonErr::WriteErr(e.to_string()));
+        }
+    } else {
+        println!("Cant ");
     }
+
+    if let Err(e) = writer.shutdown().await {
+        return Err(DaemonErr::ShutdownFailed(e.to_string()));
+    };
 
     Ok(())
 }
@@ -106,7 +123,7 @@ async fn handle_connection(
  * | u32 size in littlen endian | actual data |
  * +----------------------------+-------------+
  */
-async fn read_cmd(reader: &mut ReadHalf<'_>) -> Result<DaemonEvt, DaemonErr> {
+async fn read_cmd(reader: &mut ReadHalf<'_>) -> Result<DaemonCmd, DaemonErr> {
     let mut msg_len_buf = [0u8; 4];
     if let Err(e) = reader.read_exact(&mut msg_len_buf).await {
         return Err(DaemonErr::ReadingFailed(e.to_string()));

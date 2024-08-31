@@ -3,8 +3,8 @@ pub mod daemon;
 pub mod utils;
 
 use clap::Parser;
-use cli::args::{self, Args, DaemonCmd};
-use daemon::structs::DaemonEvt;
+use cli::args::{self, Args, DaemonSubCmd};
+use daemon::structs::DaemonCmd;
 
 fn main() {
     let args = Args::parse();
@@ -17,13 +17,13 @@ fn main() {
                 };
             } else {
                 match option.unwrap() {
-                    DaemonCmd::Start => {
+                    DaemonSubCmd::Start => {
                         if let Err(e) = daemon::start_daemon(path) {
                             println!("Error starting the daemon: {:?}", e)
                         };
                     }
-                    DaemonCmd::Shutdown => {
-                        if let Err(e) = cli::send_evt(DaemonEvt::ShutDown) {
+                    DaemonSubCmd::Shutdown => {
+                        if let Err(e) = cli::send_evt(DaemonCmd::ShutDown) {
                             println!("Error sending event: {:?}", e)
                         }
                     }
@@ -33,10 +33,10 @@ fn main() {
 
         args::Command::Volume { actions } => {
             let evt = match actions {
-                args::VolCmd::Get => DaemonEvt::GetVol,
-                args::VolCmd::Set { value } => DaemonEvt::SetVol(value),
-                args::VolCmd::Inc { value } => DaemonEvt::IncVol(value),
-                args::VolCmd::Dec { value } => DaemonEvt::DecVol(value),
+                args::VolCmd::Get => DaemonCmd::GetVol,
+                args::VolCmd::Set { value } => DaemonCmd::SetVol(value),
+                args::VolCmd::Inc { value } => DaemonCmd::IncVol(value),
+                args::VolCmd::Dec { value } => DaemonCmd::DecVol(value),
             };
             if let Err(e) = cli::send_evt(evt) {
                 println!("Err Sending event: {:?}", e);

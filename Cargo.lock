@@ -217,6 +217,7 @@ dependencies = [
  "glib",
  "gtk4",
  "gtk4-layer-shell",
+ "lazy_static",
  "once_cell",
  "serde",
  "simple-signal",

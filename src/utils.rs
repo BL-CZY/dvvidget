@@ -1,6 +1,6 @@
 use std::fs;
 
-use crate::daemon::structs::DaemonEvt;
+use crate::daemon::structs::{DaemonCmd, DaemonEvt, DaemonRes};
 use once_cell::sync::Lazy;
 use tokio::sync::broadcast;
 
@@ -46,12 +46,16 @@ pub enum DaemonErr {
     DeserializeError(String),
     SendFailed(DaemonEvt),
     ShutdownFailed(String),
+    WriteErr(String),
+    SerializeError(DaemonRes, String),
 }
 
 #[derive(Debug)]
 pub enum ClientErr {
     CannotConnectServer,
-    SerializeError(DaemonEvt, String),
+    SerializeError(DaemonCmd, String),
+    DeserializeError(String),
+    ReadingFailed(String),
     WriteErr(String),
 }
 

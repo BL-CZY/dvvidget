@@ -13,7 +13,7 @@ pub enum Command {
         #[clap(short, long)]
         path: Option<String>,
         #[clap(subcommand)]
-        option: Option<DaemonCmd>,
+        option: Option<DaemonSubCmd>,
     },
 
     #[clap(about = "Connect to the daemon")]
@@ -24,7 +24,7 @@ pub enum Command {
 }
 
 #[derive(Subcommand)]
-pub enum DaemonCmd {
+pub enum DaemonSubCmd {
     #[clap(about = "Start the daemon")]
     Start,
     #[clap(about = "Shutdown the daemon")]
