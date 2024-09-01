@@ -15,7 +15,7 @@ use lazy_static::lazy_static;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 
-use super::config::read_config;
+use super::config::AppConf;
 use super::popup::create_sound_osd;
 use super::popup::handle_vol_cmd;
 
@@ -42,6 +42,7 @@ fn process_evt(
     evt: DaemonCmd,
     app: Arc<Application>,
     sender: UnboundedSender<DaemonEvt>,
+    config: Arc<AppConf>,
 ) -> Result<DaemonRes, DaemonErr> {
     match evt {
         DaemonCmd::ShutDown => {
@@ -54,12 +55,15 @@ fn process_evt(
                 Err(poisoned) => poisoned.into_inner(),
             };
 
-            handle_vol_cmd(
+            let result = handle_vol_cmd(
                 evt,
                 &app.window_by_id(*guard.get(&Widget::Volume).unwrap())
                     .unwrap(),
                 sender,
+                config,
             )?;
+
+            return Ok(result);
         }
     }
 
@@ -80,6 +84,7 @@ pub fn init_gtk_async(
     mut evt_receiver: UnboundedReceiver<DaemonEvt>,
     evt_sender: UnboundedSender<DaemonEvt>,
     app: Arc<Application>,
+    config: Arc<AppConf>,
 ) -> Result<(), DaemonErr> {
     glib::MainContext::default().spawn_local(async move {
         loop {
@@ -90,7 +95,7 @@ pub fn init_gtk_async(
                 }
 
                 Some(evt) = evt_receiver.recv() => {
-                    match process_evt(evt.evt, app.clone(), evt_sender.clone()) {
+                    match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone()) {
                         Err(e) => send_res(evt.sender, DaemonRes::Failure(format!("{:?}", e))),
                         Ok(res) => send_res(evt.sender, res),
                     }
@@ -102,22 +107,22 @@ pub fn init_gtk_async(
     Ok(())
 }
 
-fn activate(app: &gtk4::Application) {
+fn activate(app: &gtk4::Application, config: Arc<AppConf>) {
     let css = CssProvider::new();
-    css.load_from_data(include_str!("style.css"));
+    css.load_from_data(&std::fs::read_to_string(&config.general.css_path).unwrap());
     gtk4::style_context_add_provider_for_display(
         &gdk::Display::default().expect("cant get display"),
         &css,
         gtk4::STYLE_PROVIDER_PRIORITY_SETTINGS,
     );
-    create_sound_osd(app).present();
+    create_sound_osd(app, config);
     app.window_by_id(1).unwrap();
 }
 
 pub fn start_app(
     evt_receiver: UnboundedReceiver<DaemonEvt>,
     evt_sender: UnboundedSender<DaemonEvt>,
-    path: Option<String>,
+    config: Arc<AppConf>,
 ) {
     gtk4::init().unwrap();
 
@@ -126,13 +131,11 @@ pub fn start_app(
         ApplicationFlags::default(),
     ));
 
-    let _app_descriptor = read_config(path);
-
-    if let Err(e) = init_gtk_async(evt_receiver, evt_sender, app.clone()) {
+    if let Err(e) = init_gtk_async(evt_receiver, evt_sender, app.clone(), config.clone()) {
         println!("Err handling command: {:?}", e);
     }
 
-    app.connect_activate(|app| activate(&app));
+    app.connect_activate(move |app| activate(&app, config.clone()));
 
     app.run_with_args(&[""]);
 }
