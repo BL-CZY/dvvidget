@@ -6,16 +6,16 @@ use tokio::sync::broadcast;
 
 pub static EXIT_BROADCAST: Lazy<broadcast::Sender<()>> = Lazy::new(|| broadcast::channel(2).0);
 
-pub fn send_exit() -> Result<(), ()> {
-    if let Err(_) = EXIT_BROADCAST.send(()) {
-        return Err(());
+pub fn send_exit() -> Result<(), String> {
+    if let Err(e) = EXIT_BROADCAST.send(()) {
+        return Err(e.to_string());
     }
 
     Ok(())
 }
 
 pub async fn receive_exit() -> Result<(), ()> {
-    if let Err(_) = EXIT_BROADCAST.subscribe().recv().await {
+    if (EXIT_BROADCAST.subscribe().recv().await).is_err() {
         return Err(());
     }
 
@@ -23,8 +23,8 @@ pub async fn receive_exit() -> Result<(), ()> {
 }
 
 pub fn shutdown() {
-    if let Err(()) = send_exit() {
-        println!("Failed to shutdown, force exiting");
+    if let Err(e) = send_exit() {
+        println!("Failed to shutdown: {}, force exiting", e);
         // remove the socket
         if let Err(e) = fs::remove_file(crate::daemon::server::DEFAULT_SOCKET_PATH) {
             println!(

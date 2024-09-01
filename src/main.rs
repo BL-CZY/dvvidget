@@ -39,10 +39,10 @@ fn main() {
                 args::VolCmd::Dec { value } => DaemonCmd::Vol(Vol::Dec(value)),
                 args::VolCmd::Close => DaemonCmd::Vol(Vol::Close),
                 args::VolCmd::Open { time } => {
-                    if time.is_none() {
-                        DaemonCmd::Vol(Vol::Open)
+                    if let Some(t) = time {
+                        DaemonCmd::Vol(Vol::OpenTime(t))
                     } else {
-                        DaemonCmd::Vol(Vol::OpenTime(time.unwrap()))
+                        DaemonCmd::Vol(Vol::Open)
                     }
                 }
             };

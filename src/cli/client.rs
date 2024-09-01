@@ -1,7 +1,4 @@
-use std::{
-    path::Path,
-    sync::{Arc, Mutex},
-};
+use std::path::Path;
 
 use crate::{
     daemon::structs::{DaemonCmd, DaemonRes},
@@ -15,29 +12,24 @@ use tokio::{
 
 const DEFAULT_SOCKET_PATH: &str = "/tmp/dvviget.sock";
 
-async fn send_to_stream(evt: DaemonCmd, stream: Arc<Mutex<UnixStream>>) -> Result<(), ClientErr> {
+async fn send_to_stream(evt: DaemonCmd, mut stream: UnixStream) -> Result<UnixStream, ClientErr> {
     let evt_buf = match bincode::serialize(&evt).context("Failed to serialize command") {
         Ok(res) => res,
         Err(e) => return Err(ClientErr::SerializeError(evt, e.to_string())),
     };
 
-    match stream
-        .lock()
-        .unwrap()
-        .write(&(evt_buf.len() as u32).to_le_bytes())
-        .await
-    {
+    match stream.write(&(evt_buf.len() as u32).to_le_bytes()).await {
         Ok(_) => {}
         Err(e) => {
             return Err(ClientErr::WriteErr(e.to_string()));
         }
     }
 
-    if let Err(e) = stream.lock().unwrap().write_all(&evt_buf).await {
+    if let Err(e) = stream.write_all(&evt_buf).await {
         return Err(ClientErr::WriteErr(e.to_string()));
     }
 
-    Ok(())
+    Ok(stream)
 }
 
 // the sender will send the struct in the following fashion:
@@ -46,9 +38,9 @@ async fn send_to_stream(evt: DaemonCmd, stream: Arc<Mutex<UnixStream>>) -> Resul
  * | u32 size in littlen endian | actual data |
  * +----------------------------+-------------+
  */
-async fn read_res(stream: Arc<Mutex<UnixStream>>) -> Result<DaemonRes, ClientErr> {
+async fn read_res(mut stream: UnixStream) -> Result<DaemonRes, ClientErr> {
     let mut msg_len_buf = [0u8; 4];
-    if let Err(e) = stream.lock().unwrap().read_exact(&mut msg_len_buf).await {
+    if let Err(e) = stream.read_exact(&mut msg_len_buf).await {
         return Err(ClientErr::ReadingFailed(e.to_string()));
     };
     let msg_len: u32 = u32::from_le_bytes(msg_len_buf);
@@ -58,8 +50,6 @@ async fn read_res(stream: Arc<Mutex<UnixStream>>) -> Result<DaemonRes, ClientErr
     // ensure we read all the info
     while msg_buf.len() < msg_len as usize {
         if let Err(e) = stream
-            .lock()
-            .unwrap()
             .read_buf(&mut msg_buf)
             .await
             .context("Failed to read the command from the client")
@@ -77,21 +67,21 @@ async fn read_res(stream: Arc<Mutex<UnixStream>>) -> Result<DaemonRes, ClientErr
 }
 
 pub async fn send_evt_async(evt: DaemonCmd) -> Result<(), ClientErr> {
-    let stream: Arc<Mutex<UnixStream>> =
+    let stream: UnixStream =
         if let Ok(res) = UnixStream::connect(Path::new(DEFAULT_SOCKET_PATH)).await {
-            Arc::new(Mutex::new(res))
+            res
         } else {
             return Err(ClientErr::CannotConnectServer);
         };
 
-    send_to_stream(evt, stream.clone()).await?;
+    let stream = send_to_stream(evt, stream).await?;
 
     if let DaemonCmd::ShutDown = evt {
         println!("Signal sent");
         return Ok(());
     }
 
-    let response = read_res(stream.clone()).await?;
+    let response = read_res(stream).await?;
 
     match response {
         DaemonRes::Failure(e) => println!("Failed: {}", e),

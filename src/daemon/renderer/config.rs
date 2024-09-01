@@ -36,11 +36,10 @@ impl Default for AppConf {
                 css_path: DEFAULT_CSS_PATH.to_string(),
             },
             vol: AppConfVol {
-                window: {
-                    let mut result = WindowDescriptor::new();
-                    result.anchor_bottom = true;
-                    result.margin_bottom = 130;
-                    result
+                window: WindowDescriptor {
+                    anchor_bottom: true,
+                    margin_bottom: 130,
+                    ..Default::default()
                 },
                 max_vol: 100f64,
                 run_cmd: DEFAULT_VOL_CMD,
@@ -87,28 +86,28 @@ impl AppConf {
 
         if let Some(Value::String(val)) = inner.get("run_cmd") {
             match val.as_str() {
-                "Wpctl" | "wpctl" => return DEFAULT_VOL_CMD,
-                "none" | "None" => return VolCmdProvider::NoCmd,
-                _ => return DEFAULT_VOL_CMD,
+                "Wpctl" | "wpctl" => DEFAULT_VOL_CMD,
+                "none" | "None" => VolCmdProvider::NoCmd,
+                _ => DEFAULT_VOL_CMD,
             }
         } else {
-            return DEFAULT_VOL_CMD;
+            DEFAULT_VOL_CMD
         }
     }
 
     fn vol_window(toml: &Map<String, Value>) -> WindowDescriptor {
-        WindowDescriptor::vol_from_toml(&toml)
+        WindowDescriptor::vol_from_toml(toml)
     }
 
     pub fn from_toml(toml: &Map<String, Value>) -> Self {
         AppConf {
             general: AppConfGeneral {
-                css_path: AppConf::css_path(&toml),
+                css_path: AppConf::css_path(toml),
             },
             vol: AppConfVol {
-                window: AppConf::vol_window(&toml),
-                max_vol: AppConf::max_vol(&toml),
-                run_cmd: AppConf::run_cmd(&toml),
+                window: AppConf::vol_window(toml),
+                max_vol: AppConf::max_vol(toml),
+                run_cmd: AppConf::run_cmd(toml),
             },
         }
     }
@@ -116,25 +115,21 @@ impl AppConf {
 
 fn append_path(target: &str, append: &str) -> String {
     if !target.ends_with("/") {
-        return target.to_owned() + "/" + append;
+        target.to_owned() + "/" + append
     } else {
         target.to_owned() + append
     }
 }
 
 fn default_config_path() -> String {
-    let result = if let Ok(val) = std::env::var("XDG_CONFIG_HOME") {
+    if let Ok(val) = std::env::var("XDG_CONFIG_HOME") {
         append_path(&val, "dvvidget/config.toml")
+    } else if let Ok(val) = std::env::var("HOME") {
+        append_path(&val, ".config/dvvidget/config.toml")
     } else {
-        if let Ok(val) = std::env::var("HOME") {
-            append_path(&val, ".config/dvvidget/config.toml")
-        } else {
-            println!("Failed to get config directory");
-            "".into()
-        }
-    };
-
-    result
+        println!("Failed to get config directory");
+        "".into()
+    }
 }
 
 fn parse_config(content: &str) -> AppConf {

@@ -80,7 +80,7 @@ fn get_volume(cmd: VolCmdProvider) -> f64 {
                 .unwrap();
 
             let stdout = String::from_utf8_lossy(&output.stdout);
-            let volume_str = stdout.trim().split_whitespace().nth(1).unwrap_or_default();
+            let volume_str = stdout.split_whitespace().nth(1).unwrap_or_default();
 
             volume_str.parse::<f64>().unwrap() * 100f64
         }

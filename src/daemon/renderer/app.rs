@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -40,7 +41,7 @@ lazy_static! {
 
 fn process_evt(
     evt: DaemonCmd,
-    app: Arc<Application>,
+    app: Rc<Application>,
     sender: UnboundedSender<DaemonEvt>,
     config: Arc<AppConf>,
 ) -> Result<DaemonRes, DaemonErr> {
@@ -83,7 +84,7 @@ fn send_res(sender: Option<UnboundedSender<DaemonRes>>, res: DaemonRes) {
 pub fn init_gtk_async(
     mut evt_receiver: UnboundedReceiver<DaemonEvt>,
     evt_sender: UnboundedSender<DaemonEvt>,
-    app: Arc<Application>,
+    app: Rc<Application>,
     config: Arc<AppConf>,
 ) -> Result<(), DaemonErr> {
     glib::MainContext::default().spawn_local(async move {
@@ -126,7 +127,7 @@ pub fn start_app(
 ) {
     gtk4::init().unwrap();
 
-    let app = Arc::new(gtk4::Application::new(
+    let app = Rc::new(gtk4::Application::new(
         Some("org.dvida.dvvidgets"),
         ApplicationFlags::default(),
     ));
@@ -135,7 +136,7 @@ pub fn start_app(
         println!("Err handling command: {:?}", e);
     }
 
-    app.connect_activate(move |app| activate(&app, config.clone()));
+    app.connect_activate(move |app| activate(app, config.clone()));
 
     app.run_with_args(&[""]);
 }

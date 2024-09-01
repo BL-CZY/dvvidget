@@ -32,8 +32,8 @@ pub fn string_to_layer(str: &str) -> Layer {
     }
 }
 
-impl WindowDescriptor {
-    pub fn new() -> Self {
+impl Default for WindowDescriptor {
+    fn default() -> Self {
         WindowDescriptor {
             layer: Layer::Overlay,
 
@@ -52,39 +52,15 @@ impl WindowDescriptor {
             visible_on_start: true,
         }
     }
+}
 
-    pub fn from_val(
-        layer: Layer,
-        margin_left: i32,
-        margin_right: i32,
-        margin_top: i32,
-        margin_bottom: i32,
-        anchor_left: bool,
-        anchor_right: bool,
-        anchor_top: bool,
-        anchor_bottom: bool,
-        exclusive: bool,
-        visible_on_start: bool,
-    ) -> Self {
-        WindowDescriptor {
-            layer,
-            margin_left,
-            margin_right,
-            margin_top,
-            margin_bottom,
-            anchor_left,
-            anchor_right,
-            anchor_top,
-            anchor_bottom,
-            exclusive,
-            visible_on_start,
-        }
-    }
-
+impl WindowDescriptor {
     pub fn vol_from_toml(toml: &Map<String, Value>) -> WindowDescriptor {
-        let mut result = WindowDescriptor::new();
-        result.anchor_bottom = true;
-        result.margin_bottom = 130;
+        let mut result = WindowDescriptor {
+            anchor_bottom: true,
+            margin_bottom: 130,
+            ..Default::default()
+        };
 
         let inner = if let Some(outer) = toml.get("volume") {
             if let Some(val) = outer.get("window") {

@@ -76,7 +76,7 @@ async fn handle_connection(
     };
 
     let cmd = DaemonEvt {
-        evt: evt.clone(),
+        evt,
         sender: Some(res_sender),
     };
 

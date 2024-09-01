@@ -36,7 +36,6 @@ pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
             rt.block_on(async {
                 if let Err(e) = server::run_server(alt_path, evt_sender.clone()).await {
                     println!("Error running the server: {:?}, exiting...", e);
-                    return;
                 }
                 // use tokio::spawn if there are more tasks here, such as information puller
             });
