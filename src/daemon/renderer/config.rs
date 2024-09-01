@@ -3,23 +3,50 @@ use toml::{map::Map, Table, Value};
 use super::window::WindowDescriptor;
 
 pub const DEFAULT_CSS_PATH: &str = "/home/tpl/projects/dvvidget/src/daemon/renderer/style.css";
+pub const DEFAULT_VOL_CMD: VolCmdProvider = VolCmdProvider::Wpctl;
 
+#[derive(Clone)]
 pub struct AppConf {
-    general: AppConfGeneral,
-    vol: AppConfVol,
+    pub general: AppConfGeneral,
+    pub vol: AppConfVol,
 }
 
+#[derive(Clone)]
 pub struct AppConfGeneral {
-    css_path: String,
+    pub css_path: String,
 }
 
+#[derive(Clone)]
+pub enum VolCmdProvider {
+    Wpctl,
+    NoCmd,
+}
+
+#[derive(Clone)]
 pub struct AppConfVol {
-    window: WindowDescriptor,
-    max_vol: f64,
-    set_vol_cmd: Vec<String>,
-    get_vol_cmd: Vec<String>,
-    inc_vol_cmd: Vec<String>,
-    dec_vol_cmd: Vec<String>,
+    pub window: WindowDescriptor,
+    pub max_vol: f64,
+    pub run_cmd: VolCmdProvider,
+}
+
+impl Default for AppConf {
+    fn default() -> Self {
+        AppConf {
+            general: AppConfGeneral {
+                css_path: DEFAULT_CSS_PATH.to_string(),
+            },
+            vol: AppConfVol {
+                window: {
+                    let mut result = WindowDescriptor::new();
+                    result.anchor_bottom = true;
+                    result.margin_bottom = 130;
+                    result
+                },
+                max_vol: 100f64,
+                run_cmd: DEFAULT_VOL_CMD,
+            },
+        }
+    }
 }
 
 impl AppConf {
@@ -37,23 +64,40 @@ impl AppConf {
         }
     }
 
-    fn max_vol() -> f64 {
-        0.0
+    fn max_vol(toml: &Map<String, Value>) -> f64 {
+        let inner = if let Some(v) = toml.get("volume") {
+            v
+        } else {
+            return 100f64;
+        };
+
+        if let Some(Value::Integer(v)) = inner.get("max_vol") {
+            *v as f64
+        } else {
+            100f64
+        }
     }
-    fn set_vol_cmd() -> Vec<String> {
-        vec![]
+
+    fn run_cmd(toml: &Map<String, Value>) -> VolCmdProvider {
+        let inner = if let Some(v) = toml.get("volume") {
+            v
+        } else {
+            return VolCmdProvider::Wpctl;
+        };
+
+        if let Some(Value::String(val)) = inner.get("run_cmd") {
+            match val.as_str() {
+                "Wpctl" | "wpctl" => return DEFAULT_VOL_CMD,
+                "none" | "None" => return VolCmdProvider::NoCmd,
+                _ => return DEFAULT_VOL_CMD,
+            }
+        } else {
+            return DEFAULT_VOL_CMD;
+        }
     }
-    fn get_vol_cmd() -> Vec<String> {
-        vec![]
-    }
-    fn inc_vol_cmd() -> Vec<String> {
-        vec![]
-    }
-    fn dec_vol_cmd() -> Vec<String> {
-        vec![]
-    }
-    fn window() -> WindowDescriptor {
-        WindowDescriptor::new()
+
+    fn vol_window(toml: &Map<String, Value>) -> WindowDescriptor {
+        WindowDescriptor::vol_from_toml(&toml)
     }
 
     pub fn from_toml(toml: &Map<String, Value>) -> Self {
@@ -62,12 +106,9 @@ impl AppConf {
                 css_path: AppConf::css_path(&toml),
             },
             vol: AppConfVol {
-                window: AppConf::window(),
-                max_vol: AppConf::max_vol(),
-                set_vol_cmd: AppConf::set_vol_cmd(),
-                get_vol_cmd: AppConf::get_vol_cmd(),
-                inc_vol_cmd: AppConf::inc_vol_cmd(),
-                dec_vol_cmd: AppConf::dec_vol_cmd(),
+                window: AppConf::vol_window(&toml),
+                max_vol: AppConf::max_vol(&toml),
+                run_cmd: AppConf::run_cmd(&toml),
             },
         }
     }
@@ -96,21 +137,19 @@ fn default_config_path() -> String {
     result
 }
 
-fn parse_condig(content: &str) -> Result<(), ()> {
+fn parse_config(content: &str) -> AppConf {
     let toml = match content.parse::<Table>() {
         Ok(res) => res,
         Err(e) => {
             println!("Err trying to parse the config into toml: {}", e);
-            return Err(());
+            return AppConf::default();
         }
     };
 
-    AppConf::from_toml(&toml);
-
-    Ok(())
+    AppConf::from_toml(&toml)
 }
 
-pub fn read_config(path: Option<String>) {
+pub fn read_config(path: Option<String>) -> AppConf {
     let target_path: String = if let Some(p) = path {
         p
     } else {
@@ -120,15 +159,15 @@ pub fn read_config(path: Option<String>) {
     match std::fs::read_to_string(&target_path) {
         Ok(val) => {
             println!("there is a config");
-            if let Err(_) = parse_condig(&val) {
-                return;
-            }
+            parse_config(&val)
         }
         Err(e) => {
             println!(
                 "Failed to get the config from path: {:?}\nErr: {:?}, go with default",
                 target_path, e
             );
+
+            AppConf::default()
         }
     }
 }

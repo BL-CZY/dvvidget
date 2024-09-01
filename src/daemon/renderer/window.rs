@@ -1,6 +1,9 @@
 use gtk4::{Application, ApplicationWindow};
 use gtk4_layer_shell::{Edge, Layer, LayerShell};
+use toml::map::Map;
+use toml::value::Value;
 
+#[derive(Clone)]
 pub struct WindowDescriptor {
     pub layer: Layer,
 
@@ -17,6 +20,16 @@ pub struct WindowDescriptor {
     pub exclusive: bool,
 
     pub visible_on_start: bool,
+}
+
+pub fn string_to_layer(str: &str) -> Layer {
+    match str {
+        "background" | "Background" => Layer::Background,
+        "bottom" | "Bottom" => Layer::Bottom,
+        "top" | "Top" => Layer::Top,
+        "overlay" | "Overlay" => Layer::Overlay,
+        _ => Layer::Overlay,
+    }
 }
 
 impl WindowDescriptor {
@@ -36,7 +49,7 @@ impl WindowDescriptor {
 
             exclusive: false,
 
-            visible_on_start: false,
+            visible_on_start: true,
         }
     }
 
@@ -51,6 +64,7 @@ impl WindowDescriptor {
         anchor_top: bool,
         anchor_bottom: bool,
         exclusive: bool,
+        visible_on_start: bool,
     ) -> Self {
         WindowDescriptor {
             layer,
@@ -63,7 +77,70 @@ impl WindowDescriptor {
             anchor_top,
             anchor_bottom,
             exclusive,
+            visible_on_start,
         }
+    }
+
+    pub fn vol_from_toml(toml: &Map<String, Value>) -> WindowDescriptor {
+        let mut result = WindowDescriptor::new();
+        result.anchor_bottom = true;
+        result.margin_bottom = 130;
+
+        let inner = if let Some(outer) = toml.get("volume") {
+            if let Some(val) = outer.get("window") {
+                val
+            } else {
+                return result;
+            }
+        } else {
+            return result;
+        };
+
+        if let Some(Value::String(val)) = inner.get("layer") {
+            result.layer = string_to_layer(val);
+        }
+
+        if let Some(Value::Integer(val)) = inner.get("margin_left") {
+            result.margin_left = *val as i32;
+        }
+
+        if let Some(Value::Integer(val)) = inner.get("margin_right") {
+            result.margin_right = *val as i32;
+        }
+
+        if let Some(Value::Integer(val)) = inner.get("margin_top") {
+            result.margin_top = *val as i32;
+        }
+
+        if let Some(Value::Integer(val)) = inner.get("margin_bottom") {
+            result.margin_bottom = *val as i32;
+        }
+
+        if let Some(Value::Boolean(val)) = inner.get("anchor_left") {
+            result.anchor_left = *val;
+        }
+
+        if let Some(Value::Boolean(val)) = inner.get("anchor_right") {
+            result.anchor_right = *val;
+        }
+
+        if let Some(Value::Boolean(val)) = inner.get("anchor_top") {
+            result.anchor_top = *val;
+        }
+
+        if let Some(Value::Boolean(val)) = inner.get("anchor_bottom") {
+            result.anchor_bottom = *val;
+        }
+
+        if let Some(Value::Boolean(val)) = inner.get("exclusive") {
+            result.exclusive = *val;
+        }
+
+        if let Some(Value::Boolean(val)) = inner.get("visible_on_start") {
+            result.visible_on_start = *val;
+        }
+
+        result
     }
 }
 

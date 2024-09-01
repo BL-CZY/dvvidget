@@ -1,13 +1,12 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::daemon::structs::{DaemonEvt, DaemonRes, Vol};
 use crate::utils;
 use crate::{daemon::structs::DaemonCmd, utils::DaemonErr};
 
-use super::{
-    app::register_widget,
-    window::{self, WindowDescriptor},
-};
+use super::config::{AppConf, VolCmdProvider};
+use super::{app::register_widget, window};
 use gtk4::{prelude::*, Adjustment, Application, ApplicationWindow, Scale, Window};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -15,6 +14,7 @@ pub fn handle_vol_cmd(
     cmd: Vol,
     window: &Window,
     sender: UnboundedSender<DaemonEvt>,
+    _config: Arc<AppConf>,
 ) -> Result<DaemonRes, DaemonErr> {
     match cmd {
         Vol::Set(val) => {
@@ -70,46 +70,72 @@ pub fn handle_vol_cmd(
     Ok(DaemonRes::Success)
 }
 
-fn get_volume() -> f64 {
-    let output = std::process::Command::new("sh")
-        .arg("-c")
-        .arg("wpctl get-volume @DEFAULT_AUDIO_SINK@")
-        .output()
-        .unwrap();
+fn get_volume(cmd: VolCmdProvider) -> f64 {
+    match cmd {
+        VolCmdProvider::Wpctl => {
+            let output = std::process::Command::new("sh")
+                .arg("-c")
+                .arg("wpctl get-volume @DEFAULT_AUDIO_SINK@")
+                .output()
+                .unwrap();
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let volume_str = stdout.trim().split_whitespace().nth(1).unwrap_or_default();
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let volume_str = stdout.trim().split_whitespace().nth(1).unwrap_or_default();
 
-    volume_str.parse::<f64>().unwrap() * 100f64
+            volume_str.parse::<f64>().unwrap() * 100f64
+        }
+
+        VolCmdProvider::NoCmd => 0f64,
+    }
 }
 
-pub fn create_sound_osd(app: &Application) -> ApplicationWindow {
-    let mut descriptor = WindowDescriptor::new();
-    descriptor.anchor_bottom = true;
-    descriptor.margin_bottom = 130;
+pub fn create_sound_osd(app: &Application, config: Arc<AppConf>) -> ApplicationWindow {
+    let descriptor = config.vol.window.clone();
 
     let result = window::create_window(app, descriptor);
     result.add_css_class("sound");
-    let adjustment = Adjustment::new(get_volume(), 0.0, 100.0, 1.0, 0.0, 0.0);
+    let adjustment = Adjustment::new(
+        get_volume(config.vol.run_cmd.clone()),
+        0.0,
+        config.vol.max_vol,
+        1.0,
+        0.0,
+        0.0,
+    );
     let scale = Scale::new(gtk4::Orientation::Horizontal, Some(&adjustment));
     scale.set_width_request(100);
     scale.add_css_class("sound_scale");
 
-    scale.connect_value_changed(|scale| {
-        if let Err(e) = std::process::Command::new("sh")
-            .arg("-c")
-            .arg(format!(
-                "wpctl set-volume @DEFAULT_AUDIO_SINK@ {}%",
-                scale.value()
-            ))
-            .output()
-        {
-            println!("failed: {}", e);
-        };
+    if let VolCmdProvider::NoCmd = config.vol.run_cmd {
+        scale.set_sensitive(false);
+    }
+
+    let config_clone = config.clone();
+    scale.connect_value_changed(move |scale| match config_clone.vol.run_cmd {
+        VolCmdProvider::Wpctl => {
+            if let Err(e) = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(format!(
+                    "wpctl set-volume @DEFAULT_AUDIO_SINK@ {}%",
+                    scale.value()
+                ))
+                .output()
+            {
+                println!("Failed to set volume: {}", e);
+            };
+        }
+
+        VolCmdProvider::NoCmd => {}
     });
 
     result.set_child(Some(scale).as_ref());
     register_widget(super::app::Widget::Volume, result.id());
+
+    result.present();
+
+    if !config.vol.window.visible_on_start {
+        result.hide();
+    }
 
     result
 }
