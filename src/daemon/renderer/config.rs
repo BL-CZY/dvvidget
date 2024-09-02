@@ -2,7 +2,7 @@ use toml::{map::Map, Table, Value};
 
 use super::window::WindowDescriptor;
 
-pub const DEFAULT_CSS_PATH: &str = "/home/tpl/projects/dvvidget/src/daemon/renderer/style.css";
+pub const DEFAULT_CSS_PATH: &str = "/usr/share/dvvidget/style.css";
 pub const DEFAULT_VOL_CMD: VolCmdProvider = VolCmdProvider::Wpctl;
 
 #[derive(Clone)]
