@@ -44,20 +44,24 @@ pub async fn receive_exit() -> Result<(), ()> {
     Ok(())
 }
 
-pub fn shutdown() {
+pub fn shutdown(msg: &str) -> ! {
+    println!("{}", msg);
+
     if let Err(e) = send_exit() {
         println!("Failed to shutdown: {}, force exiting", e);
         // remove the socket
-        if let Err(e) = fs::remove_file(crate::daemon::server::DEFAULT_SOCKET_PATH) {
+        if let Err(e) = fs::remove_file(crate::daemon::server::default_socket_path()) {
             println!(
                 "No remaining socket file found at the default location {}: {}",
-                crate::daemon::server::DEFAULT_SOCKET_PATH,
+                crate::daemon::server::default_socket_path(),
                 e
             );
         }
 
         std::process::exit(1);
     }
+
+    loop {}
 }
 
 #[derive(Debug)]

@@ -11,7 +11,17 @@ use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use super::structs::{DaemonCmd, DaemonEvt, DaemonRes};
 use crate::utils::receive_exit;
 
-pub const DEFAULT_SOCKET_PATH: &str = "/tmp/dvviget.sock";
+pub fn default_socket_path() -> String {
+    let val = env!("CARGO_PKG_VERSION").replace(".", "-");
+    format!("/tmp/dvvidget-{}.sock", val)
+}
+
+async fn is_active_socket(path: &str) -> bool {
+    match UnixStream::connect(Path::new(path)).await {
+        Ok(_) => true,
+        Err(_) => false,
+    }
+}
 
 pub async fn run_server(
     path: Option<String>,
@@ -20,19 +30,22 @@ pub async fn run_server(
     let socket_path: String = if let Some(p) = path {
         p
     } else {
-        DEFAULT_SOCKET_PATH.into()
+        default_socket_path()
     };
 
     if Path::new(&socket_path).exists() {
-        shutdown();
-        return Err(DaemonErr::ServerAlreadyRunning);
+        if is_active_socket(&socket_path).await {
+            shutdown("There is an existing server running");
+        } else {
+            println!("Found an inactive socket, cleaning...");
+            fs::remove_file(&socket_path).unwrap();
+        }
     }
 
     let listener = if let Ok(res) = tokio::net::UnixListener::bind(Path::new(&socket_path)) {
         res
     } else {
-        shutdown();
-        return Err(DaemonErr::InitServerFailed);
+        shutdown("Failed to initialize the server");
     };
 
     loop {
@@ -83,7 +96,7 @@ async fn handle_connection(
     println!("Event receiverd from client: {:?}", evt);
 
     if let DaemonCmd::ShutDown = evt {
-        shutdown();
+        shutdown("Shutting down...");
     }
 
     if let Err(e) = evt_sender.send(cmd.clone()) {

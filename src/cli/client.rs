@@ -1,7 +1,10 @@
 use std::path::Path;
 
 use crate::{
-    daemon::structs::{DaemonCmd, DaemonRes},
+    daemon::{
+        server::default_socket_path,
+        structs::{DaemonCmd, DaemonRes},
+    },
     utils::ClientErr,
 };
 use anyhow::Context;
@@ -9,8 +12,6 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::UnixStream,
 };
-
-const DEFAULT_SOCKET_PATH: &str = "/tmp/dvviget.sock";
 
 async fn send_to_stream(evt: DaemonCmd, mut stream: UnixStream) -> Result<UnixStream, ClientErr> {
     let evt_buf = match bincode::serialize(&evt).context("Failed to serialize command") {
@@ -68,7 +69,7 @@ async fn read_res(mut stream: UnixStream) -> Result<DaemonRes, ClientErr> {
 
 pub async fn send_evt_async(evt: DaemonCmd) -> Result<(), ClientErr> {
     let stream: UnixStream =
-        if let Ok(res) = UnixStream::connect(Path::new(DEFAULT_SOCKET_PATH)).await {
+        if let Ok(res) = UnixStream::connect(Path::new(&default_socket_path())).await {
             res
         } else {
             return Err(ClientErr::CannotConnectServer);

@@ -25,7 +25,7 @@ pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
     simple_signal::set_handler(
         &[simple_signal::Signal::Int, simple_signal::Signal::Term],
         move |_| {
-            crate::utils::shutdown();
+            crate::utils::shutdown("Received int/term signal");
         },
     );
 
