@@ -1,4 +1,6 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -45,10 +47,31 @@ fn process_evt(
     app: Rc<Application>,
     sender: UnboundedSender<DaemonEvt>,
     config: Arc<AppConf>,
+    vol_win_life: Rc<RefCell<f64>>,
 ) -> Result<DaemonRes, DaemonErr> {
     match evt {
         DaemonCmd::ShutDown => {
             app.quit();
+        }
+
+        DaemonCmd::RegVolClose(t) => {
+            *vol_win_life.deref().borrow_mut() += t;
+        }
+
+        DaemonCmd::ExecVolClose(t) => {
+            *vol_win_life.deref().borrow_mut() -= t;
+            if *vol_win_life.deref().borrow() < 0f64 {
+                *vol_win_life.deref().borrow_mut() = 0f64;
+            }
+
+            if *vol_win_life.deref().borrow() == 0f64 {
+                if let Err(e) = sender.send(DaemonEvt {
+                    evt: DaemonCmd::Vol(crate::daemon::structs::Vol::Close),
+                    sender: None,
+                }) {
+                    println!("Can't close the window: {}", e);
+                }
+            }
         }
 
         DaemonCmd::Vol(evt) => {
@@ -88,6 +111,7 @@ pub fn init_gtk_async(
     app: Rc<Application>,
     config: Arc<AppConf>,
 ) -> Result<(), DaemonErr> {
+    let vol_win_life = Rc::new(RefCell::new(0f64));
     glib::MainContext::default().spawn_local(async move {
         loop {
             tokio::select! {
@@ -97,7 +121,7 @@ pub fn init_gtk_async(
                 }
 
                 Some(evt) = evt_receiver.recv() => {
-                    match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone()) {
+                    match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), vol_win_life.clone()) {
                         Err(e) => send_res(evt.sender, DaemonRes::Failure(format!("{:?}", e))),
                         Ok(res) => send_res(evt.sender, res),
                     }
