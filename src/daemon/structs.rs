@@ -4,6 +4,8 @@ use tokio::sync::mpsc::UnboundedSender;
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum DaemonCmd {
     ShutDown,
+    RegVolClose(f64),
+    ExecVolClose(f64),
     Vol(Vol),
 }
 

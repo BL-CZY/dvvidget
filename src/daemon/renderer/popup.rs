@@ -56,9 +56,17 @@ pub fn handle_vol_cmd(
         Vol::OpenTime(f64) => {
             window.show();
             tokio::spawn(async move {
-                tokio::time::sleep(Duration::from_secs_f64(f64)).await;
                 if let Err(e) = sender.send(DaemonEvt {
-                    evt: DaemonCmd::Vol(Vol::Close),
+                    evt: DaemonCmd::RegVolClose(f64),
+                    sender: None,
+                }) {
+                    println!("Failed to register close: {}", e);
+                }
+
+                tokio::time::sleep(Duration::from_secs_f64(f64)).await;
+
+                if let Err(e) = sender.send(DaemonEvt {
+                    evt: DaemonCmd::ExecVolClose(f64),
                     sender: None,
                 }) {
                     println!("Err closing the openned window: {}", e);
