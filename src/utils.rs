@@ -4,6 +4,28 @@ use crate::daemon::structs::{DaemonCmd, DaemonEvt, DaemonRes};
 use once_cell::sync::Lazy;
 use tokio::sync::broadcast;
 
+#[derive(Clone, Copy)]
+pub enum DisplayBackend {
+    Wayland,
+    X11,
+}
+
+pub fn detect_display() -> DisplayBackend {
+    use std::env;
+    let session_type = env::var("XDG_SESSION_TYPE").unwrap_or_default();
+
+    if session_type.contains("x11") {
+        DisplayBackend::X11
+    } else if session_type.contains("wayland")
+        && !env::var("WAYLAND_DISPLAY").unwrap_or_default().is_empty()
+    {
+        DisplayBackend::Wayland
+    } else {
+        println!("No display session detected, exiting...");
+        std::process::exit(1);
+    }
+}
+
 pub static EXIT_BROADCAST: Lazy<broadcast::Sender<()>> = Lazy::new(|| broadcast::channel(2).0);
 
 pub fn send_exit() -> Result<(), String> {

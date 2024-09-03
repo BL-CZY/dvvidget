@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::daemon::structs::{DaemonEvt, DaemonRes, Vol};
-use crate::utils;
+use crate::utils::{self, DisplayBackend};
 use crate::{daemon::structs::DaemonCmd, utils::DaemonErr};
 
 use super::config::{AppConf, VolCmdProvider};
@@ -89,10 +89,14 @@ fn get_volume(cmd: VolCmdProvider) -> f64 {
     }
 }
 
-pub fn create_sound_osd(app: &Application, config: Arc<AppConf>) -> ApplicationWindow {
+pub fn create_sound_osd(
+    backend: DisplayBackend,
+    app: &Application,
+    config: Arc<AppConf>,
+) -> ApplicationWindow {
     let descriptor = config.vol.window.clone();
 
-    let result = window::create_window(app, descriptor);
+    let result = window::create_window(backend, app, descriptor);
     result.add_css_class("sound");
     let adjustment = Adjustment::new(
         get_volume(config.vol.run_cmd.clone()),

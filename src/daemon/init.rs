@@ -3,10 +3,12 @@ use std::sync::Arc;
 use super::renderer::{app::start_app, config::read_config};
 use super::server;
 use super::structs::DaemonEvt;
-use crate::utils::DaemonErr;
+use crate::utils::{detect_display, DaemonErr};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
+    let backend = detect_display();
+
     let config = Arc::new(read_config(path.clone()));
 
     let (evt_sender, evt_receiver): (UnboundedSender<DaemonEvt>, UnboundedReceiver<DaemonEvt>) =
@@ -44,7 +46,7 @@ pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
 
     let _g = handle.enter();
 
-    start_app(evt_receiver, evt_sender_clone.clone(), config);
+    start_app(backend, evt_receiver, evt_sender_clone.clone(), config);
 
     Ok(())
 }

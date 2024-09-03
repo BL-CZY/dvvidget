@@ -3,6 +3,11 @@ use gtk4_layer_shell::{Edge, Layer, LayerShell};
 use toml::map::Map;
 use toml::value::Value;
 
+use gtk4::prelude::*;
+use x11rb::protocol::xproto::ConnectionExt;
+
+use crate::utils::DisplayBackend;
+
 #[derive(Clone)]
 pub struct WindowDescriptor {
     pub layer: Layer,
@@ -120,8 +125,7 @@ impl WindowDescriptor {
     }
 }
 
-// doesn't present the window
-pub fn create_window(app: &Application, descriptor: WindowDescriptor) -> ApplicationWindow {
+fn wayland_window(app: &Application, descriptor: WindowDescriptor) -> ApplicationWindow {
     // Create a normal GTK window however you like
     let window = gtk4::ApplicationWindow::new(app);
 
@@ -157,4 +161,34 @@ pub fn create_window(app: &Application, descriptor: WindowDescriptor) -> Applica
     }
 
     window
+}
+
+fn x11_window(app: &Application, _descriptor: WindowDescriptor) -> ApplicationWindow {
+    let window = gtk4::ApplicationWindow::new(app);
+    window.present();
+    let xid = window
+        .native()
+        .unwrap()
+        .surface()
+        .unwrap()
+        .downcast_ref::<gdk4_x11::X11Surface>()
+        .unwrap()
+        .xid();
+
+    let (conn, _) = x11rb::connect(None).unwrap();
+    println!("{}", xid);
+
+    window
+}
+
+// doesn't present the window
+pub fn create_window(
+    backend: DisplayBackend,
+    app: &Application,
+    descriptor: WindowDescriptor,
+) -> ApplicationWindow {
+    match backend {
+        DisplayBackend::Wayland => wayland_window(app, descriptor),
+        DisplayBackend::X11 => x11_window(app, descriptor),
+    }
 }

@@ -7,6 +7,7 @@ use crate::daemon::structs::DaemonCmd;
 use crate::daemon::structs::DaemonEvt;
 use crate::daemon::structs::DaemonRes;
 use crate::utils::DaemonErr;
+use crate::utils::DisplayBackend;
 use gio::ApplicationFlags;
 use gtk4::gdk;
 use gtk4::prelude::*;
@@ -108,7 +109,7 @@ pub fn init_gtk_async(
     Ok(())
 }
 
-fn activate(app: &gtk4::Application, config: Arc<AppConf>) {
+fn activate(backend: DisplayBackend, app: &gtk4::Application, config: Arc<AppConf>) {
     let css = CssProvider::new();
     css.load_from_data(&std::fs::read_to_string(&config.general.css_path).unwrap());
     gtk4::style_context_add_provider_for_display(
@@ -116,11 +117,11 @@ fn activate(app: &gtk4::Application, config: Arc<AppConf>) {
         &css,
         gtk4::STYLE_PROVIDER_PRIORITY_SETTINGS,
     );
-    create_sound_osd(app, config);
-    app.window_by_id(1).unwrap();
+    create_sound_osd(backend, app, config);
 }
 
 pub fn start_app(
+    backend: DisplayBackend,
     evt_receiver: UnboundedReceiver<DaemonEvt>,
     evt_sender: UnboundedSender<DaemonEvt>,
     config: Arc<AppConf>,
@@ -136,7 +137,7 @@ pub fn start_app(
         println!("Err handling command: {:?}", e);
     }
 
-    app.connect_activate(move |app| activate(app, config.clone()));
+    app.connect_activate(move |app| activate(backend, app, config.clone()));
 
     app.run_with_args(&[""]);
 }
