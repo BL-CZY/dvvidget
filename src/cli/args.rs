@@ -34,6 +34,8 @@ pub enum DaemonSubCmd {
 #[derive(Subcommand)]
 pub enum VolCmd {
     #[clap(about = "Set the volume")]
+    SetRough { value: u32 },
+    #[clap(about = "Set the volume with murph effect")]
     Set { value: u32 },
     #[clap(about = "Get the current scale")]
     Get,

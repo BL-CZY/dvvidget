@@ -34,9 +34,10 @@ fn main() {
         args::Command::Volume { actions } => {
             let evt = match actions {
                 args::VolCmd::Get => DaemonCmd::Vol(Vol::Get),
-                args::VolCmd::Set { value } => DaemonCmd::Vol(Vol::Set(value)),
-                args::VolCmd::Inc { value } => DaemonCmd::Vol(Vol::Inc(value)),
-                args::VolCmd::Dec { value } => DaemonCmd::Vol(Vol::Dec(value)),
+                args::VolCmd::SetRough { value } => DaemonCmd::Vol(Vol::SetRough(value as f64)),
+                args::VolCmd::Set { value } => DaemonCmd::Vol(Vol::Set(value as f64)),
+                args::VolCmd::Inc { value } => DaemonCmd::Vol(Vol::Inc(value as f64)),
+                args::VolCmd::Dec { value } => DaemonCmd::Vol(Vol::Dec(value as f64)),
                 args::VolCmd::Close => DaemonCmd::Vol(Vol::Close),
                 args::VolCmd::Open { time } => {
                     if let Some(t) = time {

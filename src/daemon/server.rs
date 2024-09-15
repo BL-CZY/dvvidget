@@ -17,10 +17,7 @@ pub fn default_socket_path() -> String {
 }
 
 async fn is_active_socket(path: &str) -> bool {
-    match UnixStream::connect(Path::new(path)).await {
-        Ok(_) => true,
-        Err(_) => false,
-    }
+    UnixStream::connect(Path::new(path)).await.is_ok()
 }
 
 pub async fn run_server(

@@ -18,6 +18,7 @@ use gtk4::CssProvider;
 use lazy_static::lazy_static;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
+use tokio::task::JoinHandle;
 
 use super::config::AppConf;
 use super::popup::create_sound_osd;
@@ -48,6 +49,7 @@ fn process_evt(
     sender: UnboundedSender<DaemonEvt>,
     config: Arc<AppConf>,
     vol_win_life: Rc<RefCell<f64>>,
+    vol_tasks: Rc<RefCell<HashMap<VolTaskType, JoinHandle<()>>>>,
 ) -> Result<DaemonRes, DaemonErr> {
     match evt {
         DaemonCmd::ShutDown => {
@@ -85,6 +87,7 @@ fn process_evt(
                 &app.window_by_id(*guard.get(&Widget::Volume).unwrap())
                     .unwrap(),
                 sender,
+                vol_tasks,
                 config,
             )?;
 
@@ -105,6 +108,12 @@ fn send_res(sender: Option<UnboundedSender<DaemonRes>>, res: DaemonRes) {
     }
 }
 
+#[derive(Hash, PartialEq, Eq)]
+pub enum VolTaskType {
+    AwaitClose,
+    MurphValue,
+}
+
 pub fn init_gtk_async(
     mut evt_receiver: UnboundedReceiver<DaemonEvt>,
     evt_sender: UnboundedSender<DaemonEvt>,
@@ -112,6 +121,8 @@ pub fn init_gtk_async(
     config: Arc<AppConf>,
 ) -> Result<(), DaemonErr> {
     let vol_win_life = Rc::new(RefCell::new(0f64));
+    let vol_tasks: Rc<RefCell<HashMap<VolTaskType, JoinHandle<()>>>> =
+        Rc::new(RefCell::new(HashMap::new()));
     glib::MainContext::default().spawn_local(async move {
         loop {
             tokio::select! {
@@ -121,7 +132,7 @@ pub fn init_gtk_async(
                 }
 
                 Some(evt) = evt_receiver.recv() => {
-                    match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), vol_win_life.clone()) {
+                    match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), vol_win_life.clone(), vol_tasks.clone()) {
                         Err(e) => send_res(evt.sender, DaemonRes::Failure(format!("{:?}", e))),
                         Ok(res) => send_res(evt.sender, res),
                     }

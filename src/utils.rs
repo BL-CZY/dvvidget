@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, time::Duration};
 
 use crate::daemon::structs::{DaemonCmd, DaemonEvt, DaemonRes};
 use once_cell::sync::Lazy;
@@ -59,9 +59,11 @@ pub fn shutdown(msg: &str) -> ! {
         }
 
         std::process::exit(1);
+    } else {
+        loop {
+            std::thread::sleep(Duration::from_secs(1));
+        }
     }
-
-    loop {}
 }
 
 #[derive(Debug)]
@@ -85,6 +87,14 @@ pub enum ClientErr {
     WriteErr(String),
 }
 
-pub fn vol_round(val: f64) -> f64 {
+pub fn vol_round_down(val: f64) -> f64 {
     val - val % 5.0
+}
+
+pub fn vol_round_up(val: f64) -> f64 {
+    if val % 5.0 == 0.0 {
+        val
+    } else {
+        val + (5.0 - val % 5.0)
+    }
 }

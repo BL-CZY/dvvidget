@@ -12,9 +12,11 @@ pub enum DaemonCmd {
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum Vol {
     Get,
-    Set(u32),
-    Inc(u32),
-    Dec(u32),
+    SetRough(f64),
+    Set(f64),
+    Dec(f64),
+    Inc(f64),
+    StopCurValTask,
     Close,
     Open,
     OpenTime(f64),
