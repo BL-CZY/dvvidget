@@ -20,11 +20,26 @@ fn murph(
     mut current: f64,
     vol_tasks: Rc<RefCell<HashMap<VolTaskType, JoinHandle<()>>>>,
     target: f64,
+    config: Arc<AppConf>,
 ) {
     let mut map_ref = vol_tasks.borrow_mut();
     if let Some(handle) = map_ref.get(&VolTaskType::MurphValue) {
         handle.abort();
         map_ref.remove(&VolTaskType::MurphValue);
+    }
+
+    match config.vol.run_cmd {
+        VolCmdProvider::Wpctl => {
+            if let Err(e) = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(format!("wpctl set-volume @DEFAULT_AUDIO_SINK@ {}%", target))
+                .output()
+            {
+                println!("Failed to set volume: {}", e);
+            };
+        }
+
+        VolCmdProvider::NoCmd => {}
     }
 
     let handle = tokio::spawn(async move {
@@ -62,7 +77,7 @@ pub fn handle_vol_cmd(
     window: &Window,
     sender: UnboundedSender<DaemonEvt>,
     vol_tasks: Rc<RefCell<HashMap<VolTaskType, JoinHandle<()>>>>,
-    _config: Arc<AppConf>,
+    config: Arc<AppConf>,
 ) -> Result<DaemonRes, DaemonErr> {
     match cmd {
         Vol::StopCurValTask => {
@@ -79,7 +94,7 @@ pub fn handle_vol_cmd(
         Vol::Set(val) => {
             let current = window.child().and_downcast_ref::<Scale>().unwrap().value();
             let target = utils::vol_round_down(val);
-            murph(sender, current, vol_tasks, target);
+            murph(sender, current, vol_tasks, target, config);
         }
         Vol::Get => {
             return Ok(DaemonRes::VolGet(
@@ -89,12 +104,12 @@ pub fn handle_vol_cmd(
         Vol::Inc(val) => {
             let current = window.child().and_downcast_ref::<Scale>().unwrap().value();
             let target = utils::vol_round_up(current + val);
-            murph(sender, current, vol_tasks, target);
+            murph(sender, current, vol_tasks, target, config);
         }
         Vol::Dec(val) => {
             let current = window.child().and_downcast_ref::<Scale>().unwrap().value();
             let target = utils::vol_round_down(current - val);
-            murph(sender, current, vol_tasks, target);
+            murph(sender, current, vol_tasks, target, config);
         }
         Vol::Close => {
             window.hide();
@@ -130,16 +145,20 @@ pub fn handle_vol_cmd(
 fn get_volume(cmd: VolCmdProvider) -> f64 {
     match cmd {
         VolCmdProvider::Wpctl => {
-            let output = std::process::Command::new("wpctl")
+            let output = if let Ok(out) = std::process::Command::new("wpctl")
                 .arg("get-volume")
                 .arg("@DEFAULT_AUDIO_SINK@")
                 .output()
-                .expect("OH NO!!!!!!");
+            {
+                out
+            } else {
+                return 0.0;
+            };
 
             let stdout = String::from_utf8_lossy(&output.stdout);
             let volume_str = stdout.split_whitespace().nth(1).unwrap_or_default();
 
-            volume_str.parse::<f64>().expect("this?") * 100f64
+            volume_str.parse::<f64>().unwrap_or_default() * 100f64
         }
 
         VolCmdProvider::NoCmd => 0f64,
@@ -166,29 +185,7 @@ pub fn create_sound_osd(
     let scale = Scale::new(gtk4::Orientation::Horizontal, Some(&adjustment));
     scale.set_width_request(100);
     scale.add_css_class("sound_scale");
-
-    if let VolCmdProvider::NoCmd = config.vol.run_cmd {
-        scale.set_sensitive(false);
-    }
-
-    let config_clone = config.clone();
-    scale.connect_value_changed(move |scale| match config_clone.vol.run_cmd {
-        VolCmdProvider::Wpctl => {
-            if let Err(e) = std::process::Command::new("sh")
-                .arg("-c")
-                .arg(format!(
-                    "wpctl set-volume @DEFAULT_AUDIO_SINK@ {}%",
-                    scale.value()
-                ))
-                .output()
-            {
-                println!("Failed to set volume: {}", e);
-            };
-        }
-
-        VolCmdProvider::NoCmd => {}
-    });
-    println!("connect activate");
+    scale.set_sensitive(false);
 
     result.set_child(Some(scale).as_ref());
     register_widget(super::app::Widget::Volume, result.id());
