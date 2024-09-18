@@ -4,22 +4,20 @@ use tokio::sync::mpsc::UnboundedSender;
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum DaemonCmd {
     ShutDown,
-    RegVolClose(f64),
-    ExecVolClose(f64),
     Vol(Vol),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum Vol {
     Get,
+    Mute,
     SetRough(f64),
     Set(f64),
     Dec(f64),
     Inc(f64),
-    StopCurValTask,
     Close,
     Open,
-    OpenTime(f64),
+    OpenTimed(f64),
 }
 
 #[derive(Debug, Clone)]

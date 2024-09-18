@@ -22,7 +22,7 @@ pub enum VolCmdProvider {
     NoCmd,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct IconDescriptor {
     pub range: (f64, f64),
     pub icon: String,

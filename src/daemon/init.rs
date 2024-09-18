@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::time::Duration;
 
 use super::renderer::{app::start_app, config::read_config};
 use super::server;
@@ -8,10 +7,6 @@ use crate::utils::{detect_display, DaemonErr};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
-    // this is here because when the computer freshly boots, a lot of functionalities might not
-    // initialize, so it will sleep for several seconds
-    std::thread::sleep(Duration::from_secs(3));
-
     let backend = detect_display();
 
     let config = Arc::new(read_config(path.clone()));

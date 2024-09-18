@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -23,11 +22,36 @@ use tokio::task::JoinHandle;
 use super::config::AppConf;
 use super::popup::create_sound_osd;
 use super::popup::handle_vol_cmd;
+use super::popup::VolContext;
 
 #[repr(C)]
 #[derive(PartialEq, Eq, Hash)]
 pub enum Widget {
     Volume = 0,
+}
+
+pub struct AppContext {
+    pub vol: VolContext,
+}
+
+impl AppContext {
+    pub fn from_config(config: &Arc<AppConf>) -> Self {
+        AppContext {
+            vol: VolContext::from_config(&config),
+        }
+    }
+
+    pub fn set_virtual_volume(&mut self, val: f64) -> f64 {
+        if val > self.vol.max_vol {
+            self.vol.cur_vol = self.vol.max_vol;
+        } else if val < 0f64 {
+            self.vol.cur_vol = 0f64;
+        } else {
+            self.vol.cur_vol = val;
+        }
+
+        self.vol.cur_vol
+    }
 }
 
 pub fn register_widget(widget: Widget, id: u32) {
@@ -48,32 +72,12 @@ fn process_evt(
     app: Rc<Application>,
     sender: UnboundedSender<DaemonEvt>,
     config: Arc<AppConf>,
-    vol_win_life: Rc<RefCell<f64>>,
     vol_tasks: Rc<RefCell<HashMap<VolTaskType, JoinHandle<()>>>>,
+    app_context: Rc<RefCell<AppContext>>,
 ) -> Result<DaemonRes, DaemonErr> {
     match evt {
         DaemonCmd::ShutDown => {
             app.quit();
-        }
-
-        DaemonCmd::RegVolClose(t) => {
-            *vol_win_life.deref().borrow_mut() += t;
-        }
-
-        DaemonCmd::ExecVolClose(t) => {
-            *vol_win_life.deref().borrow_mut() -= t;
-            if *vol_win_life.deref().borrow() < 0f64 {
-                *vol_win_life.deref().borrow_mut() = 0f64;
-            }
-
-            if *vol_win_life.deref().borrow() == 0f64 {
-                if let Err(e) = sender.send(DaemonEvt {
-                    evt: DaemonCmd::Vol(crate::daemon::structs::Vol::Close),
-                    sender: None,
-                }) {
-                    println!("Can't close the window: {}", e);
-                }
-            }
         }
 
         DaemonCmd::Vol(evt) => {
@@ -87,6 +91,7 @@ fn process_evt(
                 &app.window_by_id(*guard.get(&Widget::Volume).unwrap())
                     .unwrap(),
                 sender,
+                app_context,
                 vol_tasks,
                 config,
             )?;
@@ -120,9 +125,11 @@ pub fn init_gtk_async(
     app: Rc<Application>,
     config: Arc<AppConf>,
 ) -> Result<(), DaemonErr> {
-    let vol_win_life = Rc::new(RefCell::new(0f64));
     let vol_tasks: Rc<RefCell<HashMap<VolTaskType, JoinHandle<()>>>> =
         Rc::new(RefCell::new(HashMap::new()));
+
+    let context = Rc::new(RefCell::new(AppContext::from_config(&config)));
+
     glib::MainContext::default().spawn_local(async move {
         loop {
             tokio::select! {
@@ -132,7 +139,7 @@ pub fn init_gtk_async(
                 }
 
                 Some(evt) = evt_receiver.recv() => {
-                    match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), vol_win_life.clone(), vol_tasks.clone()) {
+                    match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), vol_tasks.clone(), context.clone()) {
                         Err(e) => send_res(evt.sender, DaemonRes::Failure(format!("{:?}", e))),
                         Ok(res) => send_res(evt.sender, res),
                     }

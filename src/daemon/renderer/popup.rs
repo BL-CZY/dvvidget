@@ -8,39 +8,72 @@ use crate::daemon::structs::{DaemonEvt, DaemonRes, Vol};
 use crate::utils::{self, DisplayBackend};
 use crate::{daemon::structs::DaemonCmd, utils::DaemonErr};
 
-use super::app::VolTaskType;
+use super::app::{AppContext, VolTaskType};
 use super::config::{AppConf, VolCmdProvider};
 use super::{app::register_widget, window};
-use gtk4::{prelude::*, Adjustment, Application, ApplicationWindow, Scale, Window};
+use gtk4::{prelude::*, Adjustment, Application, ApplicationWindow, Box, Label, Scale, Window};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
+
+pub struct VolContext {
+    pub cur_vol: f64,
+    pub max_vol: f64,
+    pub is_muted: bool,
+    pub vol_tasks: HashMap<VolTaskType, JoinHandle<()>>,
+}
+
+impl VolContext {
+    pub fn from_config(config: &Arc<AppConf>) -> Self {
+        let (cur_vol, is_muted) = get_volume(&config.vol.run_cmd);
+        VolContext {
+            cur_vol,
+            max_vol: config.vol.max_vol,
+            is_muted,
+            vol_tasks: HashMap::new(),
+        }
+    }
+}
+
+fn update_display_info(config: Arc<AppConf>, window: &Window, val: f64, is_muted: bool) {
+    let child = if let Some(w) = window.child() {
+        w
+    } else {
+        println!("Vol: can't find the box");
+        return;
+    };
+
+    if let Some(widget) = child.first_child() {
+        if let Some(label) = widget.downcast_ref::<Label>() {
+            set_icon(config.clone(), &label, val, is_muted);
+        }
+    }
+
+    if let Some(widget) = child.last_child() {
+        if let Some(label) = widget.downcast_ref::<Label>() {
+            label.set_text(&(val as i64).to_string());
+        }
+    }
+}
 
 fn murph(
     sender: UnboundedSender<DaemonEvt>,
     mut current: f64,
-    vol_tasks: Rc<RefCell<HashMap<VolTaskType, JoinHandle<()>>>>,
+    context: Rc<RefCell<AppContext>>,
     target: f64,
     config: Arc<AppConf>,
+    window: &Window,
 ) {
-    let mut map_ref = vol_tasks.borrow_mut();
-    if let Some(handle) = map_ref.get(&VolTaskType::MurphValue) {
+    let context_ref = &mut context.borrow_mut();
+    // shadowing target to adjust it to an appropriate value
+    let target = context_ref.set_virtual_volume(target);
+    let task_map = &mut context_ref.vol.vol_tasks;
+    if let Some(handle) = task_map.get(&VolTaskType::MurphValue) {
         handle.abort();
-        map_ref.remove(&VolTaskType::MurphValue);
+        task_map.remove(&VolTaskType::MurphValue);
     }
 
-    match config.vol.run_cmd {
-        VolCmdProvider::Wpctl => {
-            if let Err(e) = std::process::Command::new("sh")
-                .arg("-c")
-                .arg(format!("wpctl set-volume @DEFAULT_AUDIO_SINK@ {}%", target))
-                .output()
-            {
-                println!("Failed to set volume: {}", e);
-            };
-        }
-
-        VolCmdProvider::NoCmd => {}
-    }
+    set_volume(&config.vol.run_cmd, target);
+    update_display_info(config.clone(), window, target, false);
 
     let handle = tokio::spawn(async move {
         for _ in 0..50 {
@@ -50,7 +83,7 @@ fn murph(
                     evt: DaemonCmd::Vol(Vol::SetRough(current)),
                     sender: None,
                 })
-                .unwrap_or_else(|e| println!("failed to update: {}", e));
+                .unwrap_or_else(|e| println!("Vol: failed to update: {}", e));
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
 
@@ -59,42 +92,58 @@ fn murph(
                 evt: DaemonCmd::Vol(Vol::SetRough(target)),
                 sender: None,
             })
-            .unwrap_or_else(|e| println!("failed to update: {}", e));
-
-        sender
-            .send(DaemonEvt {
-                evt: DaemonCmd::Vol(Vol::StopCurValTask),
-                sender: None,
-            })
-            .unwrap_or_else(|e| println!("failed to terminate this task: send err: {}", e));
+            .unwrap_or_else(|e| println!("Vol: failed to update: {}", e));
     });
 
-    map_ref.insert(VolTaskType::MurphValue, handle);
+    task_map.insert(VolTaskType::MurphValue, handle);
+}
+
+fn set_rough(val: f64, window: &Window) {
+    let child = if let Some(widget) = window
+        .child()
+        .and_downcast_ref::<Box>()
+        .unwrap()
+        .first_child()
+    {
+        widget
+    } else {
+        println!("Vol: Failed to downcast the box");
+        return;
+    };
+
+    if let Some(scale) = child.downcast_ref::<Scale>() {
+        scale.set_value(val);
+        return;
+    }
+
+    while let Some(widget) = child.next_sibling() {
+        if let Some(scale) = widget.downcast_ref::<Scale>() {
+            scale.set_value(val);
+            return;
+        }
+    }
+
+    println!("Vol: Couldn't find the scale, ignoring...");
 }
 
 pub fn handle_vol_cmd(
     cmd: Vol,
     window: &Window,
     sender: UnboundedSender<DaemonEvt>,
+    context: Rc<RefCell<AppContext>>,
     vol_tasks: Rc<RefCell<HashMap<VolTaskType, JoinHandle<()>>>>,
     config: Arc<AppConf>,
 ) -> Result<DaemonRes, DaemonErr> {
     match cmd {
-        Vol::StopCurValTask => {
-            let mut map_ref = vol_tasks.borrow_mut();
-            map_ref.remove(&VolTaskType::MurphValue);
-        }
+        // TODO Implement this
+        Vol::Mute => {}
         Vol::SetRough(val) => {
-            window
-                .child()
-                .and_downcast_ref::<Scale>()
-                .unwrap()
-                .set_value(val);
+            set_rough(val, window);
         }
         Vol::Set(val) => {
-            let current = window.child().and_downcast_ref::<Scale>().unwrap().value();
+            let current = context.borrow_mut().vol.cur_vol;
             let target = utils::vol_round_down(val);
-            murph(sender, current, vol_tasks, target, config);
+            murph(sender, current, context, target, config, window);
         }
         Vol::Get => {
             return Ok(DaemonRes::VolGet(
@@ -102,14 +151,14 @@ pub fn handle_vol_cmd(
             ));
         }
         Vol::Inc(val) => {
-            let current = window.child().and_downcast_ref::<Scale>().unwrap().value();
+            let current = context.borrow_mut().vol.cur_vol;
             let target = utils::vol_round_up(current + val);
-            murph(sender, current, vol_tasks, target, config);
+            murph(sender, current, context, target, config, window);
         }
         Vol::Dec(val) => {
-            let current = window.child().and_downcast_ref::<Scale>().unwrap().value();
+            let current = context.borrow_mut().vol.cur_vol;
             let target = utils::vol_round_down(current - val);
-            murph(sender, current, vol_tasks, target, config);
+            murph(sender, current, context, target, config, window);
         }
         Vol::Close => {
             window.hide();
@@ -117,32 +166,34 @@ pub fn handle_vol_cmd(
         Vol::Open => {
             window.show();
         }
-        Vol::OpenTime(time) => {
+        Vol::OpenTimed(time) => {
             window.show();
-            tokio::spawn(async move {
-                if let Err(e) = sender.send(DaemonEvt {
-                    evt: DaemonCmd::RegVolClose(time),
-                    sender: None,
-                }) {
-                    println!("Failed to register close: {}", e);
-                }
+            let mut map_ref = vol_tasks.borrow_mut();
+            if let Some(handle) = map_ref.get(&VolTaskType::AwaitClose) {
+                handle.abort();
+                map_ref.remove(&VolTaskType::AwaitClose);
+            }
 
+            let handle = tokio::spawn(async move {
                 tokio::time::sleep(Duration::from_secs_f64(time)).await;
 
                 if let Err(e) = sender.send(DaemonEvt {
-                    evt: DaemonCmd::ExecVolClose(time),
+                    evt: DaemonCmd::Vol(Vol::Close),
                     sender: None,
                 }) {
                     println!("Err closing the openned window: {}", e);
                 }
             });
+
+            map_ref.insert(VolTaskType::AwaitClose, handle);
         }
     }
 
     Ok(DaemonRes::Success)
 }
 
-fn get_volume(cmd: VolCmdProvider) -> f64 {
+// returns the current volume, if it's muted, return true, if it's not, return false
+fn get_volume(cmd: &VolCmdProvider) -> (f64, bool) {
     match cmd {
         VolCmdProvider::Wpctl => {
             let output = if let Ok(out) = std::process::Command::new("wpctl")
@@ -152,16 +203,50 @@ fn get_volume(cmd: VolCmdProvider) -> f64 {
             {
                 out
             } else {
-                return 0.0;
+                return (0f64, false);
             };
 
             let stdout = String::from_utf8_lossy(&output.stdout);
             let volume_str = stdout.split_whitespace().nth(1).unwrap_or_default();
+            let mute_str = stdout.split_whitespace().nth(2).unwrap_or_default();
 
-            volume_str.parse::<f64>().unwrap_or_default() * 100f64
+            (
+                volume_str.parse::<f64>().unwrap_or_default() * 100f64,
+                mute_str == "[MUTED]",
+            )
         }
 
-        VolCmdProvider::NoCmd => 0f64,
+        VolCmdProvider::NoCmd => (0f64, false),
+    }
+}
+
+fn set_volume(cmd: &VolCmdProvider, val: f64) {
+    match cmd {
+        VolCmdProvider::Wpctl => {
+            if let Err(e) = std::process::Command::new("wpctl")
+                .arg("set-volume")
+                .arg("@DEFAULT_AUDIO_SINK@")
+                .arg(format!("{}%", val))
+                .output()
+            {
+                println!("Failed to set volume: {}", e);
+            };
+        }
+
+        VolCmdProvider::NoCmd => {}
+    }
+}
+
+fn set_icon(config: Arc<AppConf>, label: &Label, cur_vol: f64, is_muted: bool) {
+    if is_muted {
+        label.set_text(&config.vol.mute_icon);
+        return;
+    }
+
+    for icon_descriptor in config.vol.icons.iter() {
+        if cur_vol >= icon_descriptor.range.0 && cur_vol < icon_descriptor.range.1 {
+            label.set_text(&icon_descriptor.icon);
+        }
     }
 }
 
@@ -173,21 +258,32 @@ pub fn create_sound_osd(
     let descriptor = config.vol.window.clone();
 
     let result = window::create_window(backend, app, descriptor);
-    result.add_css_class("sound");
-    let adjustment = Adjustment::new(
-        get_volume(config.vol.run_cmd.clone()),
-        0.0,
-        config.vol.max_vol,
-        0.1,
-        0.0,
-        0.0,
-    );
+    result.add_css_class("sound-window");
+
+    let (cur_vol, is_muted) = get_volume(&config.vol.run_cmd);
+
+    let adjustment = Adjustment::new(cur_vol, 0.0, config.vol.max_vol, 0.1, 0.0, 0.0);
+
+    let wrapper: Box = Box::new(gtk4::Orientation::Horizontal, 10);
+    wrapper.add_css_class("sound-box");
+
+    let icon = Label::new(Some(""));
+    icon.add_css_class("sound-icon");
+    set_icon(config.clone(), &icon, cur_vol, is_muted);
+
+    let label = Label::new(Some(&(cur_vol as i64).to_string()));
+    label.add_css_class("sound-label");
+
+    wrapper.append(&icon);
+
     let scale = Scale::new(gtk4::Orientation::Horizontal, Some(&adjustment));
     scale.set_width_request(100);
-    scale.add_css_class("sound_scale");
+    scale.add_css_class("sound-scale");
     scale.set_sensitive(false);
+    wrapper.append(&scale);
+    wrapper.append(&label);
 
-    result.set_child(Some(scale).as_ref());
+    result.set_child(Some(wrapper).as_ref());
     register_widget(super::app::Widget::Volume, result.id());
 
     result.present();

@@ -41,7 +41,7 @@ fn main() {
                 args::VolCmd::Close => DaemonCmd::Vol(Vol::Close),
                 args::VolCmd::Open { time } => {
                     if let Some(t) = time {
-                        DaemonCmd::Vol(Vol::OpenTime(t))
+                        DaemonCmd::Vol(Vol::OpenTimed(t))
                     } else {
                         DaemonCmd::Vol(Vol::Open)
                     }
