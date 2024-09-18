@@ -265,6 +265,7 @@ pub fn create_sound_osd(
     let adjustment = Adjustment::new(cur_vol, 0.0, config.vol.max_vol, 0.1, 0.0, 0.0);
 
     let wrapper: Box = Box::new(gtk4::Orientation::Horizontal, 10);
+    wrapper.set_halign(gtk4::Align::Center);
     wrapper.add_css_class("sound-box");
 
     let icon = Label::new(Some(""));
