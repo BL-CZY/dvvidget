@@ -23,10 +23,27 @@ pub enum VolCmdProvider {
 }
 
 #[derive(Clone)]
+pub struct IconDescriptor {
+    pub range: (f64, f64),
+    pub icon: String,
+}
+
+impl IconDescriptor {
+    pub fn from_val(bottom: f64, top: f64, icon: &str) -> Self {
+        IconDescriptor {
+            range: (bottom, top),
+            icon: icon.to_string(),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct AppConfVol {
     pub window: WindowDescriptor,
     pub max_vol: f64,
     pub run_cmd: VolCmdProvider,
+    pub icons: Vec<IconDescriptor>,
+    pub mute_icon: String,
 }
 
 impl Default for AppConf {
@@ -43,6 +60,12 @@ impl Default for AppConf {
                 },
                 max_vol: 100f64,
                 run_cmd: DEFAULT_VOL_CMD,
+                icons: vec![
+                    IconDescriptor::from_val(0f64, 19f64, " "),
+                    IconDescriptor::from_val(20f64, 59f64, " "),
+                    IconDescriptor::from_val(60f64, 100f64, " "),
+                ],
+                mute_icon: " ".to_string(),
             },
         }
     }
@@ -99,6 +122,74 @@ impl AppConf {
         WindowDescriptor::vol_from_toml(toml)
     }
 
+    fn default_icons() -> Vec<IconDescriptor> {
+        vec![
+            IconDescriptor::from_val(0f64, 19f64, " "),
+            IconDescriptor::from_val(20f64, 59f64, " "),
+            IconDescriptor::from_val(60f64, 100f64, " "),
+        ]
+    }
+
+    fn read_icon_table(vec: &Vec<Value>) -> Vec<IconDescriptor> {
+        let mut result = vec![];
+        for val in vec.iter() {
+            if let Value::Table(tbl) = val {
+                let lower: i64 = tbl
+                    .get("lower")
+                    .unwrap_or(&Value::Integer(0))
+                    .as_integer()
+                    .unwrap_or(0i64);
+
+                let upper: i64 = tbl
+                    .get("upper")
+                    .unwrap_or(&Value::Integer(0))
+                    .as_integer()
+                    .unwrap_or(0i64);
+
+                let icon: String = tbl
+                    .get("icon")
+                    .unwrap_or(&Value::String("".into()))
+                    .as_str()
+                    .unwrap_or("")
+                    .to_string();
+                result.push(IconDescriptor {
+                    range: (lower as f64, upper as f64),
+                    icon,
+                });
+            }
+        }
+        result
+    }
+
+    fn icons(toml: &Map<String, Value>) -> Vec<IconDescriptor> {
+        let inner = if let Some(v) = toml.get("volume") {
+            v
+        } else {
+            return AppConf::default_icons();
+        };
+
+        if let Some(Value::Array(vec)) = inner.get("icons") {
+            AppConf::read_icon_table(vec)
+        } else {
+            AppConf::default_icons()
+        }
+    }
+
+    fn mute_icon(toml: &Map<String, Value>) -> String {
+        let inner = if let Some(v) = toml.get("volume") {
+            v
+        } else {
+            return "".into();
+        };
+
+        inner
+            .get("mute_icon")
+            .unwrap_or(&Value::String("".into()))
+            .as_str()
+            .unwrap_or("")
+            .to_string()
+    }
+
     pub fn from_toml(toml: &Map<String, Value>) -> Self {
         AppConf {
             general: AppConfGeneral {
@@ -108,6 +199,8 @@ impl AppConf {
                 window: AppConf::vol_window(toml),
                 max_vol: AppConf::max_vol(toml),
                 run_cmd: AppConf::run_cmd(toml),
+                icons: AppConf::icons(toml),
+                mute_icon: AppConf::mute_icon(toml),
             },
         }
     }
