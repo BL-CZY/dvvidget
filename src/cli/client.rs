@@ -87,7 +87,8 @@ pub async fn send_evt_async(evt: DaemonCmd) -> Result<(), ClientErr> {
     match response {
         DaemonRes::Failure(e) => println!("Failed: {}", e),
         DaemonRes::Success => println!("Success"),
-        DaemonRes::VolGet(val) => println!("{}", val),
+        DaemonRes::GetVol(val) => println!("{}", val),
+        DaemonRes::GetMute(val) => println!("{}", val),
     }
 
     Ok(())

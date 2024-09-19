@@ -64,6 +64,7 @@ fn murph(
     window: &Window,
 ) {
     let context_ref = &mut context.borrow_mut();
+    let is_mute = context_ref.vol.is_muted;
     // shadowing target to adjust it to an appropriate value
     let target = context_ref.set_virtual_volume(target);
     let task_map = &mut context_ref.vol.vol_tasks;
@@ -73,7 +74,7 @@ fn murph(
     }
 
     set_volume(&config.vol.run_cmd, target);
-    update_display_info(config.clone(), window, target, false);
+    update_display_info(config.clone(), window, target, is_mute);
 
     let handle = tokio::spawn(async move {
         for _ in 0..50 {
@@ -126,6 +127,26 @@ fn set_rough(val: f64, window: &Window) {
     println!("Vol: Couldn't find the scale, ignoring...");
 }
 
+fn handle_set_mute(
+    context: Rc<RefCell<AppContext>>,
+    config: Arc<AppConf>,
+    val: bool,
+    window: &Window,
+) {
+    let child = if let Some(w) = window.child() {
+        w
+    } else {
+        return;
+    };
+
+    if let Some(label) = child.first_child().and_downcast_ref::<Label>() {
+        context.borrow_mut().vol.is_muted = val;
+        set_mute(&config.vol.run_cmd, val);
+        let vol = get_volume(&config.vol.run_cmd).0;
+        set_icon(config, label, vol, val);
+    }
+}
+
 pub fn handle_vol_cmd(
     cmd: Vol,
     window: &Window,
@@ -135,8 +156,16 @@ pub fn handle_vol_cmd(
     config: Arc<AppConf>,
 ) -> Result<DaemonRes, DaemonErr> {
     match cmd {
-        // TODO Implement this
-        Vol::Mute => {}
+        Vol::SetMute(val) => {
+            handle_set_mute(context, config, val, window);
+        }
+        Vol::ToggleMute => {
+            let mute = !context.borrow_mut().vol.is_muted;
+            handle_set_mute(context, config, mute, window);
+        }
+        Vol::GetMute => {
+            return Ok(DaemonRes::GetMute(context.borrow_mut().vol.is_muted));
+        }
         Vol::SetRough(val) => {
             set_rough(val, window);
         }
@@ -146,9 +175,7 @@ pub fn handle_vol_cmd(
             murph(sender, current, context, target, config, window);
         }
         Vol::Get => {
-            return Ok(DaemonRes::VolGet(
-                window.child().and_downcast_ref::<Scale>().unwrap().value(),
-            ));
+            return Ok(DaemonRes::GetVol(context.borrow_mut().vol.cur_vol));
         }
         Vol::Inc(val) => {
             let current = context.borrow_mut().vol.cur_vol;
@@ -209,7 +236,6 @@ fn get_volume(cmd: &VolCmdProvider) -> (f64, bool) {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let volume_str = stdout.split_whitespace().nth(1).unwrap_or_default();
             let mute_str = stdout.split_whitespace().nth(2).unwrap_or_default();
-
             (
                 volume_str.parse::<f64>().unwrap_or_default() * 100f64,
                 mute_str == "[MUTED]",
@@ -229,8 +255,25 @@ fn set_volume(cmd: &VolCmdProvider, val: f64) {
                 .arg(format!("{}%", val))
                 .output()
             {
-                println!("Failed to set volume: {}", e);
+                println!("Vol: Failed to set volume: {}", e);
             };
+        }
+
+        VolCmdProvider::NoCmd => {}
+    }
+}
+
+fn set_mute(cmd: &VolCmdProvider, val: bool) {
+    match cmd {
+        VolCmdProvider::Wpctl => {
+            if let Err(e) = std::process::Command::new("wpctl")
+                .arg("set-mute")
+                .arg("@DEFAULT_AUDIO_SINK@")
+                .arg(format!("{}", val as i32))
+                .output()
+            {
+                println!("Vol: Failed to set mute: {}", e);
+            }
         }
 
         VolCmdProvider::NoCmd => {}

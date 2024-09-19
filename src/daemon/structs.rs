@@ -10,7 +10,9 @@ pub enum DaemonCmd {
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum Vol {
     Get,
-    Mute,
+    SetMute(bool),
+    ToggleMute,
+    GetMute,
     SetRough(f64),
     Set(f64),
     Dec(f64),
@@ -28,7 +30,8 @@ pub struct DaemonEvt {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum DaemonRes {
-    VolGet(f64),
+    GetVol(f64),
+    GetMute(bool),
     Success,
     Failure(String),
 }

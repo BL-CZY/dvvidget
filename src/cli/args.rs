@@ -33,6 +33,10 @@ pub enum DaemonSubCmd {
 
 #[derive(Subcommand)]
 pub enum VolCmd {
+    #[clap(about = "toggle/set mute")]
+    SetMute { value: Option<bool> },
+    #[clap(about = "get mute status")]
+    GetMute,
     #[clap(about = "Set the volume")]
     SetRough { value: u32 },
     #[clap(about = "Set the volume with murph effect")]

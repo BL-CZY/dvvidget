@@ -33,6 +33,11 @@ fn main() {
 
         args::Command::Volume { actions } => {
             let evt = match actions {
+                args::VolCmd::SetMute { value } => match value {
+                    Some(val) => DaemonCmd::Vol(Vol::SetMute(val)),
+                    None => DaemonCmd::Vol(Vol::ToggleMute),
+                },
+                args::VolCmd::GetMute => DaemonCmd::Vol(Vol::GetMute),
                 args::VolCmd::Get => DaemonCmd::Vol(Vol::Get),
                 args::VolCmd::SetRough { value } => DaemonCmd::Vol(Vol::SetRough(value as f64)),
                 args::VolCmd::Set { value } => DaemonCmd::Vol(Vol::Set(value as f64)),
