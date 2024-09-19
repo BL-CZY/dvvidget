@@ -130,7 +130,7 @@ impl AppConf {
         ]
     }
 
-    fn read_icon_table(vec: &Vec<Value>) -> Vec<IconDescriptor> {
+    fn read_icon_table(vec: &[Value]) -> Vec<IconDescriptor> {
         let mut result = vec![];
         for val in vec.iter() {
             if let Value::Table(tbl) = val {

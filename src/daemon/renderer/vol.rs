@@ -44,7 +44,7 @@ fn update_display_info(config: Arc<AppConf>, window: &Window, val: f64, is_muted
 
     if let Some(widget) = child.first_child() {
         if let Some(label) = widget.downcast_ref::<Label>() {
-            set_icon(config.clone(), &label, val, is_muted);
+            set_icon(config.clone(), label, val, is_muted);
         }
     }
 

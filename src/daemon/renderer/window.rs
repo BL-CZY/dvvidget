@@ -4,7 +4,12 @@ use toml::map::Map;
 use toml::value::Value;
 
 use gtk4::prelude::*;
-use x11rb::protocol::xproto::ConnectionExt;
+use x11rb::connection::Connection;
+use x11rb::errors::ReplyError;
+use x11rb::protocol::xproto::{
+    AtomEnum, ChangeWindowAttributesAux, ConnectionExt, PropMode, StackMode,
+};
+use x11rb::rust_connection::RustConnection;
 
 use crate::utils::DisplayBackend;
 
@@ -168,6 +173,36 @@ fn wayland_window(app: &Application, descriptor: WindowDescriptor) -> Applicatio
     window
 }
 
+fn set_window_layer(xid: u64, conn: &RustConnection) -> Result<(), ReplyError> {
+    let state_atom = conn.intern_atom(false, b"_NET_WM_STATE")?.reply()?.atom;
+    let layer_atom = conn
+        .intern_atom(false, b"_NET_WM_STATE_BELOW")?
+        .reply()?
+        .atom;
+    let attribute = ChangeWindowAttributesAux::new().override_redirect(1);
+
+    conn.change_window_attributes(xid as u32, &attribute)?;
+
+    conn.change_property(
+        PropMode::REPLACE,
+        xid as u32,
+        state_atom,
+        AtomEnum::ATOM,
+        32,
+        1,
+        &layer_atom.to_ne_bytes(),
+    )?;
+
+    conn.configure_window(
+        xid as u32,
+        &x11rb::protocol::xproto::ConfigureWindowAux::new().stack_mode(StackMode::BELOW),
+    )?;
+
+    conn.flush()?;
+
+    Ok(())
+}
+
 fn x11_window(app: &Application, _descriptor: WindowDescriptor) -> ApplicationWindow {
     let window = gtk4::ApplicationWindow::new(app);
     window.present();
@@ -181,7 +216,10 @@ fn x11_window(app: &Application, _descriptor: WindowDescriptor) -> ApplicationWi
         .xid();
 
     let (conn, _) = x11rb::connect(None).unwrap();
-    println!("{}", xid);
+    if let Err(e) = set_window_layer(xid, &conn) {
+        println!("Failed to create window: {}", e);
+    }
+    println!("Create window, id: {}", xid);
 
     window
 }

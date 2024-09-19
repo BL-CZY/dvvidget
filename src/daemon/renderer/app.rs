@@ -20,9 +20,9 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
 
 use super::config::AppConf;
-use super::popup::create_sound_osd;
-use super::popup::handle_vol_cmd;
-use super::popup::VolContext;
+use super::vol::create_sound_osd;
+use super::vol::handle_vol_cmd;
+use super::vol::VolContext;
 
 #[repr(C)]
 #[derive(PartialEq, Eq, Hash)]
@@ -37,7 +37,7 @@ pub struct AppContext {
 impl AppContext {
     pub fn from_config(config: &Arc<AppConf>) -> Self {
         AppContext {
-            vol: VolContext::from_config(&config),
+            vol: VolContext::from_config(config),
         }
     }
 
