@@ -25,6 +25,7 @@ pub struct WindowDescriptor {
     pub exclusive: bool,
 
     pub visible_on_start: bool,
+    pub namespace: String,
 }
 
 pub fn string_to_layer(str: &str) -> Layer {
@@ -55,6 +56,7 @@ impl Default for WindowDescriptor {
             exclusive: false,
 
             visible_on_start: true,
+            namespace: "dvvidget".into(),
         }
     }
 }
@@ -64,6 +66,7 @@ impl WindowDescriptor {
         let mut result = WindowDescriptor {
             anchor_bottom: true,
             margin_bottom: 130,
+            namespace: "dvvidget-vol".into(),
             ..Default::default()
         };
 
@@ -159,6 +162,8 @@ fn wayland_window(app: &Application, descriptor: WindowDescriptor) -> Applicatio
     for (anchor, state) in anchors {
         window.set_anchor(anchor, state);
     }
+
+    window.set_namespace(&descriptor.namespace);
 
     window
 }
