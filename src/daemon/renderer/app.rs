@@ -17,8 +17,10 @@ use gtk4::CssProvider;
 use lazy_static::lazy_static;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
-use tokio::task::JoinHandle;
 
+use super::bri::create_bri_osd;
+use super::bri::handle_bri_cmd;
+use super::bri::BriContext;
 use super::config::AppConf;
 use super::vol::create_sound_osd;
 use super::vol::handle_vol_cmd;
@@ -28,16 +30,19 @@ use super::vol::VolContext;
 #[derive(PartialEq, Eq, Hash)]
 pub enum Widget {
     Volume = 0,
+    Brightness = 1,
 }
 
 pub struct AppContext {
     pub vol: VolContext,
+    pub bri: BriContext,
 }
 
 impl AppContext {
     pub fn from_config(config: &Arc<AppConf>) -> Self {
         AppContext {
             vol: VolContext::from_config(config),
+            bri: BriContext::from_config(config),
         }
     }
 
@@ -51,6 +56,18 @@ impl AppContext {
         }
 
         self.vol.cur_vol
+    }
+
+    pub fn set_virtual_brightness(&mut self, val: f64) -> f64 {
+        if val > 100f64 {
+            self.bri.cur_bri = 100f64;
+        } else if val < 0f64 {
+            self.bri.cur_bri = 0f64;
+        } else {
+            self.bri.cur_bri = val;
+        }
+
+        self.bri.cur_bri
     }
 }
 
@@ -72,7 +89,6 @@ fn process_evt(
     app: Rc<Application>,
     sender: UnboundedSender<DaemonEvt>,
     config: Arc<AppConf>,
-    vol_tasks: Rc<RefCell<HashMap<VolTaskType, JoinHandle<()>>>>,
     app_context: Rc<RefCell<AppContext>>,
 ) -> Result<DaemonRes, DaemonErr> {
     match evt {
@@ -92,7 +108,24 @@ fn process_evt(
                     .unwrap(),
                 sender,
                 app_context,
-                vol_tasks,
+                config,
+            )?;
+
+            return Ok(result);
+        }
+
+        DaemonCmd::Bri(evt) => {
+            let guard = match IDS.lock() {
+                Ok(g) => g,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+
+            let result = handle_bri_cmd(
+                evt,
+                &app.window_by_id(*guard.get(&Widget::Brightness).unwrap())
+                    .unwrap(),
+                sender,
+                app_context,
                 config,
             )?;
 
@@ -114,7 +147,7 @@ fn send_res(sender: Option<UnboundedSender<DaemonRes>>, res: DaemonRes) {
 }
 
 #[derive(Hash, PartialEq, Eq)]
-pub enum VolTaskType {
+pub enum VolBriTaskType {
     AwaitClose,
     MurphValue,
 }
@@ -125,21 +158,19 @@ pub fn init_gtk_async(
     app: Rc<Application>,
     config: Arc<AppConf>,
 ) -> Result<(), DaemonErr> {
-    let vol_tasks: Rc<RefCell<HashMap<VolTaskType, JoinHandle<()>>>> =
-        Rc::new(RefCell::new(HashMap::new()));
-
     let context = Rc::new(RefCell::new(AppContext::from_config(&config)));
 
     glib::MainContext::default().spawn_local(async move {
         loop {
             tokio::select! {
                 Ok(()) = crate::utils::receive_exit() => {
+                    println!("Shutting down the GUI...");
                     app.quit();
                     break;
                 }
 
                 Some(evt) = evt_receiver.recv() => {
-                    match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), vol_tasks.clone(), context.clone()) {
+                    match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), context.clone()) {
                         Err(e) => send_res(evt.sender, DaemonRes::Failure(format!("{:?}", e))),
                         Ok(res) => send_res(evt.sender, res),
                     }
@@ -159,7 +190,8 @@ fn activate(backend: DisplayBackend, app: &gtk4::Application, config: Arc<AppCon
         &css,
         gtk4::STYLE_PROVIDER_PRIORITY_SETTINGS,
     );
-    create_sound_osd(backend, app, config);
+    create_sound_osd(backend, app, config.clone());
+    create_bri_osd(backend, app, config.clone());
 }
 
 pub fn start_app(

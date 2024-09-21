@@ -5,6 +5,7 @@ use tokio::sync::mpsc::UnboundedSender;
 pub enum DaemonCmd {
     ShutDown,
     Vol(Vol),
+    Bri(Bri),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
@@ -13,6 +14,18 @@ pub enum Vol {
     SetMute(bool),
     ToggleMute,
     GetMute,
+    SetRough(f64),
+    Set(f64),
+    Dec(f64),
+    Inc(f64),
+    Close,
+    Open,
+    OpenTimed(f64),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+pub enum Bri {
+    Get,
     SetRough(f64),
     Set(f64),
     Dec(f64),
@@ -32,6 +45,7 @@ pub struct DaemonEvt {
 pub enum DaemonRes {
     GetVol(f64),
     GetMute(bool),
+    GetBri(f64),
     Success,
     Failure(String),
 }

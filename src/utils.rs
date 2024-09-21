@@ -1,6 +1,7 @@
-use std::{fs, time::Duration};
+use std::time::Duration;
 
 use crate::daemon::structs::{DaemonCmd, DaemonEvt, DaemonRes};
+use gtk4::Image;
 use once_cell::sync::Lazy;
 use tokio::sync::broadcast;
 
@@ -46,24 +47,14 @@ pub async fn receive_exit() -> Result<(), ()> {
 
 pub fn shutdown(msg: &str) -> ! {
     println!("{}", msg);
-
-    if let Err(e) = send_exit() {
+    send_exit().unwrap_or_else(|e| {
         println!("Failed to shutdown: {}, force exiting", e);
-        // remove the socket
-        if let Err(e) = fs::remove_file(crate::daemon::server::default_socket_path()) {
-            println!(
-                "No remaining socket file found at the default location {}: {}",
-                crate::daemon::server::default_socket_path(),
-                e
-            );
-        }
-
         std::process::exit(1);
-    } else {
-        loop {
-            std::thread::sleep(Duration::from_secs(1));
-        }
-    }
+    });
+
+    std::thread::sleep(Duration::from_secs(3));
+    println!("Timeout, force exiting");
+    std::process::exit(0);
 }
 
 #[derive(Debug)]
@@ -87,14 +78,11 @@ pub enum ClientErr {
     WriteErr(String),
 }
 
-pub fn vol_round_down(val: f64) -> f64 {
+pub fn round_down(val: f64) -> f64 {
     val - val % 5.0
 }
 
-pub fn vol_round_up(val: f64) -> f64 {
-    if val % 5.0 == 0.0 {
-        val
-    } else {
-        val + (5.0 - val % 5.0)
-    }
+pub fn set_svg(pic: &Image, path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pic.set_from_file(Some(path));
+    Ok(())
 }

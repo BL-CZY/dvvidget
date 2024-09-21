@@ -67,7 +67,7 @@ impl Default for WindowDescriptor {
 }
 
 impl WindowDescriptor {
-    pub fn vol_from_toml(toml: &Map<String, Value>) -> WindowDescriptor {
+    pub fn from_toml(toml: &Map<String, Value>, key: &str) -> WindowDescriptor {
         let mut result = WindowDescriptor {
             anchor_bottom: true,
             margin_bottom: 130,
@@ -75,7 +75,7 @@ impl WindowDescriptor {
             ..Default::default()
         };
 
-        let inner = if let Some(outer) = toml.get("volume") {
+        let inner = if let Some(outer) = toml.get(key) {
             if let Some(val) = outer.get("window") {
                 val
             } else {

@@ -4,11 +4,13 @@ use super::window::WindowDescriptor;
 
 pub const DEFAULT_CSS_PATH: &str = "/usr/share/dvvidget/style.css";
 pub const DEFAULT_VOL_CMD: VolCmdProvider = VolCmdProvider::Wpctl;
+pub const DEFAULT_BRI_CMD: BriCmdProvider = BriCmdProvider::Builtin;
 
 #[derive(Clone)]
 pub struct AppConf {
     pub general: AppConfGeneral,
     pub vol: AppConfVol,
+    pub bri: AppConfBri,
 }
 
 #[derive(Clone)]
@@ -42,8 +44,23 @@ pub struct AppConfVol {
     pub window: WindowDescriptor,
     pub max_vol: f64,
     pub run_cmd: VolCmdProvider,
+    pub use_svg: bool,
     pub icons: Vec<IconDescriptor>,
     pub mute_icon: String,
+}
+
+#[derive(Clone)]
+pub enum BriCmdProvider {
+    Builtin,
+    NoCmd,
+}
+
+#[derive(Clone)]
+pub struct AppConfBri {
+    pub window: WindowDescriptor,
+    pub run_cmd: BriCmdProvider,
+    pub use_svg: bool,
+    pub icons: Vec<IconDescriptor>,
 }
 
 impl Default for AppConf {
@@ -60,6 +77,7 @@ impl Default for AppConf {
                 },
                 max_vol: 100f64,
                 run_cmd: DEFAULT_VOL_CMD,
+                use_svg: false,
                 icons: vec![
                     IconDescriptor::from_val(0f64, 19f64, " "),
                     IconDescriptor::from_val(20f64, 59f64, " "),
@@ -67,140 +85,215 @@ impl Default for AppConf {
                 ],
                 mute_icon: " ".to_string(),
             },
+            bri: AppConfBri {
+                window: WindowDescriptor {
+                    anchor_bottom: true,
+                    margin_bottom: 130,
+                    ..Default::default()
+                },
+                use_svg: false,
+                run_cmd: DEFAULT_BRI_CMD,
+                icons: default_bri_icons(),
+            },
         }
     }
 }
 
+fn css_path(toml: &Map<String, Value>) -> String {
+    let default = Value::String(DEFAULT_CSS_PATH.to_string());
+    let result = toml
+        .get("general")
+        .unwrap_or(&default)
+        .get("css_path")
+        .unwrap_or(&default);
+
+    match result {
+        Value::String(val) => val.to_string(),
+        _ => DEFAULT_CSS_PATH.to_string(),
+    }
+}
+
+fn max_vol(toml: &Map<String, Value>) -> f64 {
+    let inner = if let Some(v) = toml.get("volume") {
+        v
+    } else {
+        return 100f64;
+    };
+
+    if let Some(Value::Integer(v)) = inner.get("max_vol") {
+        *v as f64
+    } else {
+        100f64
+    }
+}
+
+fn vol_run_cmd(toml: &Map<String, Value>) -> VolCmdProvider {
+    let inner = if let Some(v) = toml.get("volume") {
+        v
+    } else {
+        return VolCmdProvider::Wpctl;
+    };
+
+    if let Some(Value::String(val)) = inner.get("run_cmd") {
+        match val.as_str() {
+            "Wpctl" | "wpctl" => DEFAULT_VOL_CMD,
+            "none" | "None" => VolCmdProvider::NoCmd,
+            _ => DEFAULT_VOL_CMD,
+        }
+    } else {
+        DEFAULT_VOL_CMD
+    }
+}
+
+fn bri_run_cmd(toml: &Map<String, Value>) -> BriCmdProvider {
+    let inner = if let Some(v) = toml.get("brightness") {
+        v
+    } else {
+        return DEFAULT_BRI_CMD;
+    };
+
+    if let Some(Value::String(val)) = inner.get("run_cmd") {
+        match val.as_str() {
+            "Builtin" | "builtin" => BriCmdProvider::Builtin,
+            "None" | "none" => BriCmdProvider::NoCmd,
+            _ => DEFAULT_BRI_CMD,
+        }
+    } else {
+        DEFAULT_BRI_CMD
+    }
+}
+
+fn vol_window(toml: &Map<String, Value>) -> WindowDescriptor {
+    WindowDescriptor::from_toml(toml, "volume")
+}
+
+fn bri_window(toml: &Map<String, Value>) -> WindowDescriptor {
+    WindowDescriptor::from_toml(toml, "brightness")
+}
+
+fn default_vol_icons() -> Vec<IconDescriptor> {
+    vec![
+        IconDescriptor::from_val(0f64, 19f64, " "),
+        IconDescriptor::from_val(20f64, 59f64, " "),
+        IconDescriptor::from_val(60f64, 100f64, " "),
+    ]
+}
+
+fn default_bri_icons() -> Vec<IconDescriptor> {
+    vec![
+        IconDescriptor::from_val(0f64, 19f64, "0"),
+        IconDescriptor::from_val(20f64, 59f64, "1"),
+        IconDescriptor::from_val(60f64, 100f64, "2"),
+    ]
+}
+
+fn read_icon_table(vec: &[Value]) -> Vec<IconDescriptor> {
+    let mut result = vec![];
+    for val in vec.iter() {
+        if let Value::Table(tbl) = val {
+            let lower: i64 = tbl
+                .get("lower")
+                .unwrap_or(&Value::Integer(0))
+                .as_integer()
+                .unwrap_or(0i64);
+
+            let upper: i64 = tbl
+                .get("upper")
+                .unwrap_or(&Value::Integer(0))
+                .as_integer()
+                .unwrap_or(0i64);
+
+            let icon: String = tbl
+                .get("icon")
+                .unwrap_or(&Value::String("".into()))
+                .as_str()
+                .unwrap_or("")
+                .to_string();
+            result.push(IconDescriptor {
+                range: (lower as f64, upper as f64),
+                icon,
+            });
+        }
+    }
+    result
+}
+
+fn vol_icons(toml: &Map<String, Value>) -> Vec<IconDescriptor> {
+    let inner = if let Some(v) = toml.get("volume") {
+        v
+    } else {
+        return default_vol_icons();
+    };
+
+    if let Some(Value::Array(vec)) = inner.get("icons") {
+        read_icon_table(vec)
+    } else {
+        default_vol_icons()
+    }
+}
+
+fn mute_icon(toml: &Map<String, Value>) -> String {
+    let inner = if let Some(v) = toml.get("volume") {
+        v
+    } else {
+        return "".into();
+    };
+
+    inner
+        .get("mute_icon")
+        .unwrap_or(&Value::String("".into()))
+        .as_str()
+        .unwrap_or("")
+        .to_string()
+}
+
+fn is_svg(toml: &Map<String, Value>, key: &str) -> bool {
+    let inner = if let Some(v) = toml.get(key) {
+        v
+    } else {
+        return false;
+    };
+
+    inner
+        .get("svg")
+        .unwrap_or(&Value::Boolean(false))
+        .as_bool()
+        .unwrap_or(false)
+}
+
+fn bri_icons(toml: &Map<String, Value>) -> Vec<IconDescriptor> {
+    let inner = if let Some(v) = toml.get("brightness") {
+        v
+    } else {
+        return default_vol_icons();
+    };
+
+    if let Some(Value::Array(vec)) = inner.get("icons") {
+        read_icon_table(vec)
+    } else {
+        default_vol_icons()
+    }
+}
+
 impl AppConf {
-    fn css_path(toml: &Map<String, Value>) -> String {
-        let default = Value::String(DEFAULT_CSS_PATH.to_string());
-        let result = toml
-            .get("general")
-            .unwrap_or(&default)
-            .get("css_path")
-            .unwrap_or(&default);
-
-        match result {
-            Value::String(val) => val.to_string(),
-            _ => DEFAULT_CSS_PATH.to_string(),
-        }
-    }
-
-    fn max_vol(toml: &Map<String, Value>) -> f64 {
-        let inner = if let Some(v) = toml.get("volume") {
-            v
-        } else {
-            return 100f64;
-        };
-
-        if let Some(Value::Integer(v)) = inner.get("max_vol") {
-            *v as f64
-        } else {
-            100f64
-        }
-    }
-
-    fn run_cmd(toml: &Map<String, Value>) -> VolCmdProvider {
-        let inner = if let Some(v) = toml.get("volume") {
-            v
-        } else {
-            return VolCmdProvider::Wpctl;
-        };
-
-        if let Some(Value::String(val)) = inner.get("run_cmd") {
-            match val.as_str() {
-                "Wpctl" | "wpctl" => DEFAULT_VOL_CMD,
-                "none" | "None" => VolCmdProvider::NoCmd,
-                _ => DEFAULT_VOL_CMD,
-            }
-        } else {
-            DEFAULT_VOL_CMD
-        }
-    }
-
-    fn vol_window(toml: &Map<String, Value>) -> WindowDescriptor {
-        WindowDescriptor::vol_from_toml(toml)
-    }
-
-    fn default_icons() -> Vec<IconDescriptor> {
-        vec![
-            IconDescriptor::from_val(0f64, 19f64, " "),
-            IconDescriptor::from_val(20f64, 59f64, " "),
-            IconDescriptor::from_val(60f64, 100f64, " "),
-        ]
-    }
-
-    fn read_icon_table(vec: &[Value]) -> Vec<IconDescriptor> {
-        let mut result = vec![];
-        for val in vec.iter() {
-            if let Value::Table(tbl) = val {
-                let lower: i64 = tbl
-                    .get("lower")
-                    .unwrap_or(&Value::Integer(0))
-                    .as_integer()
-                    .unwrap_or(0i64);
-
-                let upper: i64 = tbl
-                    .get("upper")
-                    .unwrap_or(&Value::Integer(0))
-                    .as_integer()
-                    .unwrap_or(0i64);
-
-                let icon: String = tbl
-                    .get("icon")
-                    .unwrap_or(&Value::String("".into()))
-                    .as_str()
-                    .unwrap_or("")
-                    .to_string();
-                result.push(IconDescriptor {
-                    range: (lower as f64, upper as f64),
-                    icon,
-                });
-            }
-        }
-        result
-    }
-
-    fn icons(toml: &Map<String, Value>) -> Vec<IconDescriptor> {
-        let inner = if let Some(v) = toml.get("volume") {
-            v
-        } else {
-            return AppConf::default_icons();
-        };
-
-        if let Some(Value::Array(vec)) = inner.get("icons") {
-            AppConf::read_icon_table(vec)
-        } else {
-            AppConf::default_icons()
-        }
-    }
-
-    fn mute_icon(toml: &Map<String, Value>) -> String {
-        let inner = if let Some(v) = toml.get("volume") {
-            v
-        } else {
-            return "".into();
-        };
-
-        inner
-            .get("mute_icon")
-            .unwrap_or(&Value::String("".into()))
-            .as_str()
-            .unwrap_or("")
-            .to_string()
-    }
-
     pub fn from_toml(toml: &Map<String, Value>) -> Self {
         AppConf {
             general: AppConfGeneral {
-                css_path: AppConf::css_path(toml),
+                css_path: css_path(toml),
             },
             vol: AppConfVol {
-                window: AppConf::vol_window(toml),
-                max_vol: AppConf::max_vol(toml),
-                run_cmd: AppConf::run_cmd(toml),
-                icons: AppConf::icons(toml),
-                mute_icon: AppConf::mute_icon(toml),
+                window: vol_window(toml),
+                max_vol: max_vol(toml),
+                run_cmd: vol_run_cmd(toml),
+                use_svg: is_svg(toml, "volume"),
+                icons: vol_icons(toml),
+                mute_icon: mute_icon(toml),
+            },
+            bri: AppConfBri {
+                window: bri_window(toml),
+                run_cmd: bri_run_cmd(toml),
+                use_svg: is_svg(toml, "brightness"),
+                icons: bri_icons(toml),
             },
         }
     }

@@ -89,6 +89,7 @@ pub async fn send_evt_async(evt: DaemonCmd) -> Result<(), ClientErr> {
         DaemonRes::Success => println!("Success"),
         DaemonRes::GetVol(val) => println!("{}", val),
         DaemonRes::GetMute(val) => println!("{}", val),
+        DaemonRes::GetBri(val) => println!("{}", val),
     }
 
     Ok(())

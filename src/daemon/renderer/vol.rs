@@ -8,10 +8,12 @@ use crate::daemon::structs::{DaemonEvt, DaemonRes, Vol};
 use crate::utils::{self, DisplayBackend};
 use crate::{daemon::structs::DaemonCmd, utils::DaemonErr};
 
-use super::app::{AppContext, VolTaskType};
+use super::app::{AppContext, VolBriTaskType};
 use super::config::{AppConf, VolCmdProvider};
 use super::{app::register_widget, window};
-use gtk4::{prelude::*, Adjustment, Application, ApplicationWindow, Box, Label, Scale, Window};
+use gtk4::{
+    prelude::*, Adjustment, Application, ApplicationWindow, Box, Image, Label, Scale, Window,
+};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
 
@@ -19,7 +21,7 @@ pub struct VolContext {
     pub cur_vol: f64,
     pub max_vol: f64,
     pub is_muted: bool,
-    pub vol_tasks: HashMap<VolTaskType, JoinHandle<()>>,
+    pub vol_tasks: HashMap<VolBriTaskType, JoinHandle<()>>,
 }
 
 impl VolContext {
@@ -44,7 +46,9 @@ fn update_display_info(config: Arc<AppConf>, window: &Window, val: f64, is_muted
 
     if let Some(widget) = child.first_child() {
         if let Some(label) = widget.downcast_ref::<Label>() {
-            set_icon(config.clone(), label, val, is_muted);
+            set_icon(config.clone(), IconRefHolder::Text(label), val, is_muted);
+        } else if let Some(pic) = widget.downcast_ref::<Image>() {
+            set_icon(config.clone(), IconRefHolder::Svg(pic), val, is_muted);
         }
     }
 
@@ -68,9 +72,9 @@ fn murph(
     // shadowing target to adjust it to an appropriate value
     let target = context_ref.set_virtual_volume(target);
     let task_map = &mut context_ref.vol.vol_tasks;
-    if let Some(handle) = task_map.get(&VolTaskType::MurphValue) {
+    if let Some(handle) = task_map.get(&VolBriTaskType::MurphValue) {
         handle.abort();
-        task_map.remove(&VolTaskType::MurphValue);
+        task_map.remove(&VolBriTaskType::MurphValue);
     }
 
     set_volume(&config.vol.run_cmd, target);
@@ -96,7 +100,7 @@ fn murph(
             .unwrap_or_else(|e| println!("Vol: failed to update: {}", e));
     });
 
-    task_map.insert(VolTaskType::MurphValue, handle);
+    task_map.insert(VolBriTaskType::MurphValue, handle);
 }
 
 fn set_rough(val: f64, window: &Window) {
@@ -143,7 +147,12 @@ fn handle_set_mute(
         context.borrow_mut().vol.is_muted = val;
         set_mute(&config.vol.run_cmd, val);
         let vol = get_volume(&config.vol.run_cmd).0;
-        set_icon(config, label, vol, val);
+        set_icon(config, IconRefHolder::Text(label), vol, val);
+    } else if let Some(pic) = child.first_child().and_downcast_ref::<Image>() {
+        context.borrow_mut().vol.is_muted = val;
+        set_mute(&config.vol.run_cmd, val);
+        let vol = get_volume(&config.vol.run_cmd).0;
+        set_icon(config, IconRefHolder::Svg(pic), vol, val);
     }
 }
 
@@ -152,7 +161,6 @@ pub fn handle_vol_cmd(
     window: &Window,
     sender: UnboundedSender<DaemonEvt>,
     context: Rc<RefCell<AppContext>>,
-    vol_tasks: Rc<RefCell<HashMap<VolTaskType, JoinHandle<()>>>>,
     config: Arc<AppConf>,
 ) -> Result<DaemonRes, DaemonErr> {
     match cmd {
@@ -171,7 +179,7 @@ pub fn handle_vol_cmd(
         }
         Vol::Set(val) => {
             let current = context.borrow_mut().vol.cur_vol;
-            let target = utils::vol_round_down(val);
+            let target = utils::round_down(val);
             murph(sender, current, context, target, config, window);
         }
         Vol::Get => {
@@ -179,12 +187,12 @@ pub fn handle_vol_cmd(
         }
         Vol::Inc(val) => {
             let current = context.borrow_mut().vol.cur_vol;
-            let target = utils::vol_round_up(current + val);
+            let target = utils::round_down(current + val);
             murph(sender, current, context, target, config, window);
         }
         Vol::Dec(val) => {
             let current = context.borrow_mut().vol.cur_vol;
-            let target = utils::vol_round_down(current - val);
+            let target = utils::round_down(current - val);
             murph(sender, current, context, target, config, window);
         }
         Vol::Close => {
@@ -195,10 +203,10 @@ pub fn handle_vol_cmd(
         }
         Vol::OpenTimed(time) => {
             window.show();
-            let mut map_ref = vol_tasks.borrow_mut();
-            if let Some(handle) = map_ref.get(&VolTaskType::AwaitClose) {
+            let map_ref = &mut context.borrow_mut().vol.vol_tasks;
+            if let Some(handle) = map_ref.get(&VolBriTaskType::AwaitClose) {
                 handle.abort();
-                map_ref.remove(&VolTaskType::AwaitClose);
+                map_ref.remove(&VolBriTaskType::AwaitClose);
             }
 
             let handle = tokio::spawn(async move {
@@ -212,7 +220,7 @@ pub fn handle_vol_cmd(
                 }
             });
 
-            map_ref.insert(VolTaskType::AwaitClose, handle);
+            map_ref.insert(VolBriTaskType::AwaitClose, handle);
         }
     }
 
@@ -280,17 +288,37 @@ fn set_mute(cmd: &VolCmdProvider, val: bool) {
     }
 }
 
-fn set_icon(config: Arc<AppConf>, label: &Label, cur_vol: f64, is_muted: bool) {
+fn set_icon(config: Arc<AppConf>, icon: IconRefHolder, cur_vol: f64, is_muted: bool) {
     if is_muted {
-        label.set_text(&config.vol.mute_icon);
+        match icon {
+            IconRefHolder::Text(label) => label.set_text(&config.vol.mute_icon),
+            IconRefHolder::Svg(pic) => {
+                if let Err(e) = utils::set_svg(pic, &config.vol.mute_icon) {
+                    println!("Vol: Failed to set icon for mute due to SVG error: {}", e);
+                }
+            }
+        }
         return;
     }
 
     for icon_descriptor in config.vol.icons.iter() {
         if cur_vol >= icon_descriptor.range.0 && cur_vol < icon_descriptor.range.1 {
-            label.set_text(&icon_descriptor.icon);
+            match icon {
+                IconRefHolder::Text(label) => label.set_text(&icon_descriptor.icon),
+                IconRefHolder::Svg(pic) => {
+                    if let Err(e) = utils::set_svg(pic, &icon_descriptor.icon) {
+                        println!("Vol: Failed to set regular icon due to SVG error: {}", e);
+                    }
+                }
+            }
+            return;
         }
     }
+}
+
+enum IconRefHolder<'a> {
+    Svg(&'a Image),
+    Text(&'a Label),
 }
 
 pub fn create_sound_osd(
@@ -311,14 +339,36 @@ pub fn create_sound_osd(
     wrapper.set_halign(gtk4::Align::Center);
     wrapper.add_css_class("sound-box");
 
-    let icon = Label::new(Some(""));
-    icon.add_css_class("sound-icon");
-    set_icon(config.clone(), &icon, cur_vol, is_muted);
+    let text_icon = Label::new(Some(""));
+    text_icon.add_css_class("sound-icon");
+
+    let svg_icon = Image::new();
+    svg_icon.add_css_class("sound-icon");
+
+    if config.vol.use_svg {
+        set_icon(
+            config.clone(),
+            IconRefHolder::Svg(&svg_icon),
+            cur_vol,
+            is_muted,
+        );
+    } else {
+        set_icon(
+            config.clone(),
+            IconRefHolder::Text(&text_icon),
+            cur_vol,
+            is_muted,
+        );
+    }
 
     let label = Label::new(Some(&(cur_vol as i64).to_string()));
     label.add_css_class("sound-label");
 
-    wrapper.append(&icon);
+    if config.vol.use_svg {
+        wrapper.append(&svg_icon);
+    } else {
+        wrapper.append(&text_icon);
+    }
 
     let scale = Scale::new(gtk4::Orientation::Horizontal, Some(&adjustment));
     scale.set_width_request(100);
