@@ -2,29 +2,37 @@
     all: unset;
 }
 
-.sound {
+.sound-window, .bri-window {
     background-color: transparent;
 }
 
-.sound_scale {
+.sound-box, .bri-box {
     background-color: #303446;
     border: 2px solid #8caaee;
-    padding-left: 15px;
-    padding-right: 15px;
-    padding-top: 10px;
-    padding-bottom: 10px;
-    border-radius: 5px;
-    min-width: 200px;
+    border-radius: 20px;
+    padding: 10px 15px 10px 15px;
+}
+
+.sound-label, .bri-label {
+    min-width: 25px;
+}
+
+.sound-icon, .bri-icon {
+    min-width: 25px;
+}
+
+.sound-scale, .bri-scale {
+    min-width: 150px;
     min-height: 30px;
 }
 
-.sound_scale trough {
-    min-height: 15px;
+.sound-scale trough, .bri-scale trough {
+    min-height: 7px;
     border-radius: 10px;
     background-color: #737994;
 }
 
-.sound_scale trough highlight {
+.sound-scale trough highlight, .bri-scale trough highlight {
     background-color: #8caaee;
     border-radius: 10px;
 }

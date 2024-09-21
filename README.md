@@ -7,7 +7,9 @@ Here is a list of compositors on which it works
 
 ### How to build
 You'll need ```gtk4-layer-shell``` as a dependency, 
-and simply running ```cargo build --release``` would do the job.
+and simply running ```./install.sh``` would do the job.
+
+In order to get the brightness module to work, please set up your backlight as stated in the [Arch Wiki](https://wiki.archlinux.org/title/Backlight)
 
 ### Usage
 Use ```-h/--help``` to print help <br />
@@ -35,3 +37,5 @@ margin_right = 0
 margin_top = 0
 margin_bottom = 130
 ```
+There is a style.css in src that has a sample css
+It uses gtk css
