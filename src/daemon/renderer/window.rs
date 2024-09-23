@@ -7,7 +7,7 @@ use gtk4::prelude::*;
 use x11rb::connection::Connection;
 use x11rb::errors::ReplyError;
 use x11rb::protocol::xproto::{
-    AtomEnum, ChangeWindowAttributesAux, ConnectionExt, PropMode, StackMode,
+    AtomEnum, ChangeWindowAttributesAux, ConfigureWindowAux, ConnectionExt, PropMode, StackMode,
 };
 use x11rb::rust_connection::RustConnection;
 
@@ -193,10 +193,8 @@ fn set_window_layer(xid: u64, conn: &RustConnection) -> Result<(), ReplyError> {
         &layer_atom.to_ne_bytes(),
     )?;
 
-    conn.configure_window(
-        xid as u32,
-        &x11rb::protocol::xproto::ConfigureWindowAux::new().stack_mode(StackMode::BELOW),
-    )?;
+    let values = ConfigureWindowAux::default().stack_mode(StackMode::BELOW);
+    conn.configure_window(xid as u32, &values)?;
 
     conn.flush()?;
 
