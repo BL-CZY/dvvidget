@@ -241,9 +241,7 @@ pub fn create_bri_osd(
     app: &Application,
     config: Arc<AppConf>,
 ) -> ApplicationWindow {
-    let descriptor = config.bri.window.clone();
-
-    let result = window::create_window(backend, app, descriptor);
+    let result = window::create_window(&backend, app, &config.bri.window);
     result.add_css_class("bri-window");
 
     let cur_bri = get_bri(&config.bri.run_cmd);

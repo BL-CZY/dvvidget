@@ -22,6 +22,7 @@ use super::bri::create_bri_osd;
 use super::bri::handle_bri_cmd;
 use super::bri::BriContext;
 use super::config::AppConf;
+use super::dvoty::create_dvoty;
 use super::vol::create_sound_osd;
 use super::vol::handle_vol_cmd;
 use super::vol::VolContext;
@@ -31,6 +32,7 @@ use super::vol::VolContext;
 pub enum Widget {
     Volume = 0,
     Brightness = 1,
+    Dvoty = 2,
 }
 
 pub struct AppContext {
@@ -192,6 +194,7 @@ fn activate(backend: DisplayBackend, app: &gtk4::Application, config: Arc<AppCon
     );
     create_sound_osd(backend, app, config.clone());
     create_bri_osd(backend, app, config.clone());
+    create_dvoty(backend, app, config.clone());
 }
 
 pub fn start_app(

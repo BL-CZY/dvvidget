@@ -11,6 +11,7 @@ pub struct AppConf {
     pub general: AppConfGeneral,
     pub vol: AppConfVol,
     pub bri: AppConfBri,
+    pub dvoty: AppConfDvoty,
 }
 
 #[derive(Clone)]
@@ -63,6 +64,12 @@ pub struct AppConfBri {
     pub icons: Vec<IconDescriptor>,
 }
 
+#[derive(Clone)]
+pub struct AppConfDvoty {
+    pub window: WindowDescriptor,
+    pub max_row: u32,
+}
+
 impl Default for AppConf {
     fn default() -> Self {
         AppConf {
@@ -94,6 +101,10 @@ impl Default for AppConf {
                 use_svg: false,
                 run_cmd: DEFAULT_BRI_CMD,
                 icons: default_bri_icons(),
+            },
+            dvoty: AppConfDvoty {
+                window: WindowDescriptor::default(),
+                max_row: 10,
             },
         }
     }
@@ -164,11 +175,29 @@ fn bri_run_cmd(toml: &Map<String, Value>) -> BriCmdProvider {
 }
 
 fn vol_window(toml: &Map<String, Value>) -> WindowDescriptor {
-    WindowDescriptor::from_toml(toml, "volume")
+    WindowDescriptor::from_toml(
+        toml,
+        "volume",
+        WindowDescriptor {
+            anchor_bottom: true,
+            margin_bottom: 130,
+            namespace: "dvvidget-vol".into(),
+            ..Default::default()
+        },
+    )
 }
 
 fn bri_window(toml: &Map<String, Value>) -> WindowDescriptor {
-    WindowDescriptor::from_toml(toml, "brightness")
+    WindowDescriptor::from_toml(
+        toml,
+        "brightness",
+        WindowDescriptor {
+            anchor_bottom: true,
+            margin_bottom: 130,
+            namespace: "dvvidget-bri".into(),
+            ..Default::default()
+        },
+    )
 }
 
 fn default_vol_icons() -> Vec<IconDescriptor> {
@@ -275,6 +304,20 @@ fn bri_icons(toml: &Map<String, Value>) -> Vec<IconDescriptor> {
     }
 }
 
+fn max_row(toml: &Map<String, Value>) -> u32 {
+    let inner = if let Some(v) = toml.get("dvoty") {
+        v
+    } else {
+        return 10;
+    };
+
+    if let Some(Value::Integer(val)) = inner.get("max_row") {
+        *val as u32
+    } else {
+        10
+    }
+}
+
 impl AppConf {
     pub fn from_toml(toml: &Map<String, Value>) -> Self {
         AppConf {
@@ -294,6 +337,19 @@ impl AppConf {
                 run_cmd: bri_run_cmd(toml),
                 use_svg: is_svg(toml, "brightness"),
                 icons: bri_icons(toml),
+            },
+            dvoty: AppConfDvoty {
+                window: WindowDescriptor::from_toml(
+                    toml,
+                    "dvoty",
+                    WindowDescriptor {
+                        layer: gtk4_layer_shell::Layer::Top,
+                        namespace: "dvvidget-dvoty".into(),
+                        keyboard_mode: gtk4_layer_shell::KeyboardMode::OnDemand,
+                        ..Default::default()
+                    },
+                ),
+                max_row: max_row(toml),
             },
         }
     }

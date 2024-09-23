@@ -1,5 +1,5 @@
 use gtk4::{Application, ApplicationWindow};
-use gtk4_layer_shell::{Edge, Layer, LayerShell};
+use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use toml::map::Map;
 use toml::value::Value;
 
@@ -28,6 +28,7 @@ pub struct WindowDescriptor {
     pub anchor_bottom: bool,
 
     pub exclusive: bool,
+    pub keyboard_mode: KeyboardMode,
 
     pub visible_on_start: bool,
     pub namespace: String,
@@ -59,6 +60,7 @@ impl Default for WindowDescriptor {
             anchor_bottom: false,
 
             exclusive: false,
+            keyboard_mode: KeyboardMode::None,
 
             visible_on_start: true,
             namespace: "dvvidget".into(),
@@ -67,13 +69,12 @@ impl Default for WindowDescriptor {
 }
 
 impl WindowDescriptor {
-    pub fn from_toml(toml: &Map<String, Value>, key: &str) -> WindowDescriptor {
-        let mut result = WindowDescriptor {
-            anchor_bottom: true,
-            margin_bottom: 130,
-            namespace: "dvvidget-vol".into(),
-            ..Default::default()
-        };
+    pub fn from_toml(
+        toml: &Map<String, Value>,
+        key: &str,
+        default: WindowDescriptor,
+    ) -> WindowDescriptor {
+        let mut result = default;
 
         let inner = if let Some(outer) = toml.get(key) {
             if let Some(val) = outer.get("window") {
@@ -133,7 +134,7 @@ impl WindowDescriptor {
     }
 }
 
-fn wayland_window(app: &Application, descriptor: WindowDescriptor) -> ApplicationWindow {
+fn wayland_window(app: &Application, descriptor: &WindowDescriptor) -> ApplicationWindow {
     // Create a normal GTK window however you like
     let window = gtk4::ApplicationWindow::new(app);
 
@@ -142,6 +143,8 @@ fn wayland_window(app: &Application, descriptor: WindowDescriptor) -> Applicatio
 
     // Display above normal windows
     window.set_layer(descriptor.layer);
+
+    window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::OnDemand);
 
     // Push other windows out of the way
     if descriptor.exclusive {
@@ -201,7 +204,7 @@ fn set_window_layer(xid: u64, conn: &RustConnection) -> Result<(), ReplyError> {
     Ok(())
 }
 
-fn x11_window(app: &Application, _descriptor: WindowDescriptor) -> ApplicationWindow {
+fn x11_window(app: &Application, _descriptor: &WindowDescriptor) -> ApplicationWindow {
     let window = gtk4::ApplicationWindow::new(app);
     window.present();
     let xid = window
@@ -224,9 +227,9 @@ fn x11_window(app: &Application, _descriptor: WindowDescriptor) -> ApplicationWi
 
 // doesn't present the window
 pub fn create_window(
-    backend: DisplayBackend,
+    backend: &DisplayBackend,
     app: &Application,
-    descriptor: WindowDescriptor,
+    descriptor: &WindowDescriptor,
 ) -> ApplicationWindow {
     match backend {
         DisplayBackend::Wayland => wayland_window(app, descriptor),

@@ -326,9 +326,7 @@ pub fn create_sound_osd(
     app: &Application,
     config: Arc<AppConf>,
 ) -> ApplicationWindow {
-    let descriptor = config.vol.window.clone();
-
-    let result = window::create_window(backend, app, descriptor);
+    let result = window::create_window(&backend, app, &config.vol.window);
     result.add_css_class("sound-window");
 
     let (cur_vol, is_muted) = get_volume(&config.vol.run_cmd);
