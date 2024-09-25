@@ -343,7 +343,7 @@ impl AppConf {
                     toml,
                     "dvoty",
                     WindowDescriptor {
-                        layer: gtk4_layer_shell::Layer::Top,
+                        //layer: gtk4_layer_shell::Layer::Top,
                         namespace: "dvvidget-dvoty".into(),
                         keyboard_mode: gtk4_layer_shell::KeyboardMode::OnDemand,
                         ..Default::default()

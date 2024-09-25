@@ -1,6 +1,7 @@
 use gtk4::prelude::ApplicationWindowExt;
 use gtk4::prelude::EditableExt;
 use gtk4::prelude::{GtkWindowExt, WidgetExt};
+use gtk4::Label;
 use gtk4::{Application, ApplicationWindow, Entry, ListBox, ScrolledWindow};
 use std::sync::Arc;
 
@@ -20,15 +21,20 @@ pub fn create_dvoty(
     let list_box = ListBox::builder().css_classes(["dvoty-list"]).build();
     let input = Entry::builder().css_classes(["dvoty-entry"]).build();
 
+    for number in 0..=100 {
+        let label = Label::new(Some(&number.to_string()));
+        list_box.append(&label);
+    }
+
     input.connect_changed(|entry| {
         println!("{}", entry.text());
     });
 
     let list_wrapper = ScrolledWindow::builder()
         .hscrollbar_policy(gtk4::PolicyType::Never)
-        .min_content_width(config.dvoty.max_row as i32)
+        .min_content_height(config.dvoty.max_row as i32)
         .child(&list_box)
-        .css_classes(["dvoty-list-wrapper"])
+        .css_classes(["dvoty-scroll"])
         .build();
 
     let wrapper = ListBox::builder().css_classes(["dvoty-wrapper"]).build();
