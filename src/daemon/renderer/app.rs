@@ -23,6 +23,8 @@ use super::bri::handle_bri_cmd;
 use super::bri::BriContext;
 use super::config::AppConf;
 use super::dvoty::create_dvoty;
+use super::dvoty::handle_dvoty_cmd;
+use super::dvoty::DvotyContext;
 use super::vol::create_sound_osd;
 use super::vol::handle_vol_cmd;
 use super::vol::VolContext;
@@ -38,6 +40,7 @@ pub enum Widget {
 pub struct AppContext {
     pub vol: VolContext,
     pub bri: BriContext,
+    pub dvoty: DvotyContext,
 }
 
 impl AppContext {
@@ -45,6 +48,7 @@ impl AppContext {
         AppContext {
             vol: VolContext::from_config(config),
             bri: BriContext::from_config(config),
+            dvoty: DvotyContext::default(),
         }
     }
 
@@ -133,6 +137,24 @@ fn process_evt(
 
             return Ok(result);
         }
+
+        DaemonCmd::Dvoty(evt) => {
+            let guard = match IDS.lock() {
+                Ok(g) => g,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+
+            let result = handle_dvoty_cmd(
+                evt,
+                &app.window_by_id(*guard.get(&Widget::Dvoty).unwrap())
+                    .unwrap(),
+                sender,
+                app_context,
+                config,
+            )?;
+
+            return Ok(result);
+        }
     }
 
     Ok(DaemonRes::Success)
@@ -184,9 +206,14 @@ pub fn init_gtk_async(
     Ok(())
 }
 
-fn activate(backend: DisplayBackend, app: &gtk4::Application, config: Arc<AppConf>) {
+fn activate(
+    backend: DisplayBackend,
+    app: &gtk4::Application,
+    config: Arc<AppConf>,
+    sender: UnboundedSender<DaemonEvt>,
+) {
     let css = CssProvider::new();
-    css.load_from_data(&std::fs::read_to_string(&config.general.css_path).unwrap());
+    css.load_from_path(&config.general.css_path);
     gtk4::style_context_add_provider_for_display(
         &gdk::Display::default().expect("cant get display"),
         &css,
@@ -194,7 +221,7 @@ fn activate(backend: DisplayBackend, app: &gtk4::Application, config: Arc<AppCon
     );
     create_sound_osd(backend, app, config.clone());
     create_bri_osd(backend, app, config.clone());
-    create_dvoty(backend, app, config.clone());
+    create_dvoty(backend, app, config.clone(), sender.clone());
 }
 
 pub fn start_app(
@@ -210,11 +237,16 @@ pub fn start_app(
         ApplicationFlags::default(),
     ));
 
-    if let Err(e) = init_gtk_async(evt_receiver, evt_sender, app.clone(), config.clone()) {
+    if let Err(e) = init_gtk_async(
+        evt_receiver,
+        evt_sender.clone(),
+        app.clone(),
+        config.clone(),
+    ) {
         println!("Err handling command: {:?}", e);
     }
 
-    app.connect_activate(move |app| activate(backend, app, config.clone()));
+    app.connect_activate(move |app| activate(backend, app, config.clone(), evt_sender.clone()));
 
     app.run_with_args(&[""]);
 }

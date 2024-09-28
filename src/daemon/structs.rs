@@ -1,11 +1,12 @@
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum DaemonCmd {
     ShutDown,
     Vol(Vol),
     Bri(Bri),
+    Dvoty(Dvoty),
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
@@ -33,6 +34,11 @@ pub enum Bri {
     Close,
     Open,
     OpenTimed(f64),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum Dvoty {
+    Update(String),
 }
 
 #[derive(Debug, Clone)]

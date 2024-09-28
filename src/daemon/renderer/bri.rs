@@ -156,13 +156,13 @@ pub fn handle_bri_cmd(
             murph(sender, current, context, target, config, window);
         }
         Bri::Close => {
-            window.hide();
+            window.set_visible(false);
         }
         Bri::Open => {
-            window.show();
+            window.set_visible(true);
         }
         Bri::OpenTimed(time) => {
-            window.show();
+            window.set_visible(true);
             let map_ref = &mut context.borrow_mut().bri.bri_tasks;
             if let Some(handle) = map_ref.get(&VolBriTaskType::AwaitClose) {
                 handle.abort();
@@ -286,7 +286,7 @@ pub fn create_bri_osd(
     result.present();
 
     if !config.bri.window.visible_on_start {
-        result.hide();
+        result.set_visible(false);
     }
 
     result

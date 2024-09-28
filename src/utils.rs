@@ -67,6 +67,7 @@ pub enum DaemonErr {
     ShutdownFailed(String),
     WriteErr(String),
     SerializeError(DaemonRes, String),
+    CannotFindWidget,
 }
 
 #[derive(Debug)]

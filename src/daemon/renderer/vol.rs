@@ -196,13 +196,13 @@ pub fn handle_vol_cmd(
             murph(sender, current, context, target, config, window);
         }
         Vol::Close => {
-            window.hide();
+            window.set_visible(false);
         }
         Vol::Open => {
-            window.show();
+            window.set_visible(true);
         }
         Vol::OpenTimed(time) => {
-            window.show();
+            window.set_visible(true);
             let map_ref = &mut context.borrow_mut().vol.vol_tasks;
             if let Some(handle) = map_ref.get(&VolBriTaskType::AwaitClose) {
                 handle.abort();
@@ -381,7 +381,7 @@ pub fn create_sound_osd(
     result.present();
 
     if !config.vol.window.visible_on_start {
-        result.hide();
+        result.set_visible(false);
     }
 
     result

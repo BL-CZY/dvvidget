@@ -75,7 +75,7 @@ pub async fn send_evt_async(evt: DaemonCmd) -> Result<(), ClientErr> {
             return Err(ClientErr::CannotConnectServer);
         };
 
-    let stream = send_to_stream(evt, stream).await?;
+    let stream = send_to_stream(evt.clone(), stream).await?;
 
     if let DaemonCmd::ShutDown = evt {
         println!("Signal sent");

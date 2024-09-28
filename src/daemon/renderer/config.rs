@@ -67,7 +67,9 @@ pub struct AppConfBri {
 #[derive(Clone)]
 pub struct AppConfDvoty {
     pub window: WindowDescriptor,
-    pub max_row: u32,
+    pub max_height: u32,
+    pub highlight_fg_color: String,
+    pub highlight_bg_color: String,
 }
 
 impl Default for AppConf {
@@ -104,7 +106,9 @@ impl Default for AppConf {
             },
             dvoty: AppConfDvoty {
                 window: WindowDescriptor::default(),
-                max_row: 10,
+                max_height: 300,
+                highlight_fg_color: "#000000".into(),
+                highlight_bg_color: "#FFFFFF".into(),
             },
         }
     }
@@ -304,17 +308,45 @@ fn bri_icons(toml: &Map<String, Value>) -> Vec<IconDescriptor> {
     }
 }
 
-fn max_row(toml: &Map<String, Value>) -> u32 {
+fn max_height(toml: &Map<String, Value>) -> u32 {
     let inner = if let Some(v) = toml.get("dvoty") {
         v
     } else {
-        return 10;
+        return 300;
     };
 
-    if let Some(Value::Integer(val)) = inner.get("max_row") {
+    if let Some(Value::Integer(val)) = inner.get("max_height") {
         *val as u32
     } else {
-        10
+        300
+    }
+}
+
+fn highlight_bg_color(toml: &Map<String, Value>) -> String {
+    let inner = if let Some(v) = toml.get("dvoty") {
+        v
+    } else {
+        return "#FFFFFF".into();
+    };
+
+    if let Some(Value::String(val)) = inner.get("highlight_bg_color") {
+        val.into()
+    } else {
+        "#FFFFFF".into()
+    }
+}
+
+fn highlight_fg_color(toml: &Map<String, Value>) -> String {
+    let inner = if let Some(v) = toml.get("dvoty") {
+        v
+    } else {
+        return "#000000".into();
+    };
+
+    if let Some(Value::String(val)) = inner.get("highlight_fg_color") {
+        val.into()
+    } else {
+        "#000000".into()
     }
 }
 
@@ -349,7 +381,9 @@ impl AppConf {
                         ..Default::default()
                     },
                 ),
-                max_row: max_row(toml),
+                max_height: max_height(toml),
+                highlight_bg_color: highlight_bg_color(toml),
+                highlight_fg_color: highlight_fg_color(toml),
             },
         }
     }
