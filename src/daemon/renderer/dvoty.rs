@@ -65,9 +65,9 @@ pub struct DvotyContext {
 }
 
 fn get_list(window: &Window) -> Result<ListBox, ()> {
-    if let Some(outer_list) = window.child().and_downcast_ref::<ListBox>() {
-        if let Some(scroll_wrap) = outer_list.last_child() {
-            if let Some(scroll) = scroll_wrap.first_child() {
+    if let Some(outer_box) = window.child().and_downcast_ref::<Box>() {
+        if let Some(inner_box) = outer_box.last_child() {
+            if let Some(scroll) = inner_box.first_child() {
                 if let Some(scroll_inner) = scroll.first_child() {
                     if let Some(result) = scroll_inner.first_child().and_downcast::<ListBox>() {
                         return Ok(result);
@@ -445,12 +445,19 @@ pub fn create_dvoty(
         .hscrollbar_policy(gtk4::PolicyType::Never)
         .min_content_height(config.dvoty.max_height as i32)
         .child(&list_box)
-        .css_classes(["dvoty-scroll"])
+        .hexpand(true)
         .build();
 
-    let wrapper = ListBox::builder().css_classes(["dvoty-wrapper"]).build();
+    let outer_wrapper = Box::builder().css_classes(["dvoty-scroll"]).build();
+    outer_wrapper.append(&list_wrapper);
+
+    let wrapper = Box::builder()
+        .spacing(20)
+        .css_classes(["dvoty-wrapper"])
+        .orientation(gtk4::Orientation::Vertical)
+        .build();
     wrapper.append(&input);
-    wrapper.append(&list_wrapper);
+    wrapper.append(&outer_wrapper);
 
     result.set_child(Some(&wrapper));
     register_widget(super::app::Widget::Dvoty, result.id());
