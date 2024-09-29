@@ -214,12 +214,13 @@ checksum = "0b6a852b24ab71dffc585bcb46eaf7959d175cb865a7152e35b348d1b2960422"
 
 [[package]]
 name = "dvvidget"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "backlight",
  "bincode",
  "clap",
+ "evalexpr",
  "gdk4-x11",
  "gio",
  "glib",
@@ -249,6 +250,12 @@ dependencies = [
  "libc",
  "windows-sys",
 ]
+
+[[package]]
+name = "evalexpr"
+version = "11.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63b41cb9dd076076058a4523f009c900c582279536d0b2e45a29aa930e083cc5"
 
 [[package]]
 name = "field-offset"

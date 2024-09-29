@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 
+use super::renderer::dvoty::DvotyEntry;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum DaemonCmd {
     ShutDown,
@@ -38,6 +40,7 @@ pub enum Bri {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Dvoty {
+    AddEntry(DvotyEntry),
     Update(String),
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "dvvidget"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 
 [dependencies]
@@ -21,4 +21,5 @@ anyhow = "1.0"
 toml = "0.8.19"
 lazy_static = "1.5.0"
 backlight = "0.1.1"
+evalexpr = "11.3.0"
 
