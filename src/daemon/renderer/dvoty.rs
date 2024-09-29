@@ -151,6 +151,25 @@ fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>) {
     }
 }
 
+fn send_url(url: String, sender: UnboundedSender<DaemonEvt>) {
+    let send_url = if !(url.starts_with("https://") || url.starts_with("http://")) {
+        let mut res: String = String::from("https://");
+        res.push_str(&url);
+        res
+    } else {
+        url
+    };
+
+    sender
+        .send(DaemonEvt {
+            evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Url { url: send_url })),
+            sender: None,
+        })
+        .unwrap_or_else(|e| {
+            println!("Dvoty: Failed to send url: {}", e);
+        });
+}
+
 fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>) {
     if input.is_empty() {
         if let Err(e) = sender.send(DaemonEvt {
@@ -168,8 +187,21 @@ fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>) {
         }
         '@' => {}
         '$' => {}
-        ':' => {}
-        '/' => {}
+        ':' => {
+            send_url(input.chars().skip(1).collect::<String>(), sender);
+        }
+        '/' => {
+            sender
+                .send(DaemonEvt {
+                    evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Search {
+                        keyword: input.chars().skip(1).collect::<String>(),
+                    })),
+                    sender: None,
+                })
+                .unwrap_or_else(|e| {
+                    println!("Dvoty: Error adding search entry: {}", e);
+                });
+        }
         _ => {}
     }
 }
@@ -212,6 +244,78 @@ fn process_input(
     Ok(())
 }
 
+fn create_base_entry(config: Arc<AppConf>, icon: &str, content: &str, tip: &str) -> Button {
+    let label_begin = Label::builder()
+        .use_markup(true)
+        .label(format!(
+            "<span show=\"ignorables\" background=\"{}\" foreground=\"{}\" size=\"x-large\"> {} </span> {}",
+            config.dvoty.highlight_bg_color, config.dvoty.highlight_fg_color, icon, content
+        ))
+        .css_classes(["dvoty-label"])
+        .halign(gtk4::Align::Start)
+        .hexpand(true)
+        .build();
+
+    let label_end = Label::builder()
+        .use_markup(true)
+        .label(tip)
+        .css_classes(["dvoty-label"])
+        .halign(gtk4::Align::End)
+        .hexpand(true)
+        .build();
+
+    let wrapper_box = Box::builder()
+        .orientation(gtk4::Orientation::Horizontal)
+        .css_classes(["dvoty-box"])
+        .build();
+
+    wrapper_box.append(&label_begin);
+    wrapper_box.append(&label_end);
+
+    let btn = Button::builder()
+        .css_classes(["dvoty-entry"])
+        .child(&wrapper_box)
+        .build();
+
+    return btn;
+}
+
+fn populate_math_entry(config: Arc<AppConf>, list: &ListBox, result: String) {
+    let btn = create_base_entry(config, "=", &result, "Click to copy");
+    btn.connect_clicked(move |_| {
+        set_clipboard_text(&result);
+    });
+
+    list.append(&btn);
+}
+
+fn populate_search_entry(config: Arc<AppConf>, list: &ListBox, keyword: String) {
+    let btn = create_base_entry(config, "/", &keyword, "Click to search");
+
+    btn.connect_clicked(move |_| {
+        let keyword_clone = keyword.clone();
+        tokio::spawn(async move {
+            open::that(format!("https://www.google.com/search?q={}", keyword_clone))
+                .unwrap_or_else(|e| println!("Dvoty: Can't perform search: {}", e));
+        });
+    });
+
+    list.append(&btn);
+}
+
+fn populate_url_entry(config: Arc<AppConf>, list: &ListBox, keyword: String) {
+    let btn = create_base_entry(config, ":", &keyword, "Click to open");
+
+    btn.connect_clicked(move |_| {
+        let keyword_clone = keyword.clone();
+        tokio::spawn(async move {
+            open::that(keyword_clone).unwrap_or_else(|e| println!("Dvoty: Can't open url: {}", e));
+        });
+    });
+
+    list.append(&btn);
+}
+
 fn add_entry(
     entry: DvotyEntry,
     window: &Window,
@@ -237,43 +341,13 @@ fn add_entry(
             populate_instructions(list, config);
         }
         DvotyEntry::Math { result, .. } => {
-            let label_begin = Label::builder()
-                .use_markup(true)
-                .label(format!(
-                    "<span show=\"ignorables\" background=\"{}\" foreground=\"{}\" size=\"x-large\"> = </span> {}",
-                    config.dvoty.highlight_bg_color, config.dvoty.highlight_fg_color, result
-                ))
-                .css_classes(["dvoty-label"])
-                .halign(gtk4::Align::Start)
-                .hexpand(true)
-                .build();
-
-            let label_end = Label::builder()
-                .use_markup(true)
-                .label("Click to copy")
-                .css_classes(["dvoty-label"])
-                .halign(gtk4::Align::End)
-                .hexpand(true)
-                .build();
-
-            let wrapper_box = Box::builder()
-                .orientation(gtk4::Orientation::Horizontal)
-                .css_classes(["dvoty-box"])
-                .build();
-
-            wrapper_box.append(&label_begin);
-            wrapper_box.append(&label_end);
-
-            let btn = Button::builder()
-                .css_classes(["dvoty-entry"])
-                .child(&wrapper_box)
-                .build();
-
-            btn.connect_clicked(move |_| {
-                set_clipboard_text(&result);
-            });
-
-            list.append(&btn);
+            populate_math_entry(config, list, result);
+        }
+        DvotyEntry::Search { keyword } => {
+            populate_search_entry(config, list, keyword);
+        }
+        DvotyEntry::Url { url } => {
+            populate_url_entry(config, list, url);
         }
         _ => {}
     }
