@@ -11,10 +11,14 @@ use gtk4::prelude::BoxExt;
 use gtk4::prelude::ButtonExt;
 use gtk4::prelude::DisplayExt;
 use gtk4::prelude::EditableExt;
+use gtk4::prelude::ListBoxRowExt;
 use gtk4::prelude::{GtkWindowExt, WidgetExt};
 use gtk4::Box;
 use gtk4::Button;
+use gtk4::EventControllerKey;
+use gtk4::GestureClick;
 use gtk4::Label;
+use gtk4::ListBoxRow;
 use gtk4::Window;
 use gtk4::{Application, ApplicationWindow, Entry, ListBox, ScrolledWindow};
 use serde::Deserialize;
@@ -250,7 +254,7 @@ fn process_input(
     Ok(())
 }
 
-fn create_base_entry(config: Arc<AppConf>, icon: &str, content: &str, tip: &str) -> Button {
+fn create_base_entry(config: Arc<AppConf>, icon: &str, content: &str, tip: &str) -> ListBoxRow {
     let label_begin = Label::builder()
         .use_markup(true)
         .label(format!(
@@ -278,48 +282,108 @@ fn create_base_entry(config: Arc<AppConf>, icon: &str, content: &str, tip: &str)
     wrapper_box.append(&label_begin);
     wrapper_box.append(&label_end);
 
-    let btn = Button::builder()
+    let res = ListBoxRow::builder()
         .css_classes(["dvoty-entry"])
         .child(&wrapper_box)
         .build();
 
-    return btn;
+    return res;
 }
 
 fn populate_math_entry(config: Arc<AppConf>, list: &ListBox, result: String) {
-    let btn = create_base_entry(config, "=", &result, "Click to copy");
-    btn.connect_clicked(move |_| {
-        set_clipboard_text(&result);
+    let row = create_base_entry(config, "=", &result, "Click to copy");
+    let gesture_click = GestureClick::new();
+    let result_clone = result.clone();
+    gesture_click.connect_pressed(move |_, _, _, _| {
+        set_clipboard_text(&result_clone);
     });
 
-    list.append(&btn);
+    let key_controller = EventControllerKey::new();
+
+    key_controller.connect_key_pressed(move |_, key, _, _| {
+        if key == gtk4::gdk::Key::Return {
+            set_clipboard_text(&result);
+            glib::Propagation::Stop
+        } else {
+            glib::Propagation::Proceed
+        }
+    });
+
+    row.add_controller(gesture_click);
+    row.add_controller(key_controller);
+
+    list.append(&row);
+}
+
+fn spawn_keyword(keyword: String) {
+    let keyword_clone = keyword.clone();
+    tokio::spawn(async move {
+        open::that(format!("https://www.google.com/search?q={}", keyword_clone))
+            .unwrap_or_else(|e| println!("Dvoty: Can't perform search: {}", e));
+    });
 }
 
 fn populate_search_entry(config: Arc<AppConf>, list: &ListBox, keyword: String) {
-    let btn = create_base_entry(config, "/", &keyword, "Click to search");
+    let row = create_base_entry(config, "/", &keyword, "Click to search");
 
-    btn.connect_clicked(move |_| {
-        let keyword_clone = keyword.clone();
-        tokio::spawn(async move {
-            open::that(format!("https://www.google.com/search?q={}", keyword_clone))
-                .unwrap_or_else(|e| println!("Dvoty: Can't perform search: {}", e));
-        });
+    let gesture_click = GestureClick::new();
+    let keyword_clone = keyword.clone();
+    gesture_click.connect_pressed(move |_, _, _, _| {
+        let keyword_clone = keyword_clone.clone();
+        spawn_keyword(keyword_clone);
     });
 
-    list.append(&btn);
+    let key_controller = EventControllerKey::new();
+
+    key_controller.connect_key_pressed(move |_, key, _, _| {
+        if key == gtk4::gdk::Key::Return {
+            let keyword_clone = keyword.clone();
+            spawn_keyword(keyword_clone);
+            glib::Propagation::Stop
+        } else {
+            glib::Propagation::Proceed
+        }
+    });
+
+    row.add_controller(gesture_click);
+    row.add_controller(key_controller);
+
+    list.append(&row);
+}
+
+fn spawn_url(keyword: String) {
+    let keyword_clone = keyword.clone();
+    tokio::spawn(async move {
+        open::that(keyword_clone).unwrap_or_else(|e| println!("Dvoty: Can't open url: {}", e));
+    });
 }
 
 fn populate_url_entry(config: Arc<AppConf>, list: &ListBox, keyword: String) {
-    let btn = create_base_entry(config, ":", &keyword, "Click to open");
+    let row = create_base_entry(config, ":", &keyword, "Click to open");
 
-    btn.connect_clicked(move |_| {
-        let keyword_clone = keyword.clone();
-        tokio::spawn(async move {
-            open::that(keyword_clone).unwrap_or_else(|e| println!("Dvoty: Can't open url: {}", e));
-        });
+    let gesture_click = GestureClick::new();
+    let keyword_clone = keyword.clone();
+    gesture_click.connect_pressed(move |_, _, _, _| {
+        let keyword_clone = keyword_clone.clone();
+        spawn_url(keyword_clone);
     });
 
-    list.append(&btn);
+    let key_controller = EventControllerKey::new();
+
+    key_controller.connect_key_pressed(move |_, key, _, _| {
+        if key == gtk4::gdk::Key::Return {
+            let keyword_clone = keyword.clone();
+            spawn_url(keyword_clone);
+            glib::Propagation::Stop
+        } else {
+            glib::Propagation::Proceed
+        }
+    });
+
+    row.add_controller(gesture_click);
+    row.add_controller(key_controller);
+
+    list.append(&row);
 }
 
 fn add_entry(
