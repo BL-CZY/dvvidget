@@ -90,6 +90,12 @@ fn set_clipboard_text(text: &str) {
 fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>) {
     use evalexpr::Value;
     let context = match context_map! {
+        "pi" => Value::Float(3.1415926),
+        "rad" => Function::new(|argument| {
+            let arguments = argument.as_number()?;
+
+            Ok(Value::Float(arguments / 180f64 * 3.1415926f64))
+        }),
         "avg" => Function::new(|argument| {
             let arguments = argument.as_tuple()?;
 
