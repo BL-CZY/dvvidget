@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
-use evalexpr::context_map;
-use gtk4::{prelude::*, EventControllerKey, GestureClick, ListBox};
+use evalexpr::{context_map, Value};
+use gtk4::{
+    prelude::{DisplayExt, WidgetExt},
+    EventControllerKey, GestureClick, ListBox,
+};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::daemon::{
@@ -16,14 +19,35 @@ fn set_clipboard_text(text: &str) {
     clipboard.set_text(text);
 }
 
+fn preprocess_math(input: &str) -> String {
+    let result = input
+        .replace(" ", "")
+        .replace("ln", "math::ln")
+        .replace("log", "math::log")
+        .replace("sin", "math::sin")
+        .replace("cos", "math::cos")
+        .replace("tan", "math::tan")
+        .replace("sqrt", "math::sqrt");
+
+    result
+}
+
+fn post_process_result(input: Value) -> String {
+    match input {
+        Value::Float(val) => format!("{:.8}", val).trim_end_matches('0').to_string(),
+        _ => input.to_string(),
+    }
+}
+
 pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>) {
     use evalexpr::Value;
+    let input = preprocess_math(&input);
     let context = match context_map! {
-        "pi" => Value::Float(3.1415926),
-        "rad" => Function::new(|argument| {
+        "pi" => Value::Float(3.141592653589793f64),
+        "deg" => Function::new(|argument| {
             let arguments = argument.as_number()?;
 
-            Ok(Value::Float(arguments / 180f64 * 3.1415926f64))
+            Ok(Value::Float(arguments / 180f64 * 3.141592653589793f64))
         }),
         "avg" => Function::new(|argument| {
             let arguments = argument.as_tuple()?;
@@ -42,14 +66,6 @@ pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>) {
 
             Ok(Value::Float(avg))
         }),
-        "sqrt" => Function::new(|argument| {
-            let number = argument.as_number()?;
-            if number < 0.0 {
-                Err(evalexpr::EvalexprError::CustomMessage("Cannot calculate square root of a negative number".to_string()))
-            } else {
-                Ok(Value::Float(number.sqrt()))
-            }
-        })
     } {
         Ok(res) => res,
         Err(e) => {
@@ -65,7 +81,7 @@ pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>) {
                 .send(DaemonEvt {
                     evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Math {
                         expression: expr,
-                        result: res.to_string(),
+                        result: post_process_result(res),
                     })),
                     sender: None,
                 })
