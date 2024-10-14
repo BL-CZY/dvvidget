@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use gtk4::prelude::*;
+use gtk4::{prelude::*, Image};
 use gtk4::{Box, ListBox};
 use gtk4::{Label, ListBoxRow};
 
 use crate::daemon::renderer::config::AppConf;
 
-fn create_instruction(instruction: &str, icon: &str) -> ListBoxRow {
+fn create_instruction(instruction: &str, icon_path: &str) -> ListBoxRow {
     let label_start = Label::builder()
         .use_markup(true)
         .label(instruction)
@@ -15,13 +15,9 @@ fn create_instruction(instruction: &str, icon: &str) -> ListBoxRow {
         .hexpand(true)
         .build();
 
-    let label_end = Label::builder()
-        .use_markup(true)
-        .label(icon)
-        .css_classes(["dvoty-label"])
-        .halign(gtk4::Align::End)
-        .hexpand(true)
-        .build();
+    let icon_end = Image::from_file(icon_path);
+    icon_end.set_halign(gtk4::Align::End);
+    icon_end.add_css_class("dvoty-icon");
 
     let result_box = Box::builder()
         .orientation(gtk4::Orientation::Horizontal)
@@ -29,7 +25,7 @@ fn create_instruction(instruction: &str, icon: &str) -> ListBoxRow {
         .build();
 
     result_box.append(&label_start);
-    result_box.append(&label_end);
+    result_box.append(&icon_end);
 
     let result = ListBoxRow::builder()
         .child(&result_box)
@@ -40,12 +36,27 @@ fn create_instruction(instruction: &str, icon: &str) -> ListBoxRow {
 }
 
 pub fn populate_instructions(list_box: &ListBox, config: Arc<AppConf>) {
-    let instructions = vec![
-        (format!("input <span background=\"{}\" foreground=\"{}\" size=\"x-large\"> = </span> for math expressions", config.dvoty.highlight_bg_color, config.dvoty.highlight_fg_color), format!("<span background=\"{}\" foreground=\"{}\" size=\"x-large\"> ? </span>", config.dvoty.highlight_bg_color, config.dvoty.highlight_fg_color)),
-        (format!("Input <span background=\"{}\" foreground=\"{}\" size=\"x-large\"> @ </span> for launching apps", config.dvoty.highlight_bg_color, config.dvoty.highlight_fg_color), format!("<span background=\"{}\" foreground=\"{}\" size=\"x-large\"> ? </span>", config.dvoty.highlight_bg_color, config.dvoty.highlight_fg_color)),
-        (format!("Input <span background=\"{}\" foreground=\"{}\" size=\"x-large\"> $ </span> for running commands", config.dvoty.highlight_bg_color, config.dvoty.highlight_fg_color), format!("<span background=\"{}\" foreground=\"{}\" size=\"x-large\"> ? </span>", config.dvoty.highlight_bg_color, config.dvoty.highlight_fg_color)),
-        (format!("Input <span background=\"{}\" foreground=\"{}\" size=\"x-large\"> / </span> for searching online", config.dvoty.highlight_bg_color, config.dvoty.highlight_fg_color), format!("<span background=\"{}\" foreground=\"{}\" size=\"x-large\"> ? </span>", config.dvoty.highlight_bg_color, config.dvoty.highlight_fg_color)),
-        (format!("Input <span background=\"{}\" foreground=\"{}\" size=\"x-large\"> : </span> for opening url", config.dvoty.highlight_bg_color, config.dvoty.highlight_fg_color), format!("<span background=\"{}\" foreground=\"{}\" size=\"x-large\"> ? </span>", config.dvoty.highlight_bg_color, config.dvoty.highlight_fg_color)),
+    let instructions: Vec<(String, String)> = vec![
+        (
+            "= for math expressions".into(),
+            config.dvoty.instruction_icon.clone(),
+        ),
+        (
+            "@ for launching apps".into(),
+            config.dvoty.instruction_icon.clone(),
+        ),
+        (
+            "$ for running commands".into(),
+            config.dvoty.instruction_icon.clone(),
+        ),
+        (
+            "/ for searching online".into(),
+            config.dvoty.instruction_icon.clone(),
+        ),
+        (
+            ": for opening url".into(),
+            config.dvoty.instruction_icon.clone(),
+        ),
     ];
     for instruction in instructions.iter() {
         list_box.append(&create_instruction(&instruction.0, &instruction.1));

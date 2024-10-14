@@ -68,6 +68,11 @@ pub struct AppConfBri {
 pub struct AppConfDvoty {
     pub window: WindowDescriptor,
     pub max_height: u32,
+    pub instruction_icon: String,
+    pub math_icon: String,
+    pub serach_icon: String,
+    pub cmd_icon: String,
+    pub url_icon: String,
     pub highlight_fg_color: String,
     pub highlight_bg_color: String,
 }
@@ -107,6 +112,11 @@ impl Default for AppConf {
             dvoty: AppConfDvoty {
                 window: WindowDescriptor::default(),
                 max_height: 300,
+                instruction_icon: "".into(),
+                math_icon: "".into(),
+                serach_icon: "".into(),
+                cmd_icon: "".into(),
+                url_icon: "".into(),
                 highlight_fg_color: "#000000".into(),
                 highlight_bg_color: "#FFFFFF".into(),
             },
@@ -350,6 +360,20 @@ fn highlight_fg_color(toml: &Map<String, Value>) -> String {
     }
 }
 
+fn dvoty_icon(toml: &Map<String, Value>, icon: &str) -> String {
+    let inner = if let Some(v) = toml.get("dvoty") {
+        v
+    } else {
+        return "#000000".into();
+    };
+
+    if let Some(Value::String(val)) = inner.get(icon) {
+        val.into()
+    } else {
+        "".into()
+    }
+}
+
 impl AppConf {
     pub fn from_toml(toml: &Map<String, Value>) -> Self {
         AppConf {
@@ -381,6 +405,11 @@ impl AppConf {
                         ..Default::default()
                     },
                 ),
+                url_icon: dvoty_icon(toml, "url_icon"),
+                cmd_icon: dvoty_icon(toml, "cmd_icon"),
+                serach_icon: dvoty_icon(toml, "search_icon"),
+                math_icon: dvoty_icon(toml, "math_icon"),
+                instruction_icon: dvoty_icon(toml, "instruction_icon"),
                 max_height: max_height(toml),
                 highlight_bg_color: highlight_bg_color(toml),
                 highlight_fg_color: highlight_fg_color(toml),
