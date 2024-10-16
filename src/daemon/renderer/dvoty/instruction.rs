@@ -33,7 +33,7 @@ fn create_instruction(instruction: &str, icon_path: &str) -> ListBoxRow {
 
     let result = ListBoxRow::builder()
         .child(&result_box)
-        .css_classes(["dvoty-entry"])
+        .css_classes(["dvoty-entry-instruction", "dvoty-entry"])
         .focusable(false)
         .build();
 

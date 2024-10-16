@@ -218,18 +218,44 @@ fn add_entry(
     Ok(DaemonRes::Success)
 }
 
+fn set_class(target: &ListBoxRow, remove_class: &[&str], add_class: &[&str]) {
+    for class in remove_class.iter() {
+        target.remove_css_class(class);
+    }
+
+    for class in add_class.iter() {
+        target.add_css_class(class);
+    }
+}
+
 pub fn adjust_class(old: usize, new: usize, input: &mut Vec<(DvotyEntry, ListBoxRow)>) {
     if old >= input.len() || new >= input.len() {
         return;
     }
 
-    input[old].1.remove_css_class("dvoty-entry-select");
+    match input[old].0 {
+        DvotyEntry::Empty => {}
+        DvotyEntry::Instruction => {
+            set_class(
+                &input[old].1,
+                &["dvoty-entry-instruction-select", "dvoty-entry-select"],
+                &["dvoty-entry-instruction", "dvoty-entry"],
+            );
+        }
+        _ => {}
+    }
 
-    input[old].1.add_css_class("dvoty-entry");
-
-    input[new].1.add_css_class("dvoty-entry-select");
-
-    input[new].1.remove_css_class("dvoty-entry");
+    match input[new].0 {
+        DvotyEntry::Empty => {}
+        DvotyEntry::Instruction => {
+            set_class(
+                &input[new].1,
+                &["dvoty-entry-instruction", "dvoty-entry"],
+                &["dvoty-entry-instruction-select", "dvoty-entry-select"],
+            );
+        }
+        _ => {}
+    }
 }
 
 pub fn handle_dvoty_cmd(
