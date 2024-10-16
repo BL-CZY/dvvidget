@@ -110,6 +110,8 @@ fn process_input(
     window: &Window,
 ) -> Result<(), DaemonErr> {
     let context_ref = &mut context.borrow_mut();
+    context_ref.dvoty.dvoty_entries.clear();
+    context_ref.dvoty.cur_ind = 0;
 
     let list = if let Some(l) = &context_ref.dvoty.dvoty_list {
         l
@@ -199,11 +201,7 @@ fn add_entry(
 
     match entry {
         DvotyEntry::Empty => {
-            super::instruction::populate_instructions(
-                &list,
-                config,
-                &mut context_ref.dvoty.dvoty_entries,
-            );
+            super::instruction::populate_instructions(&list, config, context_ref);
         }
         DvotyEntry::Math { result, .. } => {
             super::math::populate_math_entry(config, &list, result);
@@ -218,6 +216,20 @@ fn add_entry(
     }
 
     Ok(DaemonRes::Success)
+}
+
+pub fn adjust_class(old: usize, new: usize, input: &mut Vec<(DvotyEntry, ListBoxRow)>) {
+    if old >= input.len() || new >= input.len() {
+        return;
+    }
+
+    input[old].1.remove_css_class("dvoty-entry-select");
+
+    input[old].1.add_css_class("dvoty-entry");
+
+    input[new].1.add_css_class("dvoty-entry-select");
+
+    input[new].1.remove_css_class("dvoty-entry");
 }
 
 pub fn handle_dvoty_cmd(
@@ -245,49 +257,19 @@ pub fn handle_dvoty_cmd(
                 context_ref.dvoty.cur_ind = 0;
             }
             let new = context_ref.dvoty.cur_ind;
-
-            context_ref.dvoty.dvoty_entries[old]
-                .1
-                .remove_css_class("dvoty-entry-select");
-
-            context_ref.dvoty.dvoty_entries[old]
-                .1
-                .add_css_class("dvoty-entry");
-
-            context_ref.dvoty.dvoty_entries[new]
-                .1
-                .add_css_class("dvoty-entry-select");
-
-            context_ref.dvoty.dvoty_entries[new]
-                .1
-                .remove_css_class("dvoty-entry");
+            adjust_class(old, new, &mut context_ref.dvoty.dvoty_entries.clone());
         }
         Dvoty::DecEntryIndex => {
             let mut context_ref = app_context.borrow_mut();
             let old = context_ref.dvoty.cur_ind;
-            let max = context_ref.dvoty.dvoty_entries.len();
+            let max = context_ref.dvoty.dvoty_entries.len() - 1;
             if context_ref.dvoty.cur_ind == 0 {
                 context_ref.dvoty.cur_ind = max;
             } else {
                 context_ref.dvoty.cur_ind -= 1;
             }
             let new = context_ref.dvoty.cur_ind;
-
-            context_ref.dvoty.dvoty_entries[old]
-                .1
-                .remove_css_class("dvoty-entry-select");
-
-            context_ref.dvoty.dvoty_entries[old]
-                .1
-                .add_css_class("dvoty-entry");
-
-            context_ref.dvoty.dvoty_entries[new]
-                .1
-                .add_css_class("dvoty-entry-select");
-
-            context_ref.dvoty.dvoty_entries[new]
-                .1
-                .remove_css_class("dvoty-entry");
+            adjust_class(old, new, &mut context_ref.dvoty.dvoty_entries.clone());
         }
         Dvoty::ResetEntryIndex => {}
     }
@@ -311,15 +293,6 @@ fn send_dec(sender: UnboundedSender<DaemonEvt>) {
             sender: None,
         })
         .unwrap_or_else(|e| println!("Dvoty: Failed to send dec index: {}", e));
-}
-
-fn send_reset(sender: UnboundedSender<DaemonEvt>) {
-    sender
-        .send(DaemonEvt {
-            evt: DaemonCmd::Dvoty(Dvoty::ResetEntryIndex),
-            sender: None,
-        })
-        .unwrap_or_else(|e| println!("Dvoty: Failed to send reset index: {}", e));
 }
 
 fn input(sender: UnboundedSender<DaemonEvt>) -> Entry {

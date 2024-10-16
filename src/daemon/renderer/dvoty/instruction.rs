@@ -1,11 +1,14 @@
+use std::cell::RefMut;
 use std::sync::Arc;
 
 use gtk4::{prelude::*, Image};
 use gtk4::{Box, ListBox};
 use gtk4::{Label, ListBoxRow};
 
+use crate::daemon::renderer::app::AppContext;
 use crate::daemon::renderer::config::AppConf;
 
+use super::base::adjust_class;
 use super::DvotyEntry;
 
 fn create_instruction(instruction: &str, icon_path: &str) -> ListBoxRow {
@@ -40,7 +43,7 @@ fn create_instruction(instruction: &str, icon_path: &str) -> ListBoxRow {
 pub fn populate_instructions(
     list_box: &ListBox,
     config: Arc<AppConf>,
-    entries: &mut Vec<(DvotyEntry, ListBoxRow)>,
+    context: &mut RefMut<AppContext>,
 ) {
     let instructions: Vec<(String, String)> = vec![
         (
@@ -67,7 +70,13 @@ pub fn populate_instructions(
 
     for instruction in instructions.iter() {
         let entry = create_instruction(&instruction.0, &instruction.1);
-        entries.push((DvotyEntry::Instruction, entry.clone()));
+        context
+            .dvoty
+            .dvoty_entries
+            .push((DvotyEntry::Instruction, entry.clone()));
         list_box.append(&entry);
     }
+
+    context.dvoty.cur_ind = 0;
+    adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
 }
