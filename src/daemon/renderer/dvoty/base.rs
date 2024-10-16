@@ -236,22 +236,113 @@ pub fn handle_dvoty_cmd(
             add_entry(entry, window, app_context, config)?;
         }
 
-        Dvoty::IncEntryIndex => {}
-        Dvoty::DecEntryIndex => {}
+        Dvoty::IncEntryIndex => {
+            let mut context_ref = app_context.borrow_mut();
+            let old = context_ref.dvoty.cur_ind;
+            let max = context_ref.dvoty.dvoty_entries.len();
+            context_ref.dvoty.cur_ind += 1;
+            if context_ref.dvoty.cur_ind >= max {
+                context_ref.dvoty.cur_ind = 0;
+            }
+            let new = context_ref.dvoty.cur_ind;
+
+            context_ref.dvoty.dvoty_entries[old]
+                .1
+                .remove_css_class("dvoty-entry-select");
+
+            context_ref.dvoty.dvoty_entries[old]
+                .1
+                .add_css_class("dvoty-entry");
+
+            context_ref.dvoty.dvoty_entries[new]
+                .1
+                .add_css_class("dvoty-entry-select");
+
+            context_ref.dvoty.dvoty_entries[new]
+                .1
+                .remove_css_class("dvoty-entry");
+        }
+        Dvoty::DecEntryIndex => {
+            let mut context_ref = app_context.borrow_mut();
+            let old = context_ref.dvoty.cur_ind;
+            let max = context_ref.dvoty.dvoty_entries.len();
+            if context_ref.dvoty.cur_ind == 0 {
+                context_ref.dvoty.cur_ind = max;
+            } else {
+                context_ref.dvoty.cur_ind -= 1;
+            }
+            let new = context_ref.dvoty.cur_ind;
+
+            context_ref.dvoty.dvoty_entries[old]
+                .1
+                .remove_css_class("dvoty-entry-select");
+
+            context_ref.dvoty.dvoty_entries[old]
+                .1
+                .add_css_class("dvoty-entry");
+
+            context_ref.dvoty.dvoty_entries[new]
+                .1
+                .add_css_class("dvoty-entry-select");
+
+            context_ref.dvoty.dvoty_entries[new]
+                .1
+                .remove_css_class("dvoty-entry");
+        }
         Dvoty::ResetEntryIndex => {}
     }
 
     Ok(DaemonRes::Success)
 }
 
+fn send_inc(sender: UnboundedSender<DaemonEvt>) {
+    sender
+        .send(DaemonEvt {
+            evt: DaemonCmd::Dvoty(Dvoty::IncEntryIndex),
+            sender: None,
+        })
+        .unwrap_or_else(|e| println!("Dvoty: Failed to send inc index: {}", e));
+}
+
+fn send_dec(sender: UnboundedSender<DaemonEvt>) {
+    sender
+        .send(DaemonEvt {
+            evt: DaemonCmd::Dvoty(Dvoty::DecEntryIndex),
+            sender: None,
+        })
+        .unwrap_or_else(|e| println!("Dvoty: Failed to send dec index: {}", e));
+}
+
+fn send_reset(sender: UnboundedSender<DaemonEvt>) {
+    sender
+        .send(DaemonEvt {
+            evt: DaemonCmd::Dvoty(Dvoty::ResetEntryIndex),
+            sender: None,
+        })
+        .unwrap_or_else(|e| println!("Dvoty: Failed to send reset index: {}", e));
+}
+
 fn input(sender: UnboundedSender<DaemonEvt>) -> Entry {
     let input = Entry::builder().css_classes(["dvoty-input"]).build();
 
     let key_controller = gtk4::EventControllerKey::new();
-    key_controller.connect_key_pressed(|_controller, keyval, _keycode, _state| match keyval {
-        gtk4::gdk::Key::Tab => glib::Propagation::Stop,
-        gtk4::gdk::Key::Up => {}
-        gtk4::gdk::Key::Down => glib::Propagation::Stop,
+    let sender_clone = sender.clone();
+    key_controller.connect_key_pressed(move |_controller, keyval, _keycode, state| match keyval {
+        gtk4::gdk::Key::Tab => {
+            match state.contains(gtk4::gdk::ModifierType::SHIFT_MASK) {
+                true => send_dec(sender_clone.clone()),
+                false => send_inc(sender_clone.clone()),
+            }
+            glib::Propagation::Stop
+        }
+        gtk4::gdk::Key::Up => {
+            send_dec(sender_clone.clone());
+            glib::Propagation::Stop
+        }
+        gtk4::gdk::Key::Down => {
+            send_inc(sender_clone.clone());
+            glib::Propagation::Stop
+        }
         _ => glib::Propagation::Proceed,
     });
 

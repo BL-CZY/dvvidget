@@ -23,7 +23,6 @@ fn create_instruction(instruction: &str, icon_path: &str) -> ListBoxRow {
 
     let result_box = Box::builder()
         .orientation(gtk4::Orientation::Horizontal)
-        .css_classes(["dvoty-entry"])
         .build();
 
     result_box.append(&label_start);
@@ -31,6 +30,7 @@ fn create_instruction(instruction: &str, icon_path: &str) -> ListBoxRow {
 
     let result = ListBoxRow::builder()
         .child(&result_box)
+        .css_classes(["dvoty-entry"])
         .focusable(false)
         .build();
 
