@@ -42,6 +42,9 @@ pub enum Bri {
 pub enum Dvoty {
     AddEntry(DvotyEntry),
     Update(String),
+    IncEntryIndex,
+    DecEntryIndex,
+    ResetEntryIndex,
 }
 
 #[derive(Debug, Clone)]

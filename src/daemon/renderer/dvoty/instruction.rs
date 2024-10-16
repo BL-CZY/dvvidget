@@ -6,6 +6,8 @@ use gtk4::{Label, ListBoxRow};
 
 use crate::daemon::renderer::config::AppConf;
 
+use super::DvotyEntry;
+
 fn create_instruction(instruction: &str, icon_path: &str) -> ListBoxRow {
     let label_start = Label::builder()
         .use_markup(true)
@@ -35,7 +37,11 @@ fn create_instruction(instruction: &str, icon_path: &str) -> ListBoxRow {
     result
 }
 
-pub fn populate_instructions(list_box: &ListBox, config: Arc<AppConf>) {
+pub fn populate_instructions(
+    list_box: &ListBox,
+    config: Arc<AppConf>,
+    entries: &mut Vec<(DvotyEntry, ListBoxRow)>,
+) {
     let instructions: Vec<(String, String)> = vec![
         (
             "= for math expressions".into(),
@@ -58,7 +64,10 @@ pub fn populate_instructions(list_box: &ListBox, config: Arc<AppConf>) {
             config.dvoty.instruction_icon.clone(),
         ),
     ];
+
     for instruction in instructions.iter() {
-        list_box.append(&create_instruction(&instruction.0, &instruction.1));
+        let entry = create_instruction(&instruction.0, &instruction.1);
+        entries.push((DvotyEntry::Instruction, entry.clone()));
+        list_box.append(&entry);
     }
 }
