@@ -38,6 +38,16 @@ pub enum DvotyEntry {
     },
 }
 
+#[derive(Clone)]
+pub enum DvotyUIEntry {
+    Instruction,
+    Math { result: String },
+    Launch { exec: String },
+    Command { exec: String },
+    Search { keyword: String },
+    Url { url: String },
+}
+
 #[derive(PartialEq, Eq, Hash)]
 pub enum DvotyTaskType {
     ProcessInput,
@@ -47,7 +57,7 @@ pub enum DvotyTaskType {
 pub struct DvotyContext {
     pub dvoty_tasks: HashMap<DvotyTaskType, JoinHandle<()>>,
     pub dvoty_list: Option<ListBox>,
-    pub dvoty_entries: Vec<(DvotyEntry, ListBoxRow)>,
+    pub dvoty_entries: Vec<(DvotyUIEntry, ListBoxRow)>,
     pub cur_ind: usize,
 }
 
@@ -204,7 +214,7 @@ fn add_entry(
             super::instruction::populate_instructions(&list, config, context_ref);
         }
         DvotyEntry::Math { result, .. } => {
-            super::math::populate_math_entry(config, &list, result);
+            super::math::populate_math_entry(config, &list, result, context_ref);
         }
         DvotyEntry::Search { keyword } => {
             super::search::populate_search_entry(config, &list, keyword);
@@ -228,30 +238,42 @@ fn set_class(target: &ListBoxRow, remove_class: &[&str], add_class: &[&str]) {
     }
 }
 
-pub fn adjust_class(old: usize, new: usize, input: &mut Vec<(DvotyEntry, ListBoxRow)>) {
+pub fn adjust_class(old: usize, new: usize, input: &mut Vec<(DvotyUIEntry, ListBoxRow)>) {
     if old >= input.len() || new >= input.len() {
         return;
     }
 
     match input[old].0 {
-        DvotyEntry::Empty => {}
-        DvotyEntry::Instruction => {
+        DvotyUIEntry::Instruction => {
             set_class(
                 &input[old].1,
                 &["dvoty-entry-instruction-select", "dvoty-entry-select"],
                 &["dvoty-entry-instruction", "dvoty-entry"],
             );
         }
+        DvotyUIEntry::Math { .. } => {
+            set_class(
+                &input[old].1,
+                &["dvoty-entry-math-select", "dvoty-entry-select"],
+                &["dvoty-entry-math", "dvoty-entry"],
+            );
+        }
         _ => {}
     }
 
     match input[new].0 {
-        DvotyEntry::Empty => {}
-        DvotyEntry::Instruction => {
+        DvotyUIEntry::Instruction => {
             set_class(
                 &input[new].1,
                 &["dvoty-entry-instruction", "dvoty-entry"],
                 &["dvoty-entry-instruction-select", "dvoty-entry-select"],
+            );
+        }
+        DvotyUIEntry::Math { .. } => {
+            set_class(
+                &input[new].1,
+                &["dvoty-entry-math", "dvoty-entry"],
+                &["dvoty-entry-math-select", "dvoty-entry-select"],
             );
         }
         _ => {}
@@ -276,26 +298,32 @@ pub fn handle_dvoty_cmd(
 
         Dvoty::IncEntryIndex => {
             let mut context_ref = app_context.borrow_mut();
-            let old = context_ref.dvoty.cur_ind;
-            let max = context_ref.dvoty.dvoty_entries.len();
-            context_ref.dvoty.cur_ind += 1;
-            if context_ref.dvoty.cur_ind >= max {
-                context_ref.dvoty.cur_ind = 0;
+
+            if !context_ref.dvoty.dvoty_entries.is_empty() {
+                let old = context_ref.dvoty.cur_ind;
+                let max = context_ref.dvoty.dvoty_entries.len() - 1;
+                context_ref.dvoty.cur_ind += 1;
+                if context_ref.dvoty.cur_ind > max {
+                    context_ref.dvoty.cur_ind = 0;
+                }
+                let new = context_ref.dvoty.cur_ind;
+                adjust_class(old, new, &mut context_ref.dvoty.dvoty_entries.clone());
             }
-            let new = context_ref.dvoty.cur_ind;
-            adjust_class(old, new, &mut context_ref.dvoty.dvoty_entries.clone());
         }
         Dvoty::DecEntryIndex => {
             let mut context_ref = app_context.borrow_mut();
-            let old = context_ref.dvoty.cur_ind;
-            let max = context_ref.dvoty.dvoty_entries.len() - 1;
-            if context_ref.dvoty.cur_ind == 0 {
-                context_ref.dvoty.cur_ind = max;
-            } else {
-                context_ref.dvoty.cur_ind -= 1;
+
+            if !context_ref.dvoty.dvoty_entries.is_empty() {
+                let old = context_ref.dvoty.cur_ind;
+                let max = context_ref.dvoty.dvoty_entries.len() - 1;
+                if context_ref.dvoty.cur_ind == 0 {
+                    context_ref.dvoty.cur_ind = max;
+                } else {
+                    context_ref.dvoty.cur_ind -= 1;
+                }
+                let new = context_ref.dvoty.cur_ind;
+                adjust_class(old, new, &mut context_ref.dvoty.dvoty_entries.clone());
             }
-            let new = context_ref.dvoty.cur_ind;
-            adjust_class(old, new, &mut context_ref.dvoty.dvoty_entries.clone());
         }
         Dvoty::ResetEntryIndex => {}
     }

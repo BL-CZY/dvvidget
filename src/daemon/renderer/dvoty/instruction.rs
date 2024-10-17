@@ -8,8 +8,7 @@ use gtk4::{Label, ListBoxRow};
 use crate::daemon::renderer::app::AppContext;
 use crate::daemon::renderer::config::AppConf;
 
-use super::base::adjust_class;
-use super::DvotyEntry;
+use super::base::{adjust_class, DvotyUIEntry};
 
 fn create_instruction(instruction: &str, icon_path: &str) -> ListBoxRow {
     let label_start = Label::builder()
@@ -73,7 +72,7 @@ pub fn populate_instructions(
         context
             .dvoty
             .dvoty_entries
-            .push((DvotyEntry::Instruction, entry.clone()));
+            .push((DvotyUIEntry::Instruction, entry.clone()));
         list_box.append(&entry);
     }
 

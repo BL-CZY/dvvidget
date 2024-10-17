@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{cell::RefMut, sync::Arc};
 
 use evalexpr::{context_map, Value};
 use gtk4::{
@@ -8,9 +8,11 @@ use gtk4::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::daemon::{
-    renderer::{config::AppConf, dvoty::base::DvotyEntry},
+    renderer::{app::AppContext, config::AppConf, dvoty::base::DvotyEntry},
     structs::{DaemonCmd, DaemonEvt, Dvoty},
 };
+
+use super::base::{adjust_class, DvotyUIEntry};
 
 fn set_clipboard_text(text: &str) {
     let display = gtk4::gdk::Display::default().expect("Could not get default display");
@@ -102,7 +104,12 @@ pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>) {
     }
 }
 
-pub fn populate_math_entry(config: Arc<AppConf>, list: &ListBox, result: String) {
+pub fn populate_math_entry(
+    config: Arc<AppConf>,
+    list: &ListBox,
+    result: String,
+    context: &mut RefMut<AppContext>,
+) {
     let row = super::base::create_base_entry(config, "=", &result, "Click to copy");
     let gesture_click = GestureClick::new();
     let result_clone = result.clone();
@@ -112,6 +119,7 @@ pub fn populate_math_entry(config: Arc<AppConf>, list: &ListBox, result: String)
 
     let key_controller = EventControllerKey::new();
 
+    let result_clone = result.clone();
     key_controller.connect_key_pressed(move |_, key, _, _| {
         if key == gtk4::gdk::Key::Return {
             set_clipboard_text(&result);
@@ -123,6 +131,17 @@ pub fn populate_math_entry(config: Arc<AppConf>, list: &ListBox, result: String)
 
     row.add_controller(gesture_click);
     row.add_controller(key_controller);
+
+    context.dvoty.dvoty_entries.push((
+        DvotyUIEntry::Math {
+            result: result_clone,
+        },
+        row.clone(),
+    ));
+
+    context.dvoty.cur_ind = 0;
+
+    adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
 
     list.append(&row);
 }
