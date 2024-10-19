@@ -28,6 +28,12 @@ pub enum Command {
         #[clap(subcommand)]
         actions: BriCmd,
     },
+
+    #[clap(about = "Configure dvoty")]
+    Dvoty {
+        #[clap(subcommand)]
+        actions: DvotyCmd,
+    },
 }
 
 #[derive(Subcommand)]
@@ -80,6 +86,14 @@ pub enum VolCmd {
         about = "Show the scale. If there is a number given, close the scale after the given number seconds"
     )]
     Open { time: Option<f64> },
+}
+
+#[derive(Subcommand)]
+pub enum DvotyCmd {
+    #[clap(about = "Open dvoty")]
+    Open,
+    #[clap(about = "Close dvoty")]
+    Close,
 }
 
 fn daemon_args(path: Option<String>, option: Option<DaemonSubCmd>) {
@@ -150,6 +164,14 @@ fn bri_args(actions: BriCmd) {
     }
 }
 
+fn dvoty_args(actions: DvotyCmd) {
+    crate::cli::send_evt(match actions {
+        DvotyCmd::Open => DaemonCmd::Dvoty(crate::daemon::structs::Dvoty::Open),
+        DvotyCmd::Close => DaemonCmd::Dvoty(crate::daemon::structs::Dvoty::Close),
+    })
+    .unwrap_or_else(|e| println!("Error seding event: {:?}", e));
+}
+
 pub fn handle_args(args: Args) {
     match args.commands {
         Command::Daemon { path, option } => {
@@ -162,6 +184,10 @@ pub fn handle_args(args: Args) {
 
         Command::Brightness { actions } => {
             bri_args(actions);
+        }
+
+        Command::Dvoty { actions } => {
+            dvoty_args(actions);
         }
     }
 }

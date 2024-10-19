@@ -14,6 +14,8 @@ use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
 
+use super::{math, search, url};
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum DvotyEntry {
     Empty,
@@ -46,6 +48,23 @@ pub enum DvotyUIEntry {
     Command { exec: String },
     Search { keyword: String },
     Url { url: String },
+}
+
+impl DvotyUIEntry {
+    pub fn run(self) {
+        match self {
+            DvotyUIEntry::Math { result } => {
+                math::set_clipboard_text(&result);
+            }
+            DvotyUIEntry::Search { keyword } => {
+                search::spawn_keyword(keyword);
+            }
+            DvotyUIEntry::Url { url } => {
+                url::spawn_url(url);
+            }
+            _ => {}
+        }
+    }
 }
 
 #[derive(PartialEq, Eq, Hash)]
@@ -217,10 +236,10 @@ fn add_entry(
             super::math::populate_math_entry(config, &list, result, context_ref);
         }
         DvotyEntry::Search { keyword } => {
-            super::search::populate_search_entry(config, &list, keyword);
+            super::search::populate_search_entry(config, &list, keyword, context_ref);
         }
         DvotyEntry::Url { url } => {
-            super::url::populate_url_entry(config, &list, url);
+            super::url::populate_url_entry(config, &list, url, context_ref);
         }
         _ => {}
     }
@@ -258,6 +277,20 @@ pub fn adjust_class(old: usize, new: usize, input: &mut Vec<(DvotyUIEntry, ListB
                 &["dvoty-entry-math", "dvoty-entry"],
             );
         }
+        DvotyUIEntry::Search { .. } => {
+            set_class(
+                &input[old].1,
+                &["dvoty-entry-search-select", "dvoty-entry-select"],
+                &["dvoty-entry-search", "dvoty-entry"],
+            );
+        }
+        DvotyUIEntry::Url { .. } => {
+            set_class(
+                &input[old].1,
+                &["dvoty-entry-url-select", "dvoty-entry-select"],
+                &["dvoty-entry-url", "dvoty-entry"],
+            );
+        }
         _ => {}
     }
 
@@ -276,6 +309,21 @@ pub fn adjust_class(old: usize, new: usize, input: &mut Vec<(DvotyUIEntry, ListB
                 &["dvoty-entry-math-select", "dvoty-entry-select"],
             );
         }
+        DvotyUIEntry::Search { .. } => {
+            set_class(
+                &input[new].1,
+                &["dvoty-entry-search", "dvoty-entry"],
+                &["dvoty-entry-search-select", "dvoty-entry-select"],
+            );
+        }
+        DvotyUIEntry::Url { .. } => {
+            set_class(
+                &input[new].1,
+                &["dvoty-entry-url", "dvoty-entry"],
+                &["dvoty-entry-url-select", "dvoty-entry-select"],
+            );
+        }
+
         _ => {}
     }
 }
@@ -310,6 +358,7 @@ pub fn handle_dvoty_cmd(
                 adjust_class(old, new, &mut context_ref.dvoty.dvoty_entries.clone());
             }
         }
+
         Dvoty::DecEntryIndex => {
             let mut context_ref = app_context.borrow_mut();
 
@@ -325,7 +374,25 @@ pub fn handle_dvoty_cmd(
                 adjust_class(old, new, &mut context_ref.dvoty.dvoty_entries.clone());
             }
         }
-        Dvoty::ResetEntryIndex => {}
+
+        Dvoty::TriggerEntry => {
+            let context_ref = app_context.borrow();
+            if !context_ref.dvoty.dvoty_entries.is_empty() {
+                context_ref.dvoty.dvoty_entries[context_ref.dvoty.cur_ind]
+                    .0
+                    .clone()
+                    .run();
+            }
+            window.set_visible(false);
+        }
+
+        Dvoty::Open => {
+            window.set_visible(true);
+        }
+
+        Dvoty::Close => {
+            window.set_visible(false);
+        }
     }
 
     Ok(DaemonRes::Success)
@@ -354,14 +421,8 @@ fn input(sender: UnboundedSender<DaemonEvt>) -> Entry {
 
     let key_controller = gtk4::EventControllerKey::new();
     let sender_clone = sender.clone();
-    key_controller.connect_key_pressed(move |_controller, keyval, _keycode, state| match keyval {
-        gtk4::gdk::Key::Tab => {
-            match state.contains(gtk4::gdk::ModifierType::SHIFT_MASK) {
-                true => send_dec(sender_clone.clone()),
-                false => send_inc(sender_clone.clone()),
-            }
-            glib::Propagation::Stop
-        }
+    key_controller.connect_key_pressed(move |_controller, keyval, _keycode, _state| match keyval {
+        gtk4::gdk::Key::Tab => glib::Propagation::Stop,
         gtk4::gdk::Key::Up => {
             send_dec(sender_clone.clone());
             glib::Propagation::Stop
@@ -370,7 +431,28 @@ fn input(sender: UnboundedSender<DaemonEvt>) -> Entry {
             send_inc(sender_clone.clone());
             glib::Propagation::Stop
         }
+        gtk4::gdk::Key::Escape => {
+            sender_clone
+                .send(DaemonEvt {
+                    evt: DaemonCmd::Dvoty(Dvoty::Close),
+                    sender: None,
+                })
+                .unwrap_or_else(|e| println!("Dvoty: Failed to send triggering event: {}", e));
+            glib::Propagation::Stop
+        }
         _ => glib::Propagation::Proceed,
+    });
+
+    let sender_clone = sender.clone();
+    key_controller.connect_key_released(move |_, keyval, _, _| {
+        if keyval == gtk4::gdk::Key::Return || keyval == gtk4::gdk::Key::KP_Enter {
+            sender_clone
+                .send(DaemonEvt {
+                    evt: DaemonCmd::Dvoty(Dvoty::TriggerEntry),
+                    sender: None,
+                })
+                .unwrap_or_else(|e| println!("Dvoty: Failed to send triggering event: {}", e));
+        }
     });
 
     input.add_controller(key_controller);

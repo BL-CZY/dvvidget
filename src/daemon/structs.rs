@@ -44,7 +44,9 @@ pub enum Dvoty {
     Update(String),
     IncEntryIndex,
     DecEntryIndex,
-    ResetEntryIndex,
+    TriggerEntry,
+    Close,
+    Open,
 }
 
 #[derive(Debug, Clone)]

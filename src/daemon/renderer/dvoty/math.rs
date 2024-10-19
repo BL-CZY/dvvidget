@@ -3,7 +3,7 @@ use std::{cell::RefMut, sync::Arc};
 use evalexpr::{context_map, Value};
 use gtk4::{
     prelude::{DisplayExt, WidgetExt},
-    EventControllerKey, GestureClick, ListBox,
+    GestureClick, ListBox,
 };
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -14,7 +14,7 @@ use crate::daemon::{
 
 use super::base::{adjust_class, DvotyUIEntry};
 
-fn set_clipboard_text(text: &str) {
+pub fn set_clipboard_text(text: &str) {
     let display = gtk4::gdk::Display::default().expect("Could not get default display");
     let clipboard = display.clipboard();
 
@@ -117,20 +117,9 @@ pub fn populate_math_entry(
         set_clipboard_text(&result_clone);
     });
 
-    let key_controller = EventControllerKey::new();
-
     let result_clone = result.clone();
-    key_controller.connect_key_pressed(move |_, key, _, _| {
-        if key == gtk4::gdk::Key::Return {
-            set_clipboard_text(&result);
-            glib::Propagation::Stop
-        } else {
-            glib::Propagation::Proceed
-        }
-    });
 
     row.add_controller(gesture_click);
-    row.add_controller(key_controller);
 
     context.dvoty.dvoty_entries.push((
         DvotyUIEntry::Math {
