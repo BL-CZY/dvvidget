@@ -65,6 +65,26 @@ pub fn populate_instructions(
             ": for opening url".into(),
             config.dvoty.instruction_icon.clone(),
         ),
+        (
+            "= for math expressions".into(),
+            config.dvoty.instruction_icon.clone(),
+        ),
+        (
+            "@ for launching apps".into(),
+            config.dvoty.instruction_icon.clone(),
+        ),
+        (
+            "$ for running commands".into(),
+            config.dvoty.instruction_icon.clone(),
+        ),
+        (
+            "/ for searching online".into(),
+            config.dvoty.instruction_icon.clone(),
+        ),
+        (
+            ": for opening url".into(),
+            config.dvoty.instruction_icon.clone(),
+        ),
     ];
 
     for instruction in instructions.iter() {

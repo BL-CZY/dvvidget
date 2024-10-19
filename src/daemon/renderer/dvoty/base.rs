@@ -1,13 +1,13 @@
 use crate::daemon::renderer::app::{register_widget, AppContext};
 use crate::daemon::renderer::config::AppConf;
 use crate::daemon::structs::{DaemonCmd, DaemonEvt, DaemonRes, Dvoty};
-use crate::utils::{DaemonErr, DisplayBackend};
-use gtk4::prelude::*;
+use crate::utils::{round_down, DaemonErr, DisplayBackend};
+use gtk4::{prelude::*, Viewport};
 use gtk4::{
     Application, ApplicationWindow, Box, Entry, Label, ListBox, ListBoxRow, ScrolledWindow, Window,
 };
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -76,6 +76,7 @@ pub enum DvotyTaskType {
 pub struct DvotyContext {
     pub dvoty_tasks: HashMap<DvotyTaskType, JoinHandle<()>>,
     pub dvoty_list: Option<ListBox>,
+    pub dvoty_scroll: Option<ScrolledWindow>,
     pub dvoty_entries: Vec<(DvotyUIEntry, ListBoxRow)>,
     pub cur_ind: usize,
 }
@@ -89,6 +90,18 @@ fn get_list(window: &Window) -> Result<ListBox, ()> {
                         return Ok(result);
                     }
                 }
+            }
+        }
+    }
+
+    Err(())
+}
+
+fn get_scrolled_window(window: &Window) -> Result<ScrolledWindow, ()> {
+    if let Some(outer_box) = window.child().and_downcast_ref::<Box>() {
+        if let Some(inner_box) = outer_box.last_child() {
+            if let Some(scroll) = inner_box.first_child().and_downcast::<ScrolledWindow>() {
+                return Ok(scroll);
             }
         }
     }
@@ -328,6 +341,76 @@ pub fn adjust_class(old: usize, new: usize, input: &mut Vec<(DvotyUIEntry, ListB
     }
 }
 
+fn adjust_row(
+    row: ListBoxRow,
+    viewport: Viewport,
+    scroll: ScrolledWindow,
+) -> Result<(), DaemonErr> {
+    let viewport_bound = if let Some(bound) = viewport.compute_bounds(&viewport) {
+        bound
+    } else {
+        return Err(DaemonErr::CannotFindWidget);
+    };
+
+    let row_bound = if let Some(bound) = row.compute_bounds(&viewport) {
+        bound
+    } else {
+        return Err(DaemonErr::CannotFindWidget);
+    };
+
+    let adjustment = scroll.vadjustment();
+
+    if row_bound.y() < viewport_bound.y() {
+        // if the top of the row is not in the viewport, reduce the adjustment value by the
+        // difference
+        adjustment.set_value(adjustment.value() - (viewport_bound.y() - row_bound.y()) as f64);
+    } else if row_bound.y() + row_bound.height() > viewport_bound.y() + viewport_bound.height() {
+        // if the bottom of the row is not in the viewport, increase the adjustment value by the
+        // difference
+        adjustment.set_value(
+            adjustment.value()
+                + (row_bound.y() + row_bound.height()
+                    - viewport_bound.y()
+                    - viewport_bound.height()) as f64,
+        );
+    }
+
+    Ok(())
+}
+
+fn ensure_row_in_viewport(
+    context_ref: &mut RefMut<AppContext>,
+    window: &Window,
+) -> Result<(), DaemonErr> {
+    let scroll = if let Some(s) = &context_ref.dvoty.dvoty_scroll {
+        s
+    } else {
+        if let Ok(res) = get_scrolled_window(window) {
+            context_ref.dvoty.dvoty_scroll = Some(res);
+            &context_ref.dvoty.dvoty_scroll.as_ref().unwrap()
+        } else {
+            println!("Dvoty: can't find scrolled window");
+            return Err(DaemonErr::CannotFindWidget);
+        }
+    };
+
+    let viewport = if let Some(v) = scroll.first_child().and_downcast::<gtk4::Viewport>() {
+        v
+    } else {
+        println!("Dvoty: can't find viewport");
+
+        return Err(DaemonErr::CannotFindWidget);
+    };
+
+    let row = context_ref.dvoty.dvoty_entries[context_ref.dvoty.cur_ind]
+        .1
+        .clone();
+
+    adjust_row(row, viewport, scroll.clone())?;
+
+    Ok(())
+}
+
 pub fn handle_dvoty_cmd(
     cmd: Dvoty,
     window: &Window,
@@ -356,6 +439,7 @@ pub fn handle_dvoty_cmd(
                 }
                 let new = context_ref.dvoty.cur_ind;
                 adjust_class(old, new, &mut context_ref.dvoty.dvoty_entries.clone());
+                ensure_row_in_viewport(&mut context_ref, window)?;
             }
         }
 
@@ -372,6 +456,7 @@ pub fn handle_dvoty_cmd(
                 }
                 let new = context_ref.dvoty.cur_ind;
                 adjust_class(old, new, &mut context_ref.dvoty.dvoty_entries.clone());
+                ensure_row_in_viewport(&mut context_ref, window)?;
             }
         }
 
