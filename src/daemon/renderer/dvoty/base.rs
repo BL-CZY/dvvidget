@@ -1,7 +1,7 @@
 use crate::daemon::renderer::app::{register_widget, AppContext};
 use crate::daemon::renderer::config::AppConf;
 use crate::daemon::structs::{DaemonCmd, DaemonEvt, DaemonRes, Dvoty};
-use crate::utils::{round_down, DaemonErr, DisplayBackend};
+use crate::utils::{DaemonErr, DisplayBackend};
 use gtk4::{prelude::*, Viewport};
 use gtk4::{
     Application, ApplicationWindow, Box, Entry, Label, ListBox, ListBoxRow, ScrolledWindow, Window,
