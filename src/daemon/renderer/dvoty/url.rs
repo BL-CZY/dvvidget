@@ -11,7 +11,8 @@ use crate::daemon::{
     structs::{DaemonCmd, DaemonEvt, Dvoty},
 };
 
-use super::base::{adjust_class, DvotyEntry, DvotyUIEntry};
+use super::class::adjust_class;
+use super::entry::{DvotyEntry, DvotyUIEntry};
 
 pub fn send_url(url: String, sender: UnboundedSender<DaemonEvt>) {
     let send_url = if !(url.starts_with("https://") || url.starts_with("http://")) {
@@ -45,7 +46,7 @@ pub fn populate_url_entry(
     keyword: String,
     context: &mut RefMut<AppContext>,
 ) {
-    let row = super::base::create_base_entry(config, ":", &keyword, "Click to open");
+    let row = super::entry::create_base_entry(config, ":", &keyword, "Click to open");
 
     let gesture_click = GestureClick::new();
     let keyword_clone = keyword.clone();

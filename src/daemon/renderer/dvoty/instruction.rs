@@ -8,7 +8,8 @@ use gtk4::{Label, ListBoxRow};
 use crate::daemon::renderer::app::AppContext;
 use crate::daemon::renderer::config::AppConf;
 
-use super::base::{adjust_class, DvotyUIEntry};
+use super::class::adjust_class;
+use super::entry::DvotyUIEntry;
 
 fn create_instruction(instruction: &str, icon_path: &str) -> ListBoxRow {
     let label_start = Label::builder()
@@ -45,26 +46,6 @@ pub fn populate_instructions(
     context: &mut RefMut<AppContext>,
 ) {
     let instructions: Vec<(String, String)> = vec![
-        (
-            "= for math expressions".into(),
-            config.dvoty.instruction_icon.clone(),
-        ),
-        (
-            "@ for launching apps".into(),
-            config.dvoty.instruction_icon.clone(),
-        ),
-        (
-            "$ for running commands".into(),
-            config.dvoty.instruction_icon.clone(),
-        ),
-        (
-            "/ for searching online".into(),
-            config.dvoty.instruction_icon.clone(),
-        ),
-        (
-            ": for opening url".into(),
-            config.dvoty.instruction_icon.clone(),
-        ),
         (
             "= for math expressions".into(),
             config.dvoty.instruction_icon.clone(),

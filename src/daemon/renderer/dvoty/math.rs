@@ -8,11 +8,12 @@ use gtk4::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::daemon::{
-    renderer::{app::AppContext, config::AppConf, dvoty::base::DvotyEntry},
+    renderer::{app::AppContext, config::AppConf, dvoty::entry::DvotyEntry},
     structs::{DaemonCmd, DaemonEvt, Dvoty},
 };
 
-use super::base::{adjust_class, DvotyUIEntry};
+use super::class::adjust_class;
+use super::entry::DvotyUIEntry;
 
 pub fn set_clipboard_text(text: &str) {
     let display = gtk4::gdk::Display::default().expect("Could not get default display");
@@ -110,7 +111,7 @@ pub fn populate_math_entry(
     result: String,
     context: &mut RefMut<AppContext>,
 ) {
-    let row = super::base::create_base_entry(config, "=", &result, "Click to copy");
+    let row = super::entry::create_base_entry(config, "=", &result, "Click to copy");
     let gesture_click = GestureClick::new();
     let result_clone = result.clone();
     gesture_click.connect_pressed(move |_, _, _, _| {

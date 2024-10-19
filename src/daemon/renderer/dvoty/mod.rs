@@ -1,11 +1,17 @@
 pub mod base;
+pub mod class;
+pub mod entry;
+pub mod event;
+pub mod input;
 pub mod instruction;
 pub mod math;
+pub mod row;
 pub mod search;
 pub mod url;
+pub mod utils;
 
 pub use base::create_dvoty;
-pub use base::handle_dvoty_cmd;
 pub use base::DvotyContext;
-pub use base::DvotyEntry;
 pub use base::DvotyTaskType;
+pub use entry::DvotyEntry;
+pub use event::handle_dvoty_cmd;

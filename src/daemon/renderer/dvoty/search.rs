@@ -7,7 +7,9 @@ use gtk4::{GestureClick, ListBox};
 use crate::daemon::renderer::app::AppContext;
 use crate::daemon::renderer::config::AppConf;
 
-use super::base::{adjust_class, create_base_entry, DvotyUIEntry};
+use super::class::adjust_class;
+use super::entry::create_base_entry;
+use super::entry::DvotyUIEntry;
 
 pub fn spawn_keyword(keyword: String) {
     let keyword_clone = keyword.clone();
