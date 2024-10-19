@@ -14,6 +14,7 @@ use super::entry::DvotyUIEntry;
 #[derive(PartialEq, Eq, Hash)]
 pub enum DvotyTaskType {
     ProcessInput,
+    MurphViewport,
 }
 
 #[derive(Default)]
@@ -23,6 +24,7 @@ pub struct DvotyContext {
     pub dvoty_scroll: Option<ScrolledWindow>,
     pub dvoty_entries: Vec<(DvotyUIEntry, ListBoxRow)>,
     pub cur_ind: usize,
+    pub target_scroll: f64,
 }
 
 fn input(sender: UnboundedSender<DaemonEvt>) -> Entry {

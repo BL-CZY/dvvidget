@@ -39,7 +39,7 @@ pub fn handle_dvoty_cmd(
                 }
                 let new = context_ref.dvoty.cur_ind;
                 super::class::adjust_class(old, new, &mut context_ref.dvoty.dvoty_entries.clone());
-                super::row::ensure_row_in_viewport(&mut context_ref, window)?;
+                super::row::ensure_row_in_viewport(&mut context_ref, window, sender.clone())?;
             }
         }
 
@@ -56,7 +56,7 @@ pub fn handle_dvoty_cmd(
                 }
                 let new = context_ref.dvoty.cur_ind;
                 super::class::adjust_class(old, new, &mut context_ref.dvoty.dvoty_entries.clone());
-                super::row::ensure_row_in_viewport(&mut context_ref, window)?;
+                super::row::ensure_row_in_viewport(&mut context_ref, window, sender.clone())?;
             }
         }
 
@@ -77,6 +77,10 @@ pub fn handle_dvoty_cmd(
 
         Dvoty::Close => {
             window.set_visible(false);
+        }
+
+        Dvoty::SetScroll(val) => {
+            super::row::set_scroll(&mut app_context.borrow_mut(), window, val)?;
         }
     }
 

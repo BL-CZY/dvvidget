@@ -42,6 +42,7 @@ pub enum Bri {
 pub enum Dvoty {
     AddEntry(DvotyEntry),
     Update(String),
+    SetScroll(f64),
     IncEntryIndex,
     DecEntryIndex,
     TriggerEntry,

@@ -58,6 +58,7 @@ pub fn process_input(
     let context_ref = &mut context.borrow_mut();
     context_ref.dvoty.dvoty_entries.clear();
     context_ref.dvoty.cur_ind = 0;
+    context_ref.dvoty.target_scroll = 0.0f64;
 
     let list = if let Some(l) = &context_ref.dvoty.dvoty_list {
         l
