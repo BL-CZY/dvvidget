@@ -3,14 +3,18 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 use crate::{
     daemon::{
         renderer::{app::AppContext, config::AppConf},
-        structs::DaemonRes,
+        structs::{DaemonCmd, DaemonEvt, DaemonRes, Dvoty},
     },
     utils::DaemonErr,
 };
 
 use super::{math, search, url};
-use gtk4::{prelude::BoxExt, prelude::WidgetExt, Box, Image, Label, ListBoxRow, Window};
+use gtk4::{
+    prelude::{BoxExt, WidgetExt},
+    Box, GestureClick, Image, Label, ListBoxRow, Window,
+};
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum DvotyEntry {
@@ -63,7 +67,12 @@ impl DvotyUIEntry {
     }
 }
 
-pub fn create_base_entry(icon_path: &str, content: &str, tip: &str) -> ListBoxRow {
+pub fn create_base_entry(
+    icon_path: &str,
+    content: &str,
+    tip: &str,
+    sender: UnboundedSender<DaemonEvt>,
+) -> ListBoxRow {
     let icon = Image::from_file(icon_path);
     icon.add_css_class("dvoty-icon");
     icon.set_halign(gtk4::Align::Start);
@@ -98,6 +107,18 @@ pub fn create_base_entry(icon_path: &str, content: &str, tip: &str) -> ListBoxRo
         .child(&wrapper_box)
         .build();
 
+    let gesture_click = GestureClick::new();
+    gesture_click.connect_pressed(move |_, _, _, _| {
+        sender
+            .send(DaemonEvt {
+                evt: DaemonCmd::Dvoty(Dvoty::TriggerEntry),
+                sender: None,
+            })
+            .unwrap_or_else(|e| println!("Dvoty: Failed to send trigger event by clicking: {}", e))
+    });
+
+    res.add_controller(gesture_click);
+
     return res;
 }
 
@@ -106,6 +127,7 @@ pub fn add_entry(
     window: &Window,
     context: Rc<RefCell<AppContext>>,
     config: Arc<AppConf>,
+    sender: UnboundedSender<DaemonEvt>,
 ) -> Result<DaemonRes, DaemonErr> {
     let context_ref = &mut context.borrow_mut();
 
@@ -123,16 +145,16 @@ pub fn add_entry(
 
     match entry {
         DvotyEntry::Empty => {
-            super::instruction::populate_instructions(&list, config, context_ref);
+            super::instruction::populate_instructions(&list, config, context_ref, sender);
         }
         DvotyEntry::Math { result, .. } => {
-            super::math::populate_math_entry(config, &list, result, context_ref);
+            super::math::populate_math_entry(config, &list, result, context_ref, sender);
         }
         DvotyEntry::Search { keyword } => {
-            super::search::populate_search_entry(config, &list, keyword, context_ref);
+            super::search::populate_search_entry(config, &list, keyword, context_ref, sender);
         }
         DvotyEntry::Url { url } => {
-            super::url::populate_url_entry(config, &list, url, context_ref);
+            super::url::populate_url_entry(config, &list, url, context_ref, sender);
         }
         _ => {}
     }

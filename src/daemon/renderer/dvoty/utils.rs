@@ -1,4 +1,4 @@
-use gtk4::{prelude::*, Box, ScrolledWindow};
+use gtk4::{prelude::*, Box, Entry, ScrolledWindow};
 use gtk4::{ListBox, Window};
 
 pub fn get_list(window: &Window) -> Result<ListBox, ()> {
@@ -23,6 +23,16 @@ pub fn get_scrolled_window(window: &Window) -> Result<ScrolledWindow, ()> {
             if let Some(scroll) = inner_box.first_child().and_downcast::<ScrolledWindow>() {
                 return Ok(scroll);
             }
+        }
+    }
+
+    Err(())
+}
+
+pub fn get_input(window: &Window) -> Result<Entry, ()> {
+    if let Some(outer_box) = window.child().and_downcast_ref::<Box>() {
+        if let Some(entry) = outer_box.first_child().and_downcast::<Entry>() {
+            return Ok(entry);
         }
     }
 

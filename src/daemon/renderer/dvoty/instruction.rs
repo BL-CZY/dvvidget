@@ -2,9 +2,11 @@ use std::cell::RefMut;
 use std::sync::Arc;
 
 use gtk4::ListBox;
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::daemon::renderer::app::AppContext;
 use crate::daemon::renderer::config::AppConf;
+use crate::daemon::structs::DaemonEvt;
 
 use super::class::adjust_class;
 use super::entry::{create_base_entry, DvotyUIEntry};
@@ -13,6 +15,7 @@ pub fn populate_instructions(
     list_box: &ListBox,
     config: Arc<AppConf>,
     context: &mut RefMut<AppContext>,
+    sender: UnboundedSender<DaemonEvt>,
 ) {
     let instructions: Vec<(String, String)> = vec![
         (
@@ -38,7 +41,7 @@ pub fn populate_instructions(
     ];
 
     for instruction in instructions.iter() {
-        let entry = create_base_entry(&instruction.1, &instruction.0, "");
+        let entry = create_base_entry(&instruction.1, &instruction.0, "", sender.clone());
         context
             .dvoty
             .dvoty_entries
@@ -46,6 +49,5 @@ pub fn populate_instructions(
         list_box.append(&entry);
     }
 
-    context.dvoty.cur_ind = 0;
     adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
 }

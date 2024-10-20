@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
-use gtk4::{prelude::WidgetExt, Window};
+use gtk4::{prelude::EditableExt, prelude::WidgetExt, Window};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
@@ -10,6 +10,8 @@ use crate::{
     },
     utils::DaemonErr,
 };
+
+use super::utils::get_input;
 
 pub fn handle_dvoty_cmd(
     cmd: Dvoty,
@@ -24,7 +26,7 @@ pub fn handle_dvoty_cmd(
         }
 
         Dvoty::AddEntry(entry) => {
-            super::entry::add_entry(entry, window, app_context, config)?;
+            super::entry::add_entry(entry, window, app_context, config, sender.clone())?;
         }
 
         Dvoty::IncEntryIndex => {
@@ -67,6 +69,11 @@ pub fn handle_dvoty_cmd(
                     .0
                     .clone()
                     .run();
+            }
+            if let Ok(entry) = get_input(&window) {
+                entry.set_text("");
+            } else {
+                println!("Dvoty: can't find input")
             }
             window.set_visible(false);
         }

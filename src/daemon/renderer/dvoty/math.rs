@@ -110,17 +110,12 @@ pub fn populate_math_entry(
     list: &ListBox,
     result: String,
     context: &mut RefMut<AppContext>,
+    sender: UnboundedSender<DaemonEvt>,
 ) {
-    let row = super::entry::create_base_entry(&config.dvoty.math_icon, &result, "Click to copy");
-    let gesture_click = GestureClick::new();
-    let result_clone = result.clone();
-    gesture_click.connect_pressed(move |_, _, _, _| {
-        set_clipboard_text(&result_clone);
-    });
+    let row =
+        super::entry::create_base_entry(&config.dvoty.math_icon, &result, "Click to copy", sender);
 
     let result_clone = result.clone();
-
-    row.add_controller(gesture_click);
 
     context.dvoty.dvoty_entries.push((
         DvotyUIEntry::Math {
@@ -128,8 +123,6 @@ pub fn populate_math_entry(
         },
         row.clone(),
     ));
-
-    context.dvoty.cur_ind = 0;
 
     adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
 

@@ -45,24 +45,15 @@ pub fn populate_url_entry(
     list: &ListBox,
     keyword: String,
     context: &mut RefMut<AppContext>,
+    sender: UnboundedSender<DaemonEvt>,
 ) {
-    let row = super::entry::create_base_entry(&config.dvoty.url_icon, &keyword, "Click to open");
-
-    let gesture_click = GestureClick::new();
-    let keyword_clone = keyword.clone();
-    gesture_click.connect_pressed(move |_, _, _, _| {
-        let keyword_clone = keyword_clone.clone();
-        spawn_url(keyword_clone);
-    });
-
-    row.add_controller(gesture_click);
+    let row =
+        super::entry::create_base_entry(&config.dvoty.url_icon, &keyword, "Click to open", sender);
 
     context
         .dvoty
         .dvoty_entries
         .push((DvotyUIEntry::Url { url: keyword }, row.clone()));
-
-    context.dvoty.cur_ind = 0;
 
     adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
 

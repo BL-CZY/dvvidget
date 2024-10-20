@@ -1,11 +1,12 @@
 use std::cell::RefMut;
 use std::sync::Arc;
 
-use gtk4::prelude::*;
-use gtk4::{GestureClick, ListBox};
+use gtk4::ListBox;
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::daemon::renderer::app::AppContext;
 use crate::daemon::renderer::config::AppConf;
+use crate::daemon::structs::DaemonEvt;
 
 use super::class::adjust_class;
 use super::entry::create_base_entry;
@@ -24,24 +25,19 @@ pub fn populate_search_entry(
     list: &ListBox,
     keyword: String,
     context: &mut RefMut<AppContext>,
+    sender: UnboundedSender<DaemonEvt>,
 ) {
-    let row = create_base_entry(&config.dvoty.serach_icon, &keyword, "Click to search");
-
-    let gesture_click = GestureClick::new();
-    let keyword_clone = keyword.clone();
-    gesture_click.connect_pressed(move |_, _, _, _| {
-        let keyword_clone = keyword_clone.clone();
-        spawn_keyword(keyword_clone);
-    });
-
-    row.add_controller(gesture_click);
+    let row = create_base_entry(
+        &config.dvoty.serach_icon,
+        &keyword,
+        "Click to search",
+        sender,
+    );
 
     context
         .dvoty
         .dvoty_entries
         .push((DvotyUIEntry::Search { keyword }, row.clone()));
-
-    context.dvoty.cur_ind = 0;
 
     adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
 
