@@ -1,8 +1,7 @@
 use std::cell::RefMut;
 use std::sync::Arc;
 
-use gtk4::prelude::*;
-use gtk4::{GestureClick, ListBox};
+use gtk4::ListBox;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::daemon::renderer::app::AppContext;

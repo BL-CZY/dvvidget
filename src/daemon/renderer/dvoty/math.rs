@@ -1,10 +1,7 @@
 use std::{cell::RefMut, sync::Arc};
 
 use evalexpr::{context_map, Value};
-use gtk4::{
-    prelude::{DisplayExt, WidgetExt},
-    GestureClick, ListBox,
-};
+use gtk4::{prelude::DisplayExt, ListBox};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::daemon::{

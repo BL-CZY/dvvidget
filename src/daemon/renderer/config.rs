@@ -64,6 +64,41 @@ pub struct AppConfBri {
     pub icons: Vec<IconDescriptor>,
 }
 
+#[derive(Clone, Default)]
+pub enum SearchEngine {
+    #[default]
+    Google,
+    Duckduckgo,
+    Bing,
+    Wikipedia(String),
+}
+
+impl SearchEngine {
+    pub fn from_str(input: &str) -> Self {
+        // check for Wikipedia
+        let input = input.trim();
+        if input.ends_with("wiki")
+            || input.ends_with("WIKI")
+            || input.ends_with("Wiki")
+            || input.ends_with("wikipedia")
+            || input.ends_with("Wikipedia")
+        {
+            if let Some(index) = input.find("_") {
+                return SearchEngine::Wikipedia(input[0..index].to_string());
+            } else {
+                return SearchEngine::Wikipedia("en".to_string());
+            }
+        }
+
+        match input {
+            "Goog" | "google" | "Google" | "goog" => SearchEngine::Google,
+            "DDG" | "ddg" | "Ddg" | "Duckduckgo" | "duckduckgo" => SearchEngine::Duckduckgo,
+            "bing" | "Bing" => SearchEngine::Bing,
+            _ => SearchEngine::Google,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct AppConfDvoty {
     pub window: WindowDescriptor,
@@ -73,8 +108,7 @@ pub struct AppConfDvoty {
     pub serach_icon: String,
     pub cmd_icon: String,
     pub url_icon: String,
-    pub highlight_fg_color: String,
-    pub highlight_bg_color: String,
+    pub search_engine: SearchEngine,
 }
 
 impl Default for AppConf {
@@ -117,8 +151,7 @@ impl Default for AppConf {
                 serach_icon: "".into(),
                 cmd_icon: "".into(),
                 url_icon: "".into(),
-                highlight_fg_color: "#000000".into(),
-                highlight_bg_color: "#FFFFFF".into(),
+                search_engine: SearchEngine::default(),
             },
         }
     }
@@ -332,45 +365,31 @@ fn max_height(toml: &Map<String, Value>) -> u32 {
     }
 }
 
-fn highlight_bg_color(toml: &Map<String, Value>) -> String {
-    let inner = if let Some(v) = toml.get("dvoty") {
-        v
-    } else {
-        return "#FFFFFF".into();
-    };
-
-    if let Some(Value::String(val)) = inner.get("highlight_bg_color") {
-        val.into()
-    } else {
-        "#FFFFFF".into()
-    }
-}
-
-fn highlight_fg_color(toml: &Map<String, Value>) -> String {
-    let inner = if let Some(v) = toml.get("dvoty") {
-        v
-    } else {
-        return "#000000".into();
-    };
-
-    if let Some(Value::String(val)) = inner.get("highlight_fg_color") {
-        val.into()
-    } else {
-        "#000000".into()
-    }
-}
-
 fn dvoty_icon(toml: &Map<String, Value>, icon: &str) -> String {
     let inner = if let Some(v) = toml.get("dvoty") {
         v
     } else {
-        return "#000000".into();
+        return "".into();
     };
 
     if let Some(Value::String(val)) = inner.get(icon) {
         val.into()
     } else {
         "".into()
+    }
+}
+
+fn search_engine(toml: &Map<String, Value>) -> SearchEngine {
+    let inner = if let Some(v) = toml.get("dvoty") {
+        v
+    } else {
+        return SearchEngine::default();
+    };
+
+    if let Some(Value::String(val)) = inner.get("search_engine") {
+        SearchEngine::from_str(val)
+    } else {
+        SearchEngine::default()
     }
 }
 
@@ -411,8 +430,7 @@ impl AppConf {
                 math_icon: dvoty_icon(toml, "math_icon"),
                 instruction_icon: dvoty_icon(toml, "instruction_icon"),
                 max_height: max_height(toml),
-                highlight_bg_color: highlight_bg_color(toml),
-                highlight_fg_color: highlight_fg_color(toml),
+                search_engine: search_engine(toml),
             },
         }
     }

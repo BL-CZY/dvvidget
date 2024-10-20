@@ -68,7 +68,7 @@ pub fn handle_dvoty_cmd(
                 context_ref.dvoty.dvoty_entries[context_ref.dvoty.cur_ind]
                     .0
                     .clone()
-                    .run();
+                    .run(config);
             }
             if let Ok(entry) = get_input(&window) {
                 entry.set_text("");

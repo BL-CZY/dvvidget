@@ -6,17 +6,22 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::daemon::renderer::app::AppContext;
 use crate::daemon::renderer::config::AppConf;
+use crate::daemon::renderer::config::SearchEngine;
 use crate::daemon::structs::DaemonEvt;
 
 use super::class::adjust_class;
 use super::entry::create_base_entry;
 use super::entry::DvotyUIEntry;
 
-pub fn spawn_keyword(keyword: String) {
-    let keyword_clone = keyword.clone();
+pub fn spawn_keyword(keyword: String, config: Arc<AppConf>) {
+    let search_url = match &config.dvoty.search_engine {
+        SearchEngine::Google => format!("https://www.google.com/search?q={}", keyword),
+        SearchEngine::Duckduckgo => format!("https://duckduckgo.com/?q={}", keyword),
+        SearchEngine::Bing => format!("https://www.bing.com/search?q={}", keyword),
+        SearchEngine::Wikipedia(lang) => format!("https://{}.wikipedia.org/wiki/{}", lang, keyword),
+    };
     tokio::spawn(async move {
-        open::that(format!("https://www.google.com/search?q={}", keyword_clone))
-            .unwrap_or_else(|e| println!("Dvoty: Can't perform search: {}", e));
+        open::that(search_url).unwrap_or_else(|e| println!("Dvoty: Can't perform search: {}", e));
     });
 }
 

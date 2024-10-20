@@ -51,13 +51,13 @@ pub enum DvotyUIEntry {
 }
 
 impl DvotyUIEntry {
-    pub fn run(self) {
+    pub fn run(self, config: Arc<AppConf>) {
         match self {
             DvotyUIEntry::Math { result } => {
                 math::set_clipboard_text(&result);
             }
             DvotyUIEntry::Search { keyword } => {
-                search::spawn_keyword(keyword);
+                search::spawn_keyword(keyword, config);
             }
             DvotyUIEntry::Url { url } => {
                 url::spawn_url(url);
