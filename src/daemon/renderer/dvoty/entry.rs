@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{math, search, url};
-use gtk4::{prelude::BoxExt, Box, Label, ListBoxRow, Window};
+use gtk4::{prelude::BoxExt, prelude::WidgetExt, Box, Image, Label, ListBoxRow, Window};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -63,16 +63,17 @@ impl DvotyUIEntry {
     }
 }
 
-pub fn create_base_entry(config: Arc<AppConf>, icon: &str, content: &str, tip: &str) -> ListBoxRow {
+pub fn create_base_entry(icon_path: &str, content: &str, tip: &str) -> ListBoxRow {
+    let icon = Image::from_file(icon_path);
+    icon.add_css_class("dvoty-icon");
+    icon.set_halign(gtk4::Align::Start);
+
     let label_begin = Label::builder()
         .use_markup(true)
-        .label(format!(
-            "<span show=\"ignorables\" background=\"{}\" foreground=\"{}\" size=\"x-large\"> {} </span> {}",
-            config.dvoty.highlight_bg_color, config.dvoty.highlight_fg_color, icon, content
-        ))
+        .label(content)
         .css_classes(["dvoty-label"])
         .halign(gtk4::Align::Start)
-        .hexpand(true)
+        .hexpand(false)
         .build();
 
     let label_end = Label::builder()
@@ -88,6 +89,7 @@ pub fn create_base_entry(config: Arc<AppConf>, icon: &str, content: &str, tip: &
         .css_classes(["dvoty-box"])
         .build();
 
+    wrapper_box.append(&icon);
     wrapper_box.append(&label_begin);
     wrapper_box.append(&label_end);
 

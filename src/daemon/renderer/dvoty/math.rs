@@ -111,7 +111,7 @@ pub fn populate_math_entry(
     result: String,
     context: &mut RefMut<AppContext>,
 ) {
-    let row = super::entry::create_base_entry(config, "=", &result, "Click to copy");
+    let row = super::entry::create_base_entry(&config.dvoty.math_icon, &result, "Click to copy");
     let gesture_click = GestureClick::new();
     let result_clone = result.clone();
     gesture_click.connect_pressed(move |_, _, _, _| {

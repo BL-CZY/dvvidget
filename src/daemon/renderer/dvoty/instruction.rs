@@ -1,44 +1,13 @@
 use std::cell::RefMut;
 use std::sync::Arc;
 
-use gtk4::{prelude::*, Image};
-use gtk4::{Box, ListBox};
-use gtk4::{Label, ListBoxRow};
+use gtk4::ListBox;
 
 use crate::daemon::renderer::app::AppContext;
 use crate::daemon::renderer::config::AppConf;
 
 use super::class::adjust_class;
-use super::entry::DvotyUIEntry;
-
-fn create_instruction(instruction: &str, icon_path: &str) -> ListBoxRow {
-    let label_start = Label::builder()
-        .use_markup(true)
-        .label(instruction)
-        .css_classes(["dvoty-label"])
-        .halign(gtk4::Align::Start)
-        .hexpand(true)
-        .build();
-
-    let icon_end = Image::from_file(icon_path);
-    icon_end.set_halign(gtk4::Align::End);
-    icon_end.add_css_class("dvoty-icon");
-
-    let result_box = Box::builder()
-        .orientation(gtk4::Orientation::Horizontal)
-        .build();
-
-    result_box.append(&label_start);
-    result_box.append(&icon_end);
-
-    let result = ListBoxRow::builder()
-        .child(&result_box)
-        .css_classes(["dvoty-entry-instruction", "dvoty-entry"])
-        .focusable(false)
-        .build();
-
-    result
-}
+use super::entry::{create_base_entry, DvotyUIEntry};
 
 pub fn populate_instructions(
     list_box: &ListBox,
@@ -69,7 +38,7 @@ pub fn populate_instructions(
     ];
 
     for instruction in instructions.iter() {
-        let entry = create_instruction(&instruction.0, &instruction.1);
+        let entry = create_base_entry(&instruction.1, &instruction.0, "");
         context
             .dvoty
             .dvoty_entries

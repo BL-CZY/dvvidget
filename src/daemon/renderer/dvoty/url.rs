@@ -46,7 +46,7 @@ pub fn populate_url_entry(
     keyword: String,
     context: &mut RefMut<AppContext>,
 ) {
-    let row = super::entry::create_base_entry(config, ":", &keyword, "Click to open");
+    let row = super::entry::create_base_entry(&config.dvoty.url_icon, &keyword, "Click to open");
 
     let gesture_click = GestureClick::new();
     let keyword_clone = keyword.clone();

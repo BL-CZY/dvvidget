@@ -25,7 +25,7 @@ pub fn populate_search_entry(
     keyword: String,
     context: &mut RefMut<AppContext>,
 ) {
-    let row = create_base_entry(config, "/", &keyword, "Click to search");
+    let row = create_base_entry(&config.dvoty.serach_icon, &keyword, "Click to search");
 
     let gesture_click = GestureClick::new();
     let keyword_clone = keyword.clone();
