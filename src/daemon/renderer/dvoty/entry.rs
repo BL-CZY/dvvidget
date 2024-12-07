@@ -62,6 +62,15 @@ impl DvotyUIEntry {
             DvotyUIEntry::Url { url } => {
                 url::spawn_url(url);
             }
+            DvotyUIEntry::Command { exec } => {
+                if let Err(e) = std::process::Command::new("bash")
+                    .arg("-c")
+                    .arg(&exec)
+                    .spawn()
+                {
+                    println!("Dvoty: Failed to spawn command: {}", e);
+                };
+            }
             _ => {}
         }
     }
@@ -155,6 +164,9 @@ pub fn add_entry(
         }
         DvotyEntry::Url { url } => {
             super::url::populate_url_entry(config, &list, url, context_ref, sender);
+        }
+        DvotyEntry::Command { exec } => {
+            super::cmd::populate_cmd_entry(config, &list, exec, context_ref, sender);
         }
         _ => {}
     }

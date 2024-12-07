@@ -29,7 +29,18 @@ fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>) {
             super::math::eval_math(input, sender);
         }
         '@' => {}
-        '$' => {}
+        '$' => {
+            sender
+                .send(DaemonEvt {
+                    evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Command {
+                        exec: input.chars().skip(1).collect::<String>(),
+                    })),
+                    sender: None,
+                })
+                .unwrap_or_else(|e| {
+                    println!("Dvoty: Failed to send command: {}", e);
+                });
+        }
         ':' => {
             super::url::send_url(input.chars().skip(1).collect::<String>(), sender);
         }

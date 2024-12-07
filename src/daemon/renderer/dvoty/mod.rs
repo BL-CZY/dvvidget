@@ -1,5 +1,6 @@
 pub mod base;
 pub mod class;
+pub mod cmd;
 pub mod entry;
 pub mod event;
 pub mod input;

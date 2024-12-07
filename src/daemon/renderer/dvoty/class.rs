@@ -46,6 +46,13 @@ pub fn adjust_class(old: usize, new: usize, input: &mut Vec<(DvotyUIEntry, ListB
                 &["dvoty-entry-url", "dvoty-entry"],
             );
         }
+        DvotyUIEntry::Command { .. } => {
+            set_class(
+                &input[old].1,
+                &["dvoty-entry-cmd-select", "dvoty-entry-select"],
+                &["dvoty-entry-cmd", "dvoty-entry"],
+            );
+        }
         _ => {}
     }
 
@@ -76,6 +83,13 @@ pub fn adjust_class(old: usize, new: usize, input: &mut Vec<(DvotyUIEntry, ListB
                 &input[new].1,
                 &["dvoty-entry-url", "dvoty-entry"],
                 &["dvoty-entry-url-select", "dvoty-entry-select"],
+            );
+        }
+        DvotyUIEntry::Command { .. } => {
+            set_class(
+                &input[new].1,
+                &["dvoty-entry-cmd", "dvoty-entry"],
+                &["dvoty-entry-cmd-select", "dvoty-entry-select"],
             );
         }
 

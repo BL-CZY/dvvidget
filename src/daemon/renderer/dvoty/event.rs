@@ -70,16 +70,14 @@ pub fn handle_dvoty_cmd(
                     .clone()
                     .run(config);
             }
-            if let Ok(entry) = get_input(&window) {
-                entry.set_text("");
-            } else {
-                println!("Dvoty: can't find input")
-            }
             window.set_visible(false);
         }
 
         Dvoty::Open => {
             window.set_visible(true);
+            if let Ok(input) = get_input(window) {
+                input.select_region(0, -1);
+            }
         }
 
         Dvoty::Close => {
