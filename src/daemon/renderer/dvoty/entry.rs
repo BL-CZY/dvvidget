@@ -63,13 +63,14 @@ impl DvotyUIEntry {
                 url::spawn_url(url);
             }
             DvotyUIEntry::Command { exec } => {
-                if let Err(e) = std::process::Command::new("bash")
+                if let Err(e) = std::process::Command::new("setsid")
+                    .arg("/bin/sh")
                     .arg("-c")
                     .arg(&exec)
                     .spawn()
                 {
                     println!("Dvoty: Failed to spawn command: {}", e);
-                };
+                }
             }
             _ => {}
         }
