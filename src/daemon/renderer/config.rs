@@ -42,6 +42,7 @@ impl IconDescriptor {
 
 #[derive(Clone)]
 pub struct AppConfVol {
+    pub enabled: bool,
     pub window: WindowDescriptor,
     pub max_vol: f64,
     pub run_cmd: VolCmdProvider,
@@ -58,6 +59,7 @@ pub enum BriCmdProvider {
 
 #[derive(Clone)]
 pub struct AppConfBri {
+    pub enabled: bool,
     pub window: WindowDescriptor,
     pub run_cmd: BriCmdProvider,
     pub use_svg: bool,
@@ -101,6 +103,7 @@ impl SearchEngine {
 
 #[derive(Clone)]
 pub struct AppConfDvoty {
+    pub enabled: bool,
     pub window: WindowDescriptor,
     pub max_height: u32,
     pub instruction_icon: String,
@@ -118,6 +121,7 @@ impl Default for AppConf {
                 css_path: DEFAULT_CSS_PATH.to_string(),
             },
             vol: AppConfVol {
+                enabled: true,
                 window: WindowDescriptor {
                     anchor_bottom: true,
                     margin_bottom: 130,
@@ -134,6 +138,7 @@ impl Default for AppConf {
                 mute_icon: " ".to_string(),
             },
             bri: AppConfBri {
+                enabled: true,
                 window: WindowDescriptor {
                     anchor_bottom: true,
                     margin_bottom: 130,
@@ -144,6 +149,7 @@ impl Default for AppConf {
                 icons: default_bri_icons(),
             },
             dvoty: AppConfDvoty {
+                enabled: true,
                 window: WindowDescriptor::default(),
                 max_height: 300,
                 instruction_icon: "".into(),
@@ -393,6 +399,20 @@ fn search_engine(toml: &Map<String, Value>) -> SearchEngine {
     }
 }
 
+fn is_enabled(toml: &Map<String, Value>, key: &str) -> bool {
+    let inner = if let Some(v) = toml.get(key) {
+        v
+    } else {
+        return true;
+    };
+
+    if let Some(Value::Boolean(val)) = inner.get("enable") {
+        *val
+    } else {
+        true
+    }
+}
+
 impl AppConf {
     pub fn from_toml(toml: &Map<String, Value>) -> Self {
         AppConf {
@@ -400,6 +420,7 @@ impl AppConf {
                 css_path: css_path(toml),
             },
             vol: AppConfVol {
+                enabled: is_enabled(toml, "volume"),
                 window: vol_window(toml),
                 max_vol: max_vol(toml),
                 run_cmd: vol_run_cmd(toml),
@@ -408,12 +429,14 @@ impl AppConf {
                 mute_icon: mute_icon(toml),
             },
             bri: AppConfBri {
+                enabled: is_enabled(toml, "brightness"),
                 window: bri_window(toml),
                 run_cmd: bri_run_cmd(toml),
                 use_svg: is_svg(toml, "brightness"),
                 icons: bri_icons(toml),
             },
             dvoty: AppConfDvoty {
+                enabled: is_enabled(toml, "dvoty"),
                 window: WindowDescriptor::from_toml(
                     toml,
                     "dvoty",
