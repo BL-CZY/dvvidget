@@ -94,6 +94,8 @@ pub enum DvotyCmd {
     Open,
     #[clap(about = "Close dvoty")]
     Close,
+    #[clap(about = "Toggle dvoty")]
+    Toggle,
 }
 
 fn daemon_args(path: Option<String>, option: Option<DaemonSubCmd>) {
@@ -168,6 +170,7 @@ fn dvoty_args(actions: DvotyCmd) {
     crate::cli::send_evt(match actions {
         DvotyCmd::Open => DaemonCmd::Dvoty(crate::daemon::structs::Dvoty::Open),
         DvotyCmd::Close => DaemonCmd::Dvoty(crate::daemon::structs::Dvoty::Close),
+        DvotyCmd::Toggle => DaemonCmd::Dvoty(crate::daemon::structs::Dvoty::Toggle),
     })
     .unwrap_or_else(|e| println!("Error seding event: {:?}", e));
 }

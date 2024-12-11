@@ -84,6 +84,14 @@ pub fn handle_dvoty_cmd(
             window.set_visible(false);
         }
 
+        Dvoty::Toggle => {
+            if window.is_visible() {
+                window.set_visible(false);
+            } else {
+                window.set_visible(true);
+            }
+        }
+
         Dvoty::SetScroll(val) => {
             super::row::set_scroll(&mut app_context.borrow_mut(), window, val)?;
         }

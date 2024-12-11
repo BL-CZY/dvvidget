@@ -48,6 +48,7 @@ pub enum Dvoty {
     TriggerEntry,
     Close,
     Open,
+    Toggle,
 }
 
 #[derive(Debug, Clone)]
