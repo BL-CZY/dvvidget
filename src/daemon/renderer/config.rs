@@ -76,7 +76,7 @@ pub enum SearchEngine {
 }
 
 impl SearchEngine {
-    pub fn from_str(input: &str) -> Self {
+    pub fn from_string(input: &str) -> Self {
         // check for Wikipedia
         let input = input.trim();
         if input.ends_with("wiki")
@@ -393,7 +393,7 @@ fn search_engine(toml: &Map<String, Value>) -> SearchEngine {
     };
 
     if let Some(Value::String(val)) = inner.get("search_engine") {
-        SearchEngine::from_str(val)
+        SearchEngine::from_string(val)
     } else {
         SearchEngine::default()
     }

@@ -87,12 +87,12 @@ fn list(config: Arc<AppConf>) -> gtk4::Box {
         .focusable(false)
         .build();
     let list_wrapper = ScrolledWindow::builder()
-        .hscrollbar_policy(gtk4::PolicyType::Never)
+        .kinetic_scrolling(false)
+        .overlay_scrolling(false)
         .min_content_height(config.dvoty.max_height as i32)
         .child(&list_box)
         .hexpand(true)
         .build();
-
     let outer_wrapper = Box::builder().css_classes(["dvoty-scroll"]).build();
     outer_wrapper.append(&list_wrapper);
 

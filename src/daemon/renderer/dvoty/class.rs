@@ -12,7 +12,7 @@ fn set_class(target: &ListBoxRow, remove_class: &[&str], add_class: &[&str]) {
     }
 }
 
-pub fn adjust_class(old: usize, new: usize, input: &mut Vec<(DvotyUIEntry, ListBoxRow)>) {
+pub fn adjust_class(old: usize, new: usize, input: &mut [(DvotyUIEntry, ListBoxRow)]) {
     if old >= input.len() || new >= input.len() {
         return;
     }

@@ -129,7 +129,7 @@ pub fn create_base_entry(
 
     res.add_controller(gesture_click);
 
-    return res;
+    res
 }
 
 pub fn add_entry(
@@ -143,14 +143,12 @@ pub fn add_entry(
 
     let list = if let Some(l) = &context_ref.dvoty.dvoty_list {
         l.clone()
+    } else if let Ok(res) = super::utils::get_list(window) {
+        context_ref.dvoty.dvoty_list = Some(res.clone());
+        res
     } else {
-        if let Ok(res) = super::utils::get_list(window) {
-            context_ref.dvoty.dvoty_list = Some(res.clone());
-            res
-        } else {
-            println!("Dvoty: can't find list");
-            return Err(DaemonErr::CannotFindWidget);
-        }
+        println!("Dvoty: can't find list");
+        return Err(DaemonErr::CannotFindWidget);
     };
 
     match entry {

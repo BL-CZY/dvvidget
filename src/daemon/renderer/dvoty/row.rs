@@ -121,14 +121,12 @@ pub fn set_scroll(
 ) -> Result<(), DaemonErr> {
     let scroll = if let Some(s) = &context_ref.dvoty.dvoty_scroll {
         s
+    } else if let Ok(res) = super::utils::get_scrolled_window(window) {
+        context_ref.dvoty.dvoty_scroll = Some(res);
+        context_ref.dvoty.dvoty_scroll.as_ref().unwrap()
     } else {
-        if let Ok(res) = super::utils::get_scrolled_window(window) {
-            context_ref.dvoty.dvoty_scroll = Some(res);
-            &context_ref.dvoty.dvoty_scroll.as_ref().unwrap()
-        } else {
-            println!("Dvoty: can't find scrolled window");
-            return Err(DaemonErr::CannotFindWidget);
-        }
+        println!("Dvoty: can't find scrolled window");
+        return Err(DaemonErr::CannotFindWidget);
     };
 
     scroll.vadjustment().set_value(value);
@@ -143,14 +141,12 @@ pub fn ensure_row_in_viewport(
 ) -> Result<(), DaemonErr> {
     let scroll = if let Some(s) = &context_ref.dvoty.dvoty_scroll {
         s
+    } else if let Ok(res) = super::utils::get_scrolled_window(window) {
+        context_ref.dvoty.dvoty_scroll = Some(res);
+        context_ref.dvoty.dvoty_scroll.as_ref().unwrap()
     } else {
-        if let Ok(res) = super::utils::get_scrolled_window(window) {
-            context_ref.dvoty.dvoty_scroll = Some(res);
-            &context_ref.dvoty.dvoty_scroll.as_ref().unwrap()
-        } else {
-            println!("Dvoty: can't find scrolled window");
-            return Err(DaemonErr::CannotFindWidget);
-        }
+        println!("Dvoty: can't find scrolled window");
+        return Err(DaemonErr::CannotFindWidget);
     };
 
     let viewport = if let Some(v) = scroll.first_child().and_downcast::<gtk4::Viewport>() {

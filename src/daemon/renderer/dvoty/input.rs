@@ -24,7 +24,7 @@ fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>) {
         return;
     }
 
-    match input.chars().nth(0).unwrap() {
+    match input.chars().next().unwrap() {
         '=' => {
             super::math::eval_math(input, sender);
         }
@@ -73,14 +73,12 @@ pub fn process_input(
 
     let list = if let Some(l) = &context_ref.dvoty.dvoty_list {
         l
+    } else if let Ok(res) = super::utils::get_list(window) {
+        context_ref.dvoty.dvoty_list = Some(res);
+        context_ref.dvoty.dvoty_list.as_ref().unwrap()
     } else {
-        if let Ok(res) = super::utils::get_list(window) {
-            context_ref.dvoty.dvoty_list = Some(res);
-            &context_ref.dvoty.dvoty_list.as_ref().unwrap()
-        } else {
-            println!("Dvoty: can't find list");
-            return Err(DaemonErr::CannotFindWidget);
-        }
+        println!("Dvoty: can't find list");
+        return Err(DaemonErr::CannotFindWidget);
     };
 
     list.remove_all();

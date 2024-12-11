@@ -1,3 +1,4 @@
+use core::f64;
 use std::{cell::RefMut, sync::Arc};
 
 use evalexpr::{context_map, Value};
@@ -20,16 +21,14 @@ pub fn set_clipboard_text(text: &str) {
 }
 
 fn preprocess_math(input: &str) -> String {
-    let result = input
+    input
         .replace(" ", "")
         .replace("ln", "math::ln")
         .replace("log", "math::log")
         .replace("sin", "math::sin")
         .replace("cos", "math::cos")
         .replace("tan", "math::tan")
-        .replace("sqrt", "math::sqrt");
-
-    result
+        .replace("sqrt", "math::sqrt")
 }
 
 fn post_process_result(input: Value) -> String {
@@ -41,13 +40,13 @@ fn post_process_result(input: Value) -> String {
 
 pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>) {
     use evalexpr::Value;
-    let input = preprocess_math(&input);
+    let input = preprocess_math(input);
     let context = match context_map! {
-        "pi" => Value::Float(3.141592653589793f64),
+        "pi" => Value::Float(f64::consts::PI),
         "deg" => Function::new(|argument| {
             let arguments = argument.as_number()?;
 
-            Ok(Value::Float(arguments / 180f64 * 3.141592653589793f64))
+            Ok(Value::Float(arguments / 180f64 * f64::consts::PI))
         }),
         "avg" => Function::new(|argument| {
             let arguments = argument.as_tuple()?;
