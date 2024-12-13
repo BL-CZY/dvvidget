@@ -42,3 +42,25 @@ pub fn get_input(window: &Window) -> Result<Entry, UIErr> {
 
     Err(UIErr::NotFound)
 }
+
+pub struct DesktopEntry {
+    pub name: String,
+    pub description: String,
+    pub exec: String,
+}
+
+pub fn get_all_desktop_entries() -> Vec<DesktopEntry> {
+    let paths = match std::env::var("XDG_DATA_DIRS") {
+        Ok(v) => v.split(":").map(String::from).collect::<Vec<String>>(),
+        Err(e) => {
+            println!("Can't get deskfile paths: {}", e);
+            return vec![];
+        }
+    };
+
+    for path in paths {
+        println!("{}", path);
+    }
+
+    vec![]
+}

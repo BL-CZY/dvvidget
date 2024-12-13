@@ -105,8 +105,12 @@ pub fn create_dvoty(
     config: Arc<AppConf>,
     sender: UnboundedSender<DaemonEvt>,
 ) -> ApplicationWindow {
-    let result =
-        crate::daemon::renderer::window::create_window(&backend, app, &config.dvoty.window);
+    let result = crate::daemon::renderer::window::create_window(
+        &backend,
+        app,
+        &config.dvoty.window,
+        gtk4_layer_shell::KeyboardMode::OnDemand,
+    );
     result.add_css_class("dvoty-window");
 
     let input = input(sender.clone());

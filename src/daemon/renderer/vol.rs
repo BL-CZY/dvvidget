@@ -326,7 +326,12 @@ pub fn create_sound_osd(
     app: &Application,
     config: Arc<AppConf>,
 ) -> ApplicationWindow {
-    let result = window::create_window(&backend, app, &config.vol.window);
+    let result = window::create_window(
+        &backend,
+        app,
+        &config.vol.window,
+        gtk4_layer_shell::KeyboardMode::None,
+    );
     result.add_css_class("sound-window");
 
     let (cur_vol, is_muted) = get_volume(&config.vol.run_cmd);

@@ -134,7 +134,11 @@ impl WindowDescriptor {
     }
 }
 
-fn wayland_window(app: &Application, descriptor: &WindowDescriptor) -> ApplicationWindow {
+fn wayland_window(
+    app: &Application,
+    descriptor: &WindowDescriptor,
+    mode: KeyboardMode,
+) -> ApplicationWindow {
     // Create a normal GTK window however you like
     let window = gtk4::ApplicationWindow::new(app);
 
@@ -144,7 +148,7 @@ fn wayland_window(app: &Application, descriptor: &WindowDescriptor) -> Applicati
     // Display above normal windows
     window.set_layer(descriptor.layer);
 
-    window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::OnDemand);
+    window.set_keyboard_mode(mode);
 
     // Push other windows out of the way
     if descriptor.exclusive {
@@ -230,9 +234,10 @@ pub fn create_window(
     backend: &DisplayBackend,
     app: &Application,
     descriptor: &WindowDescriptor,
+    mode: KeyboardMode,
 ) -> ApplicationWindow {
     match backend {
-        DisplayBackend::Wayland => wayland_window(app, descriptor),
+        DisplayBackend::Wayland => wayland_window(app, descriptor, mode),
         DisplayBackend::X11 => x11_window(app, descriptor),
     }
 }

@@ -241,7 +241,12 @@ pub fn create_bri_osd(
     app: &Application,
     config: Arc<AppConf>,
 ) -> ApplicationWindow {
-    let result = window::create_window(&backend, app, &config.bri.window);
+    let result = window::create_window(
+        &backend,
+        app,
+        &config.bri.window,
+        gtk4_layer_shell::KeyboardMode::None,
+    );
     result.add_css_class("bri-window");
 
     let cur_bri = get_bri(&config.bri.run_cmd);
