@@ -23,4 +23,5 @@ lazy_static = "1.5.0"
 backlight = "0.1.1"
 evalexpr = "11.3.0"
 open = "5.3.0"
+walkdir = "2"
 
