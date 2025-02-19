@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::{cell::RefCell, path::PathBuf, rc::Rc, sync::Arc};
 
 use crate::{
     daemon::{
@@ -27,7 +27,7 @@ pub enum DvotyEntry {
     Launch {
         name: String,
         exec: String,
-        icon: String,
+        icon: Option<PathBuf>,
     },
     Command {
         exec: String,
@@ -166,6 +166,17 @@ pub fn add_entry(
         }
         DvotyEntry::Command { exec } => {
             super::cmd::populate_cmd_entry(config, &list, exec, context_ref, sender);
+        }
+        DvotyEntry::Launch { name, exec, icon } => {
+            super::app_launcher::populate_launcher_entry(
+                config,
+                &list,
+                name,
+                exec,
+                icon,
+                context_ref,
+                sender,
+            );
         }
         _ => {}
     }
