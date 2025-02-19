@@ -87,6 +87,7 @@ fn murph(
                 .send(DaemonEvt {
                     evt: DaemonCmd::Vol(Vol::SetRough(current)),
                     sender: None,
+                    uuid: None,
                 })
                 .unwrap_or_else(|e| println!("Vol: failed to update: {}", e));
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -96,6 +97,7 @@ fn murph(
             .send(DaemonEvt {
                 evt: DaemonCmd::Vol(Vol::SetRough(target)),
                 sender: None,
+                uuid: None,
             })
             .unwrap_or_else(|e| println!("Vol: failed to update: {}", e));
     });
@@ -215,6 +217,7 @@ pub fn handle_vol_cmd(
                 if let Err(e) = sender.send(DaemonEvt {
                     evt: DaemonCmd::Vol(Vol::Close),
                     sender: None,
+                    uuid: None,
                 }) {
                     println!("Err closing the openned window: {}", e);
                 }

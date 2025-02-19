@@ -11,13 +11,19 @@ use crate::{
     utils::DaemonErr,
 };
 
-use super::{DvotyEntry, DvotyTaskType};
+use super::{event::CURRENT_ID, DvotyEntry, DvotyTaskType};
 
 fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>) {
+    let id = uuid::Uuid::new_v4();
+    {
+        *CURRENT_ID.lock().unwrap() = id;
+    }
+
     if input.is_empty() {
         if let Err(e) = sender.send(DaemonEvt {
             evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Empty)),
             sender: None,
+            uuid: None,
         }) {
             println!("Dvoty: Failed to send entry: {}, ignoring...", e);
         };
@@ -26,7 +32,7 @@ fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>) {
 
     match input.chars().next().unwrap() {
         '=' => {
-            super::math::eval_math(input, sender);
+            super::math::eval_math(input, sender, &id);
         }
         '@' => {
             super::app_launcher::process_apps(
@@ -38,6 +44,7 @@ fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>) {
                     }
                 },
                 sender,
+                &id,
             );
         }
         '$' => {
@@ -47,6 +54,7 @@ fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>) {
                         exec: input.chars().skip(1).collect::<String>(),
                     })),
                     sender: None,
+                    uuid: Some(id),
                 })
                 .unwrap_or_else(|e| {
                     println!("Dvoty: Failed to send command: {}", e);
@@ -62,6 +70,7 @@ fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>) {
                         keyword: input.chars().skip(1).collect::<String>(),
                     })),
                     sender: None,
+                    uuid: Some(id),
                 })
                 .unwrap_or_else(|e| {
                     println!("Dvoty: Error adding search entry: {}", e);

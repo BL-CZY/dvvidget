@@ -1,6 +1,7 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use gtk4::{prelude::EditableExt, prelude::WidgetExt, Window};
+use lazy_static::lazy_static;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
@@ -11,7 +12,13 @@ use crate::{
     utils::DaemonErr,
 };
 
+use std::sync::Mutex;
+
 use super::utils::get_input;
+
+lazy_static! {
+    pub static ref CURRENT_ID: Arc<Mutex<uuid::Uuid>> = Arc::new(Mutex::new(uuid::Uuid::new_v4()));
+}
 
 pub fn handle_dvoty_cmd(
     cmd: Dvoty,
@@ -105,6 +112,7 @@ pub fn send_inc(sender: UnboundedSender<DaemonEvt>) {
         .send(DaemonEvt {
             evt: DaemonCmd::Dvoty(Dvoty::IncEntryIndex),
             sender: None,
+            uuid: None,
         })
         .unwrap_or_else(|e| println!("Dvoty: Failed to send inc index: {}", e));
 }
@@ -114,6 +122,7 @@ pub fn send_dec(sender: UnboundedSender<DaemonEvt>) {
         .send(DaemonEvt {
             evt: DaemonCmd::Dvoty(Dvoty::DecEntryIndex),
             sender: None,
+            uuid: None,
         })
         .unwrap_or_else(|e| println!("Dvoty: Failed to send dec index: {}", e));
 }

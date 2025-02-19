@@ -64,6 +64,7 @@ fn input(sender: UnboundedSender<DaemonEvt>) -> Entry {
                 .send(DaemonEvt {
                     evt: DaemonCmd::Dvoty(Dvoty::Close),
                     sender: None,
+                    uuid: None,
                 })
                 .unwrap_or_else(|e| println!("Dvoty: Failed to send triggering event: {}", e));
             glib::Propagation::Stop
@@ -78,6 +79,7 @@ fn input(sender: UnboundedSender<DaemonEvt>) -> Entry {
                 .send(DaemonEvt {
                     evt: DaemonCmd::Dvoty(Dvoty::TriggerEntry),
                     sender: None,
+                    uuid: None,
                 })
                 .unwrap_or_else(|e| println!("Dvoty: Failed to send triggering event: {}", e));
         }
@@ -90,6 +92,7 @@ fn input(sender: UnboundedSender<DaemonEvt>) -> Entry {
         if let Err(e) = sender.send(DaemonEvt {
             evt: DaemonCmd::Dvoty(Dvoty::Update(content)),
             sender: None,
+            uuid: None,
         }) {
             println!("Can't send message from Dvoty: {}", e);
         };
@@ -156,6 +159,7 @@ pub fn create_dvoty(
     if let Err(e) = sender.send(DaemonEvt {
         evt: DaemonCmd::Dvoty(Dvoty::Update("".into())),
         sender: None,
+        uuid: None,
     }) {
         println!("Can't send message from Dvoty: {}", e);
     };

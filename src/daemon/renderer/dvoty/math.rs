@@ -4,6 +4,7 @@ use std::{cell::RefMut, sync::Arc};
 use evalexpr::{context_map, Value};
 use gtk4::{prelude::DisplayExt, ListBox};
 use tokio::sync::mpsc::UnboundedSender;
+use uuid::Uuid;
 
 use crate::daemon::{
     renderer::{app::AppContext, config::AppConf, dvoty::entry::DvotyEntry},
@@ -38,7 +39,7 @@ fn post_process_result(input: Value) -> String {
     }
 }
 
-pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>) {
+pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>, id: &Uuid) {
     use evalexpr::Value;
     let input = preprocess_math(input);
     let context = match context_map! {
@@ -83,6 +84,7 @@ pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>) {
                         result: post_process_result(res),
                     })),
                     sender: None,
+                    uuid: Some(*id),
                 })
                 .unwrap_or_else(|e| println!("Dvoty: Failed to send math result: {}", e));
         }
@@ -95,6 +97,7 @@ pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>) {
                         result: e.to_string(),
                     })),
                     sender: None,
+                    uuid: Some(*id),
                 })
                 .unwrap_or_else(|e| println!("Dvoty: Failed to send math result: {}", e));
         }

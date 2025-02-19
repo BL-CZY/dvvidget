@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
+use uuid::Uuid;
 
 use super::renderer::dvoty::DvotyEntry;
 
@@ -55,6 +56,7 @@ pub enum Dvoty {
 pub struct DaemonEvt {
     pub evt: DaemonCmd,
     pub sender: Option<UnboundedSender<DaemonRes>>,
+    pub uuid: Option<Uuid>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

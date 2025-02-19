@@ -82,6 +82,7 @@ fn murph(
                 .send(DaemonEvt {
                     evt: DaemonCmd::Bri(Bri::SetRough(current)),
                     sender: None,
+                    uuid: None,
                 })
                 .unwrap_or_else(|e| println!("Vol: failed to update: {}", e));
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -91,6 +92,7 @@ fn murph(
             .send(DaemonEvt {
                 evt: DaemonCmd::Bri(Bri::SetRough(target)),
                 sender: None,
+                uuid: None,
             })
             .unwrap_or_else(|e| println!("Vol: failed to update: {}", e));
     });
@@ -175,6 +177,7 @@ pub fn handle_bri_cmd(
                 if let Err(e) = sender.send(DaemonEvt {
                     evt: DaemonCmd::Bri(Bri::Close),
                     sender: None,
+                    uuid: None,
                 }) {
                     println!("Err closing the openned window: {}", e);
                 }

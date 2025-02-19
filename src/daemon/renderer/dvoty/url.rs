@@ -26,6 +26,7 @@ pub fn send_url(url: String, sender: UnboundedSender<DaemonEvt>) {
         .send(DaemonEvt {
             evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Url { url: send_url })),
             sender: None,
+            uuid: None,
         })
         .unwrap_or_else(|e| {
             println!("Dvoty: Failed to send url: {}", e);

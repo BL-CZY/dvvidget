@@ -5,6 +5,7 @@ use freedesktop_file_parser::{EntryType, IconString};
 use gtk4::ListBox;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tokio::sync::mpsc::UnboundedSender;
+use uuid::Uuid;
 
 use crate::daemon::{
     renderer::{app::AppContext, config::AppConf, dvoty::DvotyEntry},
@@ -13,7 +14,7 @@ use crate::daemon::{
 
 use super::{class::adjust_class, entry::DvotyUIEntry};
 
-fn send(sender: UnboundedSender<DaemonEvt>, name: &str, exec: &str, icon: &IconString) {
+fn send(sender: UnboundedSender<DaemonEvt>, name: &str, exec: &str, icon: &IconString, id: &Uuid) {
     sender
         .send(DaemonEvt {
             evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Launch {
@@ -22,6 +23,7 @@ fn send(sender: UnboundedSender<DaemonEvt>, name: &str, exec: &str, icon: &IconS
                 icon: icon.get_icon_path(),
             })),
             sender: None,
+            uuid: Some(*id),
         })
         .unwrap_or_else(|e| println!("Dvoty: failed to send: {}", e));
 }
@@ -30,6 +32,7 @@ fn process_content(
     path: &PathBuf,
     input: &str,
     sender: UnboundedSender<DaemonEvt>,
+    id: &Uuid,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let content = std::fs::read_to_string(path)?;
 
@@ -64,6 +67,7 @@ fn process_content(
                             &desktop_file.entry.name.default,
                             &exec,
                             &icon,
+                            id,
                         );
 
                         for (_, value) in desktop_file.actions {
@@ -75,6 +79,7 @@ fn process_content(
                                 ),
                                 &exec,
                                 &icon,
+                                id,
                             );
                         }
 
@@ -92,6 +97,7 @@ fn process_content(
                             ),
                             &exec,
                             &icon,
+                            id,
                         );
                     }
                 }
@@ -106,6 +112,7 @@ fn process_path(
     path: &PathBuf,
     input: &str,
     sender: UnboundedSender<DaemonEvt>,
+    id: &Uuid,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let dirs = std::fs::read_dir(path).context("Can't read directory")?;
 
@@ -126,13 +133,13 @@ fn process_path(
         .collect::<Vec<PathBuf>>();
 
     paths.par_iter().for_each(|p| {
-        let _ = process_content(p, input, sender.clone());
+        let _ = process_content(p, input, sender.clone(), id);
     });
 
     Ok(())
 }
 
-pub fn process_apps(input: &str, sender: UnboundedSender<DaemonEvt>) {
+pub fn process_apps(input: &str, sender: UnboundedSender<DaemonEvt>, id: &Uuid) {
     let input = &input.to_lowercase();
     let paths = if let Ok(v) = std::env::var("XDG_DATA_DIRS") {
         v.split(":")
@@ -153,7 +160,7 @@ pub fn process_apps(input: &str, sender: UnboundedSender<DaemonEvt>) {
     };
 
     paths.par_iter().for_each(|path| {
-        let _ = process_path(path, input, sender.clone());
+        let _ = process_path(path, input, sender.clone(), id);
     });
 }
 

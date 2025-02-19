@@ -4,6 +4,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use crate::daemon::renderer::dvoty::event::CURRENT_ID;
 use crate::daemon::structs::DaemonCmd;
 use crate::daemon::structs::DaemonEvt;
 use crate::daemon::structs::DaemonRes;
@@ -194,6 +195,12 @@ pub fn init_gtk_async(
                 }
 
                 Some(evt) = evt_receiver.recv() => {
+                    if let Some(id) = evt.uuid {
+                        if id != *CURRENT_ID.lock().unwrap(){
+                            return;
+                        }
+                    }
+
                     match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), context.clone()) {
                         Err(e) => send_res(evt.sender, DaemonRes::Failure(format!("{:?}", e))),
                         Ok(res) => send_res(evt.sender, res),
