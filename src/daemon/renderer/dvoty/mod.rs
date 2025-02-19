@@ -1,3 +1,4 @@
+pub mod app_launcher;
 pub mod base;
 pub mod class;
 pub mod cmd;

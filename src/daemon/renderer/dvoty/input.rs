@@ -28,7 +28,15 @@ fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>) {
         '=' => {
             super::math::eval_math(input, sender);
         }
-        '@' => {}
+        '@' => {
+            super::app_launcher::process_apps({
+                if input.len() == 1 {
+                    ""
+                } else {
+                    &input[1..]
+                }
+            });
+        }
         '$' => {
             sender
                 .send(DaemonEvt {
