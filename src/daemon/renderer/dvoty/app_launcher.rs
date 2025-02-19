@@ -1,4 +1,4 @@
-use std::{cell::RefMut, path::PathBuf, sync::Arc};
+use std::{cell::RefMut, collections::HashSet, ffi::OsString, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 use freedesktop_file_parser::{EntryType, IconString};
@@ -56,8 +56,6 @@ fn process_content(
                     keywords.extend(temp);
                 }
 
-                println!("{:?}", keywords);
-
                 for kwd in keywords.iter() {
                     if kwd.contains(input) {
                         send(
@@ -66,6 +64,20 @@ fn process_content(
                             &exec,
                             &icon,
                         );
+
+                        for (_, value) in desktop_file.actions {
+                            send(
+                                sender.clone(),
+                                &format!(
+                                    "{}: {}",
+                                    desktop_file.entry.name.default, value.name.default
+                                ),
+                                &exec,
+                                &icon,
+                            );
+                        }
+
+                        return Ok(());
                     }
                 }
 
@@ -96,9 +108,18 @@ fn process_path(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let dirs = std::fs::read_dir(path).context("Can't read directory")?;
 
+    let mut exist: HashSet<OsString> = HashSet::new();
+
     let paths = dirs
         .filter_map(|entry| match entry {
-            Ok(res) => Some(res.path()),
+            Ok(res) => {
+                if !exist.contains(&res.file_name()) {
+                    exist.insert(res.file_name());
+                    Some(res.path())
+                } else {
+                    None
+                }
+            }
             Err(_) => None,
         })
         .collect::<Vec<PathBuf>>();
@@ -117,9 +138,6 @@ pub fn process_apps(input: &str, sender: UnboundedSender<DaemonEvt>) {
                 let mut res = if let Ok(p) = PathBuf::try_from(s) {
                     p
                 } else {
-                    #[cfg(debug_assertions)]
-                    println!("{:?} is not valid path", s);
-
                     return None;
                 };
 
@@ -166,6 +184,8 @@ pub fn populate_launcher_entry(
         .dvoty
         .dvoty_entries
         .push((DvotyUIEntry::Launch { exec }, row.clone()));
+
+    adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
 
     list.append(&row);
 }
