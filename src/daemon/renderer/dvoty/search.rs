@@ -44,7 +44,9 @@ pub fn populate_search_entry(
         .dvoty_entries
         .push((DvotyUIEntry::Search { keyword }, row.clone()));
 
-    adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
+    if context.dvoty.dvoty_entries.len() <= 1 {
+        adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
+    }
 
     list.append(&row);
 }

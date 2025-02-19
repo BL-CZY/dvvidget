@@ -120,7 +120,9 @@ pub fn populate_math_entry(
         row.clone(),
     ));
 
-    adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
+    if context.dvoty.dvoty_entries.len() <= 1 {
+        adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
+    }
 
     list.append(&row);
 }

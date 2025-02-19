@@ -26,7 +26,9 @@ pub fn populate_cmd_entry(
         .dvoty_entries
         .push((DvotyUIEntry::Command { exec: cmd_clone }, row.clone()));
 
-    adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
+    if context.dvoty.dvoty_entries.len() <= 1 {
+        adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
+    }
 
     list.append(&row);
 }

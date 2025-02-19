@@ -54,7 +54,9 @@ pub fn populate_url_entry(
         .dvoty_entries
         .push((DvotyUIEntry::Url { url: keyword }, row.clone()));
 
-    adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
+    if context.dvoty.dvoty_entries.len() <= 1 {
+        adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
+    }
 
     list.append(&row);
 }
