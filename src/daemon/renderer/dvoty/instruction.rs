@@ -49,7 +49,5 @@ pub fn populate_instructions(
         list_box.append(&entry);
     }
 
-    if context.dvoty.dvoty_entries.len() <= 1 {
-        adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
-    }
+    adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
 }
