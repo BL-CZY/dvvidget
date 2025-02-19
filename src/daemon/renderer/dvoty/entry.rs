@@ -1,4 +1,4 @@
-use std::{cell::RefCell, path::PathBuf, rc::Rc, sync::Arc};
+use std::{cell::RefCell, path::PathBuf, process::Stdio, rc::Rc, sync::Arc};
 
 use crate::{
     daemon::{
@@ -67,6 +67,19 @@ impl DvotyUIEntry {
                     .arg("/bin/sh")
                     .arg("-c")
                     .arg(&exec)
+                    .stdout(Stdio::null())
+                    .spawn()
+                {
+                    println!("Dvoty: Failed to spawn command: {}", e);
+                }
+            }
+            DvotyUIEntry::Launch { exec } => {
+                if let Err(e) = std::process::Command::new("setsid")
+                    .arg("/bin/sh")
+                    .arg("-c")
+                    .arg(&exec)
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
                     .spawn()
                 {
                     println!("Dvoty: Failed to spawn command: {}", e);

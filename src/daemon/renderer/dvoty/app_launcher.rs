@@ -46,13 +46,14 @@ fn process_content(
     if let Some(icon) = desktop_file.entry.icon {
         if let EntryType::Application(fields) = desktop_file.entry.entry_type {
             if let Some(exec) = fields.exec {
-                let mut keywords: Vec<&str> = vec![&desktop_file.entry.name.default];
+                let mut keywords: Vec<String> =
+                    vec![desktop_file.entry.name.default.to_lowercase()];
                 if let Some(ref generic_name) = desktop_file.entry.generic_name {
-                    keywords.push(&generic_name.default);
+                    keywords.push(generic_name.default.to_lowercase());
                 }
 
                 if let Some(ref kwds) = fields.keywords {
-                    let temp: Vec<&str> = kwds.default.iter().map(AsRef::as_ref).collect();
+                    let temp: Vec<String> = kwds.default.iter().map(|s| s.to_lowercase()).collect();
                     keywords.extend(temp);
                 }
 
@@ -82,7 +83,7 @@ fn process_content(
                 }
 
                 for (_, value) in desktop_file.actions {
-                    if value.name.default.contains(input) {
+                    if value.name.default.to_lowercase().contains(input) {
                         send(
                             sender.clone(),
                             &format!(
@@ -132,6 +133,7 @@ fn process_path(
 }
 
 pub fn process_apps(input: &str, sender: UnboundedSender<DaemonEvt>) {
+    let input = &input.to_lowercase();
     let paths = if let Ok(v) = std::env::var("XDG_DATA_DIRS") {
         v.split(":")
             .filter_map(|s| {
@@ -155,11 +157,18 @@ pub fn process_apps(input: &str, sender: UnboundedSender<DaemonEvt>) {
     });
 }
 
+fn clense_cmd(exec: &mut String, str: &str) {
+    if exec.ends_with(str) {
+        exec.pop();
+        exec.pop();
+    }
+}
+
 pub fn populate_launcher_entry(
     config: Arc<AppConf>,
     list: &ListBox,
     name: String,
-    exec: String,
+    mut exec: String,
     icon: Option<PathBuf>,
     context: &mut RefMut<AppContext>,
     sender: UnboundedSender<DaemonEvt>,
@@ -179,6 +188,14 @@ pub fn populate_launcher_entry(
         "Click to launch".into(),
         sender,
     );
+
+    clense_cmd(&mut exec, "%u");
+    clense_cmd(&mut exec, "%U");
+    clense_cmd(&mut exec, "%f");
+    clense_cmd(&mut exec, "%F");
+    clense_cmd(&mut exec, "%i");
+    clense_cmd(&mut exec, "%c");
+    clense_cmd(&mut exec, "%k");
 
     context
         .dvoty

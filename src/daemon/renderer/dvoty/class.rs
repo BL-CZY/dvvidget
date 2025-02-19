@@ -53,7 +53,13 @@ pub fn adjust_class(old: usize, new: usize, input: &mut [(DvotyUIEntry, ListBoxR
                 &["dvoty-entry-cmd", "dvoty-entry"],
             );
         }
-        _ => {}
+        DvotyUIEntry::Launch { .. } => {
+            set_class(
+                &input[old].1,
+                &["dvoty-entry-launch-select", "dvoty-entry-select"],
+                &["dvoty-entry-launch", "dvoty-entry"],
+            );
+        }
     }
 
     match input[new].0 {
@@ -92,7 +98,12 @@ pub fn adjust_class(old: usize, new: usize, input: &mut [(DvotyUIEntry, ListBoxR
                 &["dvoty-entry-cmd-select", "dvoty-entry-select"],
             );
         }
-
-        _ => {}
+        DvotyUIEntry::Launch { .. } => {
+            set_class(
+                &input[new].1,
+                &["dvoty-entry-launch", "dvoty-entry"],
+                &["dvoty-entry-launch-select", "dvoty-entry-select"],
+            );
+        }
     }
 }
