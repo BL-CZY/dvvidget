@@ -143,15 +143,11 @@ pub fn process_apps(input: &str, sender: UnboundedSender<DaemonEvt>, id: &Uuid) 
     let input = &input.to_lowercase();
     let paths = if let Ok(v) = std::env::var("XDG_DATA_DIRS") {
         v.split(":")
-            .filter_map(|s| {
-                let mut res = if let Ok(p) = PathBuf::try_from(s) {
-                    p
-                } else {
-                    return None;
-                };
+            .map(|s| {
+                let mut res = PathBuf::from(s);
 
                 res.push("applications/");
-                Some(res)
+                res
             })
             .collect::<Vec<PathBuf>>()
     } else {
@@ -192,7 +188,7 @@ pub fn populate_launcher_entry(
             None => &config.dvoty.instruction_icon,
         },
         &name,
-        "Click to launch".into(),
+        "Click to launch",
         sender,
     );
 
