@@ -12,7 +12,7 @@ use crate::daemon::{
     structs::{DaemonCmd, DaemonEvt, Dvoty},
 };
 
-use super::{class::adjust_class, entry::DvotyUIEntry};
+use super::{class::adjust_class, entry::DvotyUIEntry, event::CURRENT_ID};
 
 fn send(sender: UnboundedSender<DaemonEvt>, name: &str, exec: &str, icon: &IconString, id: &Uuid) {
     sender
@@ -34,6 +34,10 @@ fn process_content(
     sender: UnboundedSender<DaemonEvt>,
     id: &Uuid,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if *id != *CURRENT_ID.lock().unwrap_or_else(|p| p.into_inner()) {
+        return Ok(());
+    }
+
     let content = std::fs::read_to_string(path)?;
 
     let desktop_file = freedesktop_file_parser::parse(&content)?;
