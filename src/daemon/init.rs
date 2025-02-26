@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use super::file::start_file_server;
 use super::renderer::{app::start_app, config::read_config};
 use super::server;
 use super::structs::DaemonEvt;
@@ -37,12 +38,21 @@ pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
         .spawn(move || {
             rt.block_on(async {
                 if let Err(e) = server::run_server(alt_path, evt_sender.clone()).await {
-                    println!("Error running the server: {:?}, exiting...", e);
+                    println!("Error running the IPC server: {:?}. Dvvidget will keep running, but the cli won't work", e);
                 }
                 // use tokio::spawn if there are more tasks here, such as information puller
             });
         })
-        .expect("failed to start the async thread");
+        .expect("Failed to start the async thread.");
+
+    std::thread::Builder::new()
+        .name("dvvidget file watcher".into())
+        .spawn(|| {
+            start_file_server().unwrap_or_else(|e| {
+                println!("Error running the file watcher: {:?}. Dvvidget will keep running, but the file watcher won't work", e);
+            });
+        })
+        .expect("failed to start the file server");
 
     let _g = handle.enter();
 

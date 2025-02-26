@@ -1,9 +1,26 @@
-use std::time::Duration;
+use std::{path::PathBuf, time::Duration};
 
 use crate::daemon::structs::{DaemonCmd, DaemonEvt, DaemonRes};
 use gtk4::Image;
 use once_cell::sync::Lazy;
 use tokio::sync::broadcast;
+
+pub fn get_paths() -> Vec<PathBuf> {
+    std::env::var("XDG_DATA_DIRS")
+        .unwrap()
+        .split(":")
+        .filter_map(|s| {
+            let mut res = PathBuf::from(s);
+            res.push("applications/");
+
+            if res.is_dir() {
+                Some(res)
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<PathBuf>>()
+}
 
 #[derive(Clone, Copy)]
 pub enum DisplayBackend {
@@ -67,6 +84,7 @@ pub enum DaemonErr {
     ShutdownFailed(String),
     WriteErr(String),
     SerializeError(DaemonRes, String),
+    FileWatchError(String),
     CannotFindWidget,
 }
 
