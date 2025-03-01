@@ -7,16 +7,19 @@ use super::structs::DaemonEvt;
 use crate::utils::{detect_display, DaemonErr};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
-pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
+pub fn start_daemon(
+    config_path: Option<String>,
+    socket_path: Option<String>,
+) -> Result<(), DaemonErr> {
     let backend = detect_display();
 
-    let path = if let Some(p) = path {
+    let config_path = if let Some(p) = config_path {
         p.into()
     } else {
         default_config_path()
     };
 
-    let config = Arc::new(read_config(&path));
+    let config = Arc::new(read_config(&config_path));
 
     let (evt_sender, evt_receiver): (UnboundedSender<DaemonEvt>, UnboundedReceiver<DaemonEvt>) =
         mpsc::unbounded_channel();
@@ -42,7 +45,7 @@ pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
         .name("dvvidget server".into())
         .spawn(move || {
             rt.block_on(async {
-                if let Err(e) = server::run_server(&path, evt_sender.clone()).await {
+                if let Err(e) = server::run_server(&config_path, socket_path, evt_sender.clone()).await {
                     println!("Error running the IPC server: {:?}. Dvvidget will keep running, but the cli won't work", e);
                 }
                 // use tokio::spawn if there are more tasks here, such as information puller

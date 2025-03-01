@@ -11,8 +11,10 @@ pub struct Args {
 pub enum Command {
     #[clap(about = "Start the daemon and the graphics")]
     Daemon {
-        #[clap(short, long)]
-        path: Option<String>,
+        #[clap(short, long = "path")]
+        socket_path: Option<String>,
+        #[clap(short, long = "config")]
+        config_path: Option<String>,
         #[clap(subcommand)]
         option: Option<DaemonSubCmd>,
     },
@@ -98,15 +100,19 @@ pub enum DvotyCmd {
     Toggle,
 }
 
-fn daemon_args(path: Option<String>, option: Option<DaemonSubCmd>) {
+fn daemon_args(
+    config_path: Option<String>,
+    socket_path: Option<String>,
+    option: Option<DaemonSubCmd>,
+) {
     if option.is_none() {
-        if let Err(e) = crate::daemon::start_daemon(path) {
+        if let Err(e) = crate::daemon::start_daemon(config_path, socket_path) {
             println!("Error starting the daemon: {:?}", e)
         };
     } else {
         match option.unwrap() {
             DaemonSubCmd::Start => {
-                if let Err(e) = crate::daemon::start_daemon(path) {
+                if let Err(e) = crate::daemon::start_daemon(config_path, socket_path) {
                     println!("Error starting the daemon: {:?}", e)
                 };
             }
@@ -177,8 +183,12 @@ fn dvoty_args(actions: DvotyCmd) {
 
 pub fn handle_args(args: Args) {
     match args.commands {
-        Command::Daemon { path, option } => {
-            daemon_args(path, option);
+        Command::Daemon {
+            socket_path,
+            config_path,
+            option,
+        } => {
+            daemon_args(config_path, socket_path, option);
         }
 
         Command::Volume { actions } => {

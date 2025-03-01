@@ -24,10 +24,15 @@ async fn is_active_socket(path: &str) -> bool {
 }
 
 pub async fn run_server(
-    path: &PathBuf,
+    config_path: &PathBuf,
+    socket_path: Option<String>,
     evt_sender: UnboundedSender<DaemonEvt>,
 ) -> Result<(), DaemonErr> {
-    let socket_path = default_socket_path();
+    let socket_path = if let Some(p) = socket_path {
+        p
+    } else {
+        default_socket_path()
+    };
 
     if Path::new(&socket_path).exists() {
         if is_active_socket(&socket_path).await {
@@ -70,7 +75,7 @@ pub async fn run_server(
     })
     .map_err(|e| DaemonErr::FileWatchError(e.to_string()))?;
 
-    let mut path = path.clone();
+    let mut path = config_path.clone();
     path.pop();
     let _ = watcher.watch(&path, notify::RecursiveMode::NonRecursive);
 
