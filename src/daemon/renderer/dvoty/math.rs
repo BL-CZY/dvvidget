@@ -21,7 +21,7 @@ pub fn set_clipboard_text(text: &str) {
     clipboard.set_text(text);
 }
 
-fn preprocess_math(input: &str) -> String {
+pub fn preprocess_math(input: &str) -> String {
     input
         .replace(" ", "")
         .replace("ln", "math::ln")
@@ -32,7 +32,7 @@ fn preprocess_math(input: &str) -> String {
         .replace("sqrt", "math::sqrt")
 }
 
-fn post_process_result(input: Value) -> String {
+pub fn post_process_result(input: Value) -> String {
     match input {
         Value::Float(val) => format!("{:.8}", val).trim_end_matches('0').to_string(),
         _ => input.to_string(),

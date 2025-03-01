@@ -11,7 +11,7 @@ use crate::{
     utils::DaemonErr,
 };
 
-use super::{event::CURRENT_ID, DvotyEntry, DvotyTaskType};
+use super::{event::CURRENT_ID, general::process_general, DvotyEntry, DvotyTaskType};
 
 fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>) {
     let id = CURRENT_ID.lock().unwrap_or_else(|p| p.into_inner()).clone();
@@ -73,7 +73,9 @@ fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>) {
                     println!("Dvoty: Error adding search entry: {}", e);
                 });
         }
-        _ => {}
+        _ => {
+            process_general(sender, input, &id);
+        }
     }
 }
 
