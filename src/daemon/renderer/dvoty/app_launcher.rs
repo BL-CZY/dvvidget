@@ -3,7 +3,10 @@ use std::{cell::RefMut, collections::HashSet, ffi::OsString, path::PathBuf, sync
 use anyhow::Context;
 use freedesktop_file_parser::{EntryType, IconString};
 use gtk4::ListBox;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use rayon::{
+    iter::{IntoParallelRefIterator, ParallelIterator},
+    slice::ParallelSliceMut,
+};
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
@@ -83,6 +86,19 @@ pub fn process_paths() {
     paths.par_iter().for_each(|path| {
         let _ = fill_files(path);
     });
+
+    DESKTOP_FILES
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .par_sort_by(|a, b| {
+            a.entry
+                .name
+                .default
+                .to_lowercase()
+                .cmp(&b.entry.name.default.to_lowercase())
+        });
 }
 
 fn send(
@@ -113,6 +129,7 @@ fn process_content(
     sender: UnboundedSender<DaemonEvt>,
     id: &Uuid,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let input = &input.to_lowercase();
     if *id != *CURRENT_ID.lock().unwrap_or_else(|p| p.into_inner()) {
         return Ok(());
     }

@@ -44,6 +44,8 @@ pub enum Dvoty {
     AddEntry(DvotyEntry),
     Update(String),
     SetScroll(f64),
+    ScrollEnd,
+    ScrollStart,
     IncEntryIndex,
     DecEntryIndex,
     TriggerEntry,

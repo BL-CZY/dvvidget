@@ -43,19 +43,24 @@ fn input(sender: UnboundedSender<DaemonEvt>) -> Entry {
             glib::Propagation::Stop
         }
         gtk4::gdk::Key::Page_Down => {
-            super::event::send_inc(sender_clone.clone());
-            super::event::send_inc(sender_clone.clone());
-            super::event::send_inc(sender_clone.clone());
-            super::event::send_inc(sender_clone.clone());
-            super::event::send_inc(sender_clone.clone());
+            sender_clone
+                .send(DaemonEvt {
+                    evt: DaemonCmd::Dvoty(Dvoty::ScrollEnd),
+                    sender: None,
+                    uuid: None,
+                })
+                .unwrap();
             glib::Propagation::Stop
         }
         gtk4::gdk::Key::Page_Up => {
-            super::event::send_dec(sender_clone.clone());
-            super::event::send_dec(sender_clone.clone());
-            super::event::send_dec(sender_clone.clone());
-            super::event::send_dec(sender_clone.clone());
-            super::event::send_dec(sender_clone.clone());
+            sender_clone
+                .send(DaemonEvt {
+                    evt: DaemonCmd::Dvoty(Dvoty::ScrollStart),
+                    sender: None,
+                    uuid: None,
+                })
+                .unwrap();
+
             glib::Propagation::Stop
         }
 

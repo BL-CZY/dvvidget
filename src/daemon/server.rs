@@ -1,5 +1,7 @@
-use crate::utils::{shutdown, DaemonErr};
+use crate::daemon::renderer::dvoty::app_launcher;
+use crate::utils::{get_paths, shutdown, DaemonErr};
 use anyhow::Context;
+use notify::Watcher;
 use std::fs;
 use std::path::Path;
 use tokio;
@@ -45,6 +47,22 @@ pub async fn run_server(
         shutdown("Failed to initialize the server");
     };
 
+    // file watcher for dvoty app launcher
+    let (tx, mut rx) =
+        tokio::sync::mpsc::unbounded_channel::<notify::Result<notify::event::Event>>();
+    let mut watcher = notify::recommended_watcher(move |res| {
+        tx.send(res).unwrap_or_else(|e| {
+            println!("File Watcher: Cannot send event: {}", e);
+        });
+    })
+    .map_err(|e| DaemonErr::FileWatchError(e.to_string()))?;
+
+    get_paths().iter().for_each(|p| {
+        let _ = watcher.watch(p, notify::RecursiveMode::Recursive);
+    });
+
+    app_launcher::process_paths();
+
     loop {
         tokio::select! {
             Ok(()) = receive_exit() => {
@@ -60,6 +78,17 @@ pub async fn run_server(
                         println!("Error reading the command: {:?}, ignoring", e)
                     }
                 });
+            }
+
+            Some(Ok(evt)) = rx.recv() => {
+                match evt.kind {
+                    notify::EventKind::Create(_) | notify::EventKind::Modify(_) | notify::EventKind::Remove(_) => {
+                        println!("File watcher: detect file create, modify, or remove");
+                        app_launcher::process_paths();
+                    }
+
+                    _ => {}
+                }
             }
         }
     }

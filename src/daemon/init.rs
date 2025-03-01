@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use super::file::start_file_server;
 use super::renderer::{app::start_app, config::read_config};
 use super::server;
 use super::structs::DaemonEvt;
@@ -44,15 +43,6 @@ pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
             });
         })
         .expect("Failed to start the async thread.");
-
-    std::thread::Builder::new()
-        .name("dvvidget file watcher".into())
-        .spawn(|| {
-            start_file_server().unwrap_or_else(|e| {
-                println!("Error running the file watcher: {:?}. Dvvidget will keep running, but the file watcher won't work", e);
-            });
-        })
-        .expect("failed to start the file server");
 
     let _g = handle.enter();
 

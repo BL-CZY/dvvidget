@@ -69,6 +69,30 @@ pub fn handle_dvoty_cmd(
             }
         }
 
+        Dvoty::ScrollStart => {
+            let mut context_ref = app_context.borrow_mut();
+
+            if !context_ref.dvoty.dvoty_entries.is_empty() {
+                let old = context_ref.dvoty.cur_ind;
+                context_ref.dvoty.cur_ind = 0;
+                let new = 0;
+                super::class::adjust_class(old, new, &mut context_ref.dvoty.dvoty_entries.clone());
+                super::row::ensure_row_in_viewport(&mut context_ref, window, sender.clone())?;
+            }
+        }
+
+        Dvoty::ScrollEnd => {
+            let mut context_ref = app_context.borrow_mut();
+
+            if !context_ref.dvoty.dvoty_entries.is_empty() {
+                let old = context_ref.dvoty.cur_ind;
+                context_ref.dvoty.cur_ind = context_ref.dvoty.dvoty_entries.len() - 1;
+                let new = context_ref.dvoty.dvoty_entries.len() - 1;
+                super::class::adjust_class(old, new, &mut context_ref.dvoty.dvoty_entries.clone());
+                super::row::ensure_row_in_viewport(&mut context_ref, window, sender.clone())?;
+            }
+        }
+
         Dvoty::TriggerEntry => {
             let context_ref = app_context.borrow();
             if !context_ref.dvoty.dvoty_entries.is_empty() {
