@@ -14,10 +14,7 @@ use crate::{
 use super::{event::CURRENT_ID, DvotyEntry, DvotyTaskType};
 
 fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>) {
-    let id = uuid::Uuid::new_v4();
-    {
-        *CURRENT_ID.lock().unwrap() = id;
-    }
+    let id = CURRENT_ID.lock().unwrap_or_else(|p| p.into_inner()).clone();
 
     if input.is_empty() {
         if let Err(e) = sender.send(DaemonEvt {
@@ -86,22 +83,15 @@ pub fn process_input(
     sender: UnboundedSender<DaemonEvt>,
     window: &Window,
 ) -> Result<(), DaemonErr> {
+    let id = uuid::Uuid::new_v4();
+    {
+        *CURRENT_ID.lock().unwrap() = id;
+    }
+
     let context_ref = &mut context.borrow_mut();
     context_ref.dvoty.dvoty_entries.clear();
     context_ref.dvoty.cur_ind = 0;
     context_ref.dvoty.target_scroll = 0.0f64;
-
-    let list = if let Some(l) = &context_ref.dvoty.dvoty_list {
-        l
-    } else if let Ok(res) = super::utils::get_list(window) {
-        context_ref.dvoty.dvoty_list = Some(res);
-        context_ref.dvoty.dvoty_list.as_ref().unwrap()
-    } else {
-        println!("Dvoty: can't find list");
-        return Err(DaemonErr::CannotFindWidget);
-    };
-
-    list.remove_all();
 
     let task_map = &mut context_ref.dvoty.dvoty_tasks;
 
@@ -115,6 +105,18 @@ pub fn process_input(
     });
 
     task_map.insert(DvotyTaskType::ProcessInput, handle);
+
+    let list = if let Some(l) = &context_ref.dvoty.dvoty_list {
+        l
+    } else if let Ok(res) = super::utils::get_list(window) {
+        context_ref.dvoty.dvoty_list = Some(res);
+        context_ref.dvoty.dvoty_list.as_ref().unwrap()
+    } else {
+        println!("Dvoty: can't find list");
+        return Err(DaemonErr::CannotFindWidget);
+    };
+
+    list.remove_all();
 
     Ok(())
 }

@@ -85,7 +85,14 @@ pub fn process_paths() {
     });
 }
 
-fn send(sender: UnboundedSender<DaemonEvt>, name: &str, exec: &str, icon: &IconString, id: &Uuid) {
+fn send(
+    sender: UnboundedSender<DaemonEvt>,
+    name: String,
+    exec: String,
+    icon: IconString,
+    id: Uuid,
+) {
+    //tokio::spawn(async move {
     sender
         .send(DaemonEvt {
             evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Launch {
@@ -94,9 +101,10 @@ fn send(sender: UnboundedSender<DaemonEvt>, name: &str, exec: &str, icon: &IconS
                 icon: icon.get_icon_path(),
             })),
             sender: None,
-            uuid: Some(*id),
+            uuid: Some(id),
         })
         .unwrap_or_else(|e| println!("Dvoty: failed to send: {}", e));
+    //});
 }
 
 fn process_content(
@@ -129,19 +137,19 @@ fn process_content(
                     if kwd.contains(input) {
                         send(
                             sender.clone(),
-                            &content.entry.name.default,
-                            &exec,
-                            &icon,
-                            id,
+                            content.entry.name.default.clone(),
+                            exec.clone(),
+                            icon.clone(),
+                            id.clone(),
                         );
 
                         for (_, value) in content.actions.clone() {
                             send(
                                 sender.clone(),
-                                &format!("{}: {}", content.entry.name.default, value.name.default),
-                                &exec,
-                                &icon,
-                                id,
+                                format!("{}: {}", content.entry.name.default, value.name.default),
+                                exec.clone(),
+                                icon.clone(),
+                                id.clone(),
                             );
                         }
 
@@ -153,10 +161,10 @@ fn process_content(
                     if value.name.default.to_lowercase().contains(input) {
                         send(
                             sender.clone(),
-                            &format!("{}: {}", content.entry.name.default, value.name.default),
-                            &exec,
-                            &icon,
-                            id,
+                            format!("{}: {}", content.entry.name.default, value.name.default),
+                            exec.clone(),
+                            icon.clone(),
+                            id.clone(),
                         );
                     }
                 }
@@ -173,7 +181,7 @@ pub fn process_apps(input: &str, sender: UnboundedSender<DaemonEvt>, id: &Uuid) 
         .unwrap()
         .lock()
         .unwrap_or_else(|p| p.into_inner())
-        .par_iter()
+        .iter()
         .for_each(|file| {
             let _ = process_content(file, input, sender.clone(), id);
         });

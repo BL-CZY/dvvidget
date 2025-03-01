@@ -19,6 +19,7 @@ pub fn start_file_server() -> Result<(), DaemonErr> {
         if let Ok(evt) = res {
             match evt.kind {
                 notify::EventKind::Create(_) | notify::EventKind::Modify(_) => {
+                    println!("hi");
                     app_launcher::process_paths();
                 }
 
