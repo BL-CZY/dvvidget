@@ -25,6 +25,7 @@ use once_cell::sync::OnceCell;
 pub static DESKTOP_FILES: OnceCell<Arc<Mutex<Vec<DesktopFile>>>> = OnceCell::new();
 
 fn add_file(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    // TODO: user overrides
     let content = std::fs::read_to_string(path)?;
 
     let desktop_file = freedesktop_file_parser::parse(&content)?;
@@ -99,7 +100,7 @@ fn send(sender: UnboundedSender<DaemonEvt>, name: &str, exec: &str, icon: &IconS
 }
 
 fn process_content(
-    path: &PathBuf,
+    content: &DesktopFile,
     input: &str,
     sender: UnboundedSender<DaemonEvt>,
     id: &Uuid,
@@ -108,25 +109,14 @@ fn process_content(
         return Ok(());
     }
 
-    let content = std::fs::read_to_string(path)?;
-
-    let desktop_file = freedesktop_file_parser::parse(&content)?;
-
-    if let Some(bool) = desktop_file.entry.no_display {
-        if bool {
-            return Ok(());
-        }
-    }
-
     // TODO: handle not show in
     // TODO: add user overrides
 
-    if let Some(icon) = desktop_file.entry.icon {
-        if let EntryType::Application(fields) = desktop_file.entry.entry_type {
-            if let Some(exec) = fields.exec {
-                let mut keywords: Vec<String> =
-                    vec![desktop_file.entry.name.default.to_lowercase()];
-                if let Some(ref generic_name) = desktop_file.entry.generic_name {
+    if let Some(ref icon) = content.entry.icon {
+        if let EntryType::Application(ref fields) = content.entry.entry_type {
+            if let Some(ref exec) = fields.exec {
+                let mut keywords: Vec<String> = vec![content.entry.name.default.to_lowercase()];
+                if let Some(ref generic_name) = content.entry.generic_name {
                     keywords.push(generic_name.default.to_lowercase());
                 }
 
@@ -139,19 +129,16 @@ fn process_content(
                     if kwd.contains(input) {
                         send(
                             sender.clone(),
-                            &desktop_file.entry.name.default,
+                            &content.entry.name.default,
                             &exec,
                             &icon,
                             id,
                         );
 
-                        for (_, value) in desktop_file.actions {
+                        for (_, value) in content.actions.clone() {
                             send(
                                 sender.clone(),
-                                &format!(
-                                    "{}: {}",
-                                    desktop_file.entry.name.default, value.name.default
-                                ),
+                                &format!("{}: {}", content.entry.name.default, value.name.default),
                                 &exec,
                                 &icon,
                                 id,
@@ -162,14 +149,11 @@ fn process_content(
                     }
                 }
 
-                for (_, value) in desktop_file.actions {
+                for (_, value) in content.actions.clone() {
                     if value.name.default.to_lowercase().contains(input) {
                         send(
                             sender.clone(),
-                            &format!(
-                                "{}: {}",
-                                desktop_file.entry.name.default, value.name.default
-                            ),
+                            &format!("{}: {}", content.entry.name.default, value.name.default),
                             &exec,
                             &icon,
                             id,
@@ -183,56 +167,16 @@ fn process_content(
     Ok(())
 }
 
-fn process_path(
-    path: &PathBuf,
-    input: &str,
-    sender: UnboundedSender<DaemonEvt>,
-    id: &Uuid,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let dirs = std::fs::read_dir(path).context("Can't read directory")?;
-
-    let mut exist: HashSet<OsString> = HashSet::new();
-
-    let paths = dirs
-        .filter_map(|entry| match entry {
-            Ok(res) => {
-                if !exist.contains(&res.file_name()) {
-                    exist.insert(res.file_name());
-                    Some(res.path())
-                } else {
-                    None
-                }
-            }
-            Err(_) => None,
-        })
-        .collect::<Vec<PathBuf>>();
-
-    paths.par_iter().for_each(|p| {
-        let _ = process_content(p, input, sender.clone(), id);
-    });
-
-    Ok(())
-}
-
 pub fn process_apps(input: &str, sender: UnboundedSender<DaemonEvt>, id: &Uuid) {
-    let input = &input.to_lowercase();
-    let paths = if let Ok(v) = std::env::var("XDG_DATA_DIRS") {
-        v.split(":")
-            .map(|s| {
-                let mut res = PathBuf::from(s);
-
-                res.push("applications/");
-                res
-            })
-            .collect::<Vec<PathBuf>>()
-    } else {
-        println!("Dvoty: cannot read XDG_DATA_DIR");
-        return;
-    };
-
-    paths.par_iter().for_each(|path| {
-        let _ = process_path(path, input, sender.clone(), id);
-    });
+    DESKTOP_FILES
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .par_iter()
+        .for_each(|file| {
+            let _ = process_content(file, input, sender.clone(), id);
+        });
 }
 
 fn clense_cmd(exec: &mut String, str: &str) {
