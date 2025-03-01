@@ -7,12 +7,82 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
-use crate::daemon::{
-    renderer::{app::AppContext, config::AppConf, dvoty::DvotyEntry},
-    structs::{DaemonCmd, DaemonEvt, Dvoty},
+use crate::{
+    daemon::{
+        renderer::{app::AppContext, config::AppConf, dvoty::DvotyEntry},
+        structs::{DaemonCmd, DaemonEvt, Dvoty},
+    },
+    utils::get_paths,
 };
 
 use super::{class::adjust_class, entry::DvotyUIEntry, event::CURRENT_ID};
+
+use std::sync::Mutex;
+
+use freedesktop_file_parser::DesktopFile;
+use once_cell::sync::OnceCell;
+
+pub static DESKTOP_FILES: OnceCell<Arc<Mutex<Vec<DesktopFile>>>> = OnceCell::new();
+
+fn add_file(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    let content = std::fs::read_to_string(path)?;
+
+    let desktop_file = freedesktop_file_parser::parse(&content)?;
+
+    if let Some(bool) = desktop_file.entry.no_display {
+        if bool {
+            return Ok(());
+        }
+    }
+
+    Ok(DESKTOP_FILES
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .push(desktop_file))
+}
+
+fn fill_files(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    let dirs = std::fs::read_dir(path).context("Can't read directory")?;
+
+    let mut exist: HashSet<OsString> = HashSet::new();
+
+    let paths = dirs
+        .filter_map(|entry| match entry {
+            Ok(res) => {
+                if !exist.contains(&res.file_name()) {
+                    exist.insert(res.file_name());
+                    Some(res.path())
+                } else {
+                    None
+                }
+            }
+            Err(_) => None,
+        })
+        .collect::<Vec<PathBuf>>();
+
+    paths.par_iter().for_each(|p| {
+        let _ = add_file(p);
+    });
+
+    Ok(())
+}
+
+pub fn process_paths() {
+    DESKTOP_FILES
+        .get()
+        .unwrap()
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .clear();
+
+    let paths = get_paths();
+
+    paths.par_iter().for_each(|path| {
+        let _ = fill_files(path);
+    });
+}
 
 fn send(sender: UnboundedSender<DaemonEvt>, name: &str, exec: &str, icon: &IconString, id: &Uuid) {
     sender
@@ -49,6 +119,7 @@ fn process_content(
     }
 
     // TODO: handle not show in
+    // TODO: add user overrides
 
     if let Some(icon) = desktop_file.entry.icon {
         if let EntryType::Application(fields) = desktop_file.entry.entry_type {

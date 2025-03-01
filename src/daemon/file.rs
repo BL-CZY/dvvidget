@@ -8,7 +8,7 @@ pub fn start_file_server() -> Result<(), DaemonErr> {
         notify::recommended_watcher(tx).map_err(|e| DaemonErr::FileWatchError(e.to_string()))?;
 
     get_paths().iter().for_each(|p| {
-        let _ = watcher.watch(p, notify::RecursiveMode::NonRecursive);
+        let _ = watcher.watch(p, notify::RecursiveMode::Recursive);
     });
 
     for res in rx {

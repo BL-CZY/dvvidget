@@ -240,6 +240,10 @@ pub fn start_app(
     evt_sender: UnboundedSender<DaemonEvt>,
     config: Arc<AppConf>,
 ) {
+    super::paths::DESKTOP_FILES
+        .set(Arc::new(Mutex::new(vec![])))
+        .unwrap();
+
     gtk4::init().unwrap();
 
     let app = Rc::new(gtk4::Application::new(
