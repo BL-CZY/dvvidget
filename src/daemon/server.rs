@@ -1,9 +1,10 @@
 use crate::daemon::renderer::dvoty::app_launcher;
 use crate::utils::{get_paths, shutdown, DaemonErr};
 use anyhow::Context;
-use notify::Watcher;
+use notify::{Event, Watcher};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 use tokio;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::unix::ReadHalf;
@@ -23,14 +24,10 @@ async fn is_active_socket(path: &str) -> bool {
 }
 
 pub async fn run_server(
-    path: Option<String>,
+    path: &PathBuf,
     evt_sender: UnboundedSender<DaemonEvt>,
 ) -> Result<(), DaemonErr> {
-    let socket_path: String = if let Some(p) = path {
-        p
-    } else {
-        default_socket_path()
-    };
+    let socket_path = default_socket_path();
 
     if Path::new(&socket_path).exists() {
         if is_active_socket(&socket_path).await {
@@ -48,10 +45,10 @@ pub async fn run_server(
     };
 
     // file watcher for dvoty app launcher
-    let (tx, mut rx) =
+    let (app_launcher_sender, mut app_launcher_receiver) =
         tokio::sync::mpsc::unbounded_channel::<notify::Result<notify::event::Event>>();
     let mut watcher = notify::recommended_watcher(move |res| {
-        tx.send(res).unwrap_or_else(|e| {
+        app_launcher_sender.send(res).unwrap_or_else(|e| {
             println!("File Watcher: Cannot send event: {}", e);
         });
     })
@@ -62,6 +59,20 @@ pub async fn run_server(
     });
 
     app_launcher::process_paths();
+
+    // file watcher for config
+    let (config_file_sender, mut config_file_receiver) =
+        tokio::sync::mpsc::unbounded_channel::<notify::Result<notify::event::Event>>();
+    let mut watcher = notify::recommended_watcher(move |res| {
+        config_file_sender.send(res).unwrap_or_else(|e| {
+            println!("File Watcher: Cannot send event: {}", e);
+        });
+    })
+    .map_err(|e| DaemonErr::FileWatchError(e.to_string()))?;
+
+    let mut path = path.clone();
+    path.pop();
+    let _ = watcher.watch(&path, notify::RecursiveMode::NonRecursive);
 
     loop {
         tokio::select! {
@@ -80,7 +91,7 @@ pub async fn run_server(
                 });
             }
 
-            Some(Ok(evt)) = rx.recv() => {
+            Some(Ok(evt)) = app_launcher_receiver.recv() => {
                 match evt.kind {
                     notify::EventKind::Create(_) | notify::EventKind::Modify(_) | notify::EventKind::Remove(_) => {
                         println!("File watcher: detect file create, modify, or remove");
@@ -90,6 +101,10 @@ pub async fn run_server(
                     _ => {}
                 }
             }
+
+            Some(Ok(evt)) = config_file_receiver.recv() => {
+                handle_config_file_evt(evt);
+            }
         }
     }
 
@@ -98,6 +113,25 @@ pub async fn run_server(
     fs::remove_file(socket_path).unwrap();
 
     Ok(())
+}
+
+fn handle_config_file_evt(evt: Event) {
+    match evt.kind {
+        notify::EventKind::Modify(_)
+        | notify::EventKind::Create(_)
+        | notify::EventKind::Remove(_) => {
+            let args: Vec<String> = std::env::args().collect();
+            let executable = &args[0];
+
+            Command::new(executable)
+                .args(&args[1..])
+                .spawn()
+                .expect("Failed to restart");
+
+            std::process::exit(0);
+        }
+        _ => {}
+    }
 }
 
 // forwad the event to channel and return it

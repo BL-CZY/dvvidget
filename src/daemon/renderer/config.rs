@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use toml::{map::Map, Table, Value};
 
 use super::window::WindowDescriptor;
@@ -459,22 +461,18 @@ impl AppConf {
     }
 }
 
-fn append_path(target: &str, append: &str) -> String {
-    if !target.ends_with("/") {
-        target.to_owned() + "/" + append
-    } else {
-        target.to_owned() + append
-    }
-}
-
-fn default_config_path() -> String {
+pub fn default_config_path() -> PathBuf {
     if let Ok(val) = std::env::var("XDG_CONFIG_HOME") {
-        append_path(&val, "dvvidget/config.toml")
+        let mut path = PathBuf::from(&val);
+        path.push("dvvidget/config.toml");
+        path
     } else if let Ok(val) = std::env::var("HOME") {
-        append_path(&val, ".config/dvvidget/config.toml")
+        let mut path = PathBuf::from(&val);
+        path.push(".config/dvvidget/config.toml");
+        path
     } else {
         println!("Failed to get config directory");
-        "".into()
+        PathBuf::new()
     }
 }
 
@@ -490,13 +488,7 @@ fn parse_config(content: &str) -> AppConf {
     AppConf::from_toml(&toml)
 }
 
-pub fn read_config(path: Option<String>) -> AppConf {
-    let target_path: String = if let Some(p) = path {
-        p
-    } else {
-        default_config_path()
-    };
-
+pub fn read_config(target_path: &PathBuf) -> AppConf {
     match std::fs::read_to_string(&target_path) {
         Ok(val) => {
             println!("there is a config");

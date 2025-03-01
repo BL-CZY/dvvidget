@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use super::renderer::config::default_config_path;
 use super::renderer::{app::start_app, config::read_config};
 use super::server;
 use super::structs::DaemonEvt;
@@ -9,7 +10,13 @@ use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
     let backend = detect_display();
 
-    let config = Arc::new(read_config(path.clone()));
+    let path = if let Some(p) = path {
+        p.into()
+    } else {
+        default_config_path()
+    };
+
+    let config = Arc::new(read_config(&path));
 
     let (evt_sender, evt_receiver): (UnboundedSender<DaemonEvt>, UnboundedReceiver<DaemonEvt>) =
         mpsc::unbounded_channel();
@@ -30,13 +37,12 @@ pub fn start_daemon(path: Option<String>) -> Result<(), DaemonErr> {
     );
 
     // run the server in a different thread
-    let alt_path = path.clone();
     let evt_sender_clone = evt_sender.clone();
     std::thread::Builder::new()
         .name("dvvidget server".into())
         .spawn(move || {
             rt.block_on(async {
-                if let Err(e) = server::run_server(alt_path, evt_sender.clone()).await {
+                if let Err(e) = server::run_server(&path, evt_sender.clone()).await {
                     println!("Error running the IPC server: {:?}. Dvvidget will keep running, but the cli won't work", e);
                 }
                 // use tokio::spawn if there are more tasks here, such as information puller
