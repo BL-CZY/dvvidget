@@ -251,18 +251,6 @@ pub fn default_config_path() -> PathBuf {
     }
 }
 
-//fn parse_config(content: &str) -> AppConf {
-//    let toml = match content.parse::<Table>() {
-//        Ok(res) => res,
-//        Err(e) => {
-//            println!("Err trying to parse the config into toml: {}", e);
-//            return AppConf::default();
-//        }
-//    };
-//
-//    AppConf::from_toml(&toml)
-//}
-//
 pub fn read_config(target_path: &PathBuf) -> AppConf {
     match std::fs::read_to_string(target_path) {
         Ok(val) => {

@@ -75,6 +75,12 @@ impl DvotyUIEntry {
                 }
             }
             DvotyUIEntry::Launch { terminal, exec } => {
+                let exec = if !terminal {
+                    exec
+                } else {
+                    format!("{} \"{}\"", config.dvoty.terminal_exec, exec)
+                };
+
                 if let Err(e) = std::process::Command::new("setsid")
                     .arg("/bin/sh")
                     .arg("-c")
