@@ -25,7 +25,6 @@ pub fn start_daemon(
         c.dvoty.window.keyboard_mode = KeyboardModeWrapper {
             inner: gtk4_layer_shell::KeyboardMode::OnDemand,
         };
-        println!("{:?}", c);
         c
     });
 

@@ -42,7 +42,7 @@ pub struct WindowDescriptor {
     #[serde_inline_default(false)]
     pub anchor_bottom: bool,
 
-    #[serde_inline_default(true)]
+    #[serde_inline_default(false)]
     pub exclusive: bool,
 
     #[serde(skip_deserializing)]
