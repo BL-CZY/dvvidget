@@ -1,5 +1,6 @@
 use gtk4::{Application, ApplicationWindow};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
+use serde::Deserialize;
 use toml::map::Map;
 use toml::value::Value;
 
@@ -13,8 +14,9 @@ use x11rb::rust_connection::RustConnection;
 
 use crate::utils::DisplayBackend;
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize)]
 pub struct WindowDescriptor {
+    #[serde(deserialize_with = "deserialize_layer")]
     pub layer: Layer,
 
     pub margin_left: i32,
@@ -28,10 +30,19 @@ pub struct WindowDescriptor {
     pub anchor_bottom: bool,
 
     pub exclusive: bool,
+    #[serde(deserialize_with = "deserialize_keyboard")]
     pub keyboard_mode: KeyboardMode,
 
     pub visible_on_start: bool,
     pub namespace: String,
+}
+
+fn deserialize_layer<'de, D>(deserializer: D) -> Result<Layer, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    Ok(string_to_layer(&s))
 }
 
 pub fn string_to_layer(str: &str) -> Layer {
@@ -42,6 +53,13 @@ pub fn string_to_layer(str: &str) -> Layer {
         "overlay" | "Overlay" => Layer::Overlay,
         _ => Layer::Overlay,
     }
+}
+
+fn deserialize_keyboard<'de, D>(_deserializer: D) -> Result<KeyboardMode, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(KeyboardMode::None)
 }
 
 impl Default for WindowDescriptor {

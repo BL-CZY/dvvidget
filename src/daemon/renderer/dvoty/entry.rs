@@ -25,6 +25,7 @@ pub enum DvotyEntry {
         result: String,
     },
     Launch {
+        terminal: bool,
         name: String,
         exec: String,
         icon: Option<PathBuf>,
@@ -44,7 +45,7 @@ pub enum DvotyEntry {
 pub enum DvotyUIEntry {
     Instruction,
     Math { result: String },
-    Launch { exec: String },
+    Launch { terminal: bool, exec: String },
     Command { exec: String },
     Search { keyword: String },
     Url { url: String },
@@ -73,7 +74,7 @@ impl DvotyUIEntry {
                     println!("Dvoty: Failed to spawn command: {}", e);
                 }
             }
-            DvotyUIEntry::Launch { exec } => {
+            DvotyUIEntry::Launch { terminal, exec } => {
                 if let Err(e) = std::process::Command::new("setsid")
                     .arg("/bin/sh")
                     .arg("-c")
@@ -181,11 +182,17 @@ pub fn add_entry(
         DvotyEntry::Command { exec } => {
             super::cmd::populate_cmd_entry(config, &list, exec, context_ref, sender);
         }
-        DvotyEntry::Launch { name, exec, icon } => {
+        DvotyEntry::Launch {
+            terminal,
+            name,
+            exec,
+            icon,
+        } => {
             super::app_launcher::populate_launcher_entry(
                 config,
                 &list,
                 name,
+                terminal,
                 exec,
                 icon,
                 context_ref,

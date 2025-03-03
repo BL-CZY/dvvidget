@@ -121,12 +121,14 @@ fn send(
     sender: UnboundedSender<DaemonEvt>,
     name: String,
     exec: String,
+    terminal: bool,
     icon: IconString,
     id: Uuid,
 ) {
     sender
         .send(DaemonEvt {
             evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Launch {
+                terminal,
                 name: name.to_string(),
                 exec: exec.to_string(),
                 icon: icon.get_icon_path(),
@@ -170,12 +172,15 @@ fn process_content(
                 &default_icon
             };
 
+            let terminal = fields.terminal.map_or_else(|| false, |v| v);
+
             for kwd in keywords.iter() {
                 if kwd.contains(input) {
                     send(
                         sender.clone(),
                         content.entry.name.default.clone(),
                         exec.clone(),
+                        terminal,
                         icon.clone(),
                         *id,
                     );
@@ -185,6 +190,7 @@ fn process_content(
                             sender.clone(),
                             format!("{}: {}", content.entry.name.default, value.name.default),
                             exec.clone(),
+                            terminal,
                             icon.clone(),
                             *id,
                         );
@@ -200,6 +206,7 @@ fn process_content(
                         sender.clone(),
                         format!("{}: {}", content.entry.name.default, value.name.default),
                         exec.clone(),
+                        terminal,
                         icon.clone(),
                         *id,
                     );
@@ -235,6 +242,7 @@ pub fn populate_launcher_entry(
     config: Arc<AppConf>,
     list: &ListBox,
     name: String,
+    terminal: bool,
     mut exec: String,
     icon: Option<PathBuf>,
     context: &mut RefMut<AppContext>,
@@ -267,7 +275,7 @@ pub fn populate_launcher_entry(
     context
         .dvoty
         .dvoty_entries
-        .push((DvotyUIEntry::Launch { exec }, row.clone()));
+        .push((DvotyUIEntry::Launch { terminal, exec }, row.clone()));
 
     if context.dvoty.dvoty_entries.len() <= 1 {
         adjust_class(0, 0, &mut context.dvoty.dvoty_entries);

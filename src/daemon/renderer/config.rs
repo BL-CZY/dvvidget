@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use serde::{Deserialize, Serialize};
 use toml::{map::Map, Table, Value};
 
 use super::window::WindowDescriptor;
@@ -8,7 +9,7 @@ pub const DEFAULT_CSS_PATH: &str = "/usr/share/dvvidget/style.css";
 pub const DEFAULT_VOL_CMD: VolCmdProvider = VolCmdProvider::Wpctl;
 pub const DEFAULT_BRI_CMD: BriCmdProvider = BriCmdProvider::Builtin;
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize)]
 pub struct AppConf {
     pub general: AppConfGeneral,
     pub vol: AppConfVol,
@@ -16,18 +17,18 @@ pub struct AppConf {
     pub dvoty: AppConfDvoty,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct AppConfGeneral {
     pub css_path: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize)]
 pub enum VolCmdProvider {
     Wpctl,
     NoCmd,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize)]
 pub struct IconDescriptor {
     pub range: (f64, f64),
     pub icon: String,
@@ -42,7 +43,7 @@ impl IconDescriptor {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize)]
 pub struct AppConfVol {
     pub enabled: bool,
     pub window: WindowDescriptor,
@@ -59,7 +60,23 @@ pub enum BriCmdProvider {
     NoCmd,
 }
 
-#[derive(Clone)]
+impl<'de> Deserialize<'de> for BriCmdProvider {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok({
+            match s.as_str() {
+                "Builtin" | "builtin" => BriCmdProvider::Builtin,
+                "None" | "none" => BriCmdProvider::NoCmd,
+                _ => DEFAULT_BRI_CMD,
+            }
+        })
+    }
+}
+
+#[derive(Clone, Deserialize)]
 pub struct AppConfBri {
     pub enabled: bool,
     pub window: WindowDescriptor,
@@ -75,6 +92,16 @@ pub enum SearchEngine {
     Duckduckgo,
     Bing,
     Wikipedia(String),
+}
+
+impl<'de> Deserialize<'de> for SearchEngine {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(Self::from_string(&s))
+    }
 }
 
 impl SearchEngine {
@@ -103,7 +130,7 @@ impl SearchEngine {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize)]
 pub struct AppConfDvoty {
     pub enabled: bool,
     pub window: WindowDescriptor,
@@ -114,6 +141,7 @@ pub struct AppConfDvoty {
     pub cmd_icon: String,
     pub url_icon: String,
     pub search_engine: SearchEngine,
+    //pub terminal_exec: String,
 }
 
 impl Default for AppConf {
