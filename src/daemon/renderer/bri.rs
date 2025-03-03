@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::process::Command;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
@@ -84,7 +85,7 @@ fn murph(
                     sender: None,
                     uuid: None,
                 })
-                .unwrap_or_else(|e| println!("Vol: failed to update: {}", e));
+                .unwrap_or_else(|e| println!("Bri: failed to update: {}", e));
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
 
@@ -94,7 +95,7 @@ fn murph(
                 sender: None,
                 uuid: None,
             })
-            .unwrap_or_else(|e| println!("Vol: failed to update: {}", e));
+            .unwrap_or_else(|e| println!("Bri: failed to update: {}", e));
     });
 
     task_map.insert(VolBriTaskType::MurphValue, handle);
@@ -109,7 +110,7 @@ fn set_rough(val: f64, window: &Window) {
     {
         widget
     } else {
-        println!("Vol: Failed to downcast the box");
+        println!("Bri: Failed to downcast the box");
         return;
     };
 
@@ -125,7 +126,7 @@ fn set_rough(val: f64, window: &Window) {
         }
     }
 
-    println!("Vol: Couldn't find the scale, ignoring...");
+    println!("Bri: Couldn't find the scale, ignoring...");
 }
 
 pub fn handle_bri_cmd(
@@ -190,7 +191,6 @@ pub fn handle_bri_cmd(
     Ok(DaemonRes::Success)
 }
 
-// returns the current volume, if it's muted, return true, if it's not, return false
 fn get_bri(cmd: &BriCmdProvider) -> f64 {
     match cmd {
         BriCmdProvider::Builtin => {
@@ -199,6 +199,51 @@ fn get_bri(cmd: &BriCmdProvider) -> f64 {
                 println!("Error trying to get the current brightness: {}", e);
                 0
             }) as f64
+        }
+        BriCmdProvider::BrightnessCtl => {
+            let output = if let Ok(child) = Command::new("/bin/sh")
+                .arg("-c")
+                .arg("brightnessctl")
+                .output()
+            {
+                if let Ok(val) = String::from_utf8(child.stdout) {
+                    val
+                } else {
+                    return 0.0;
+                }
+            } else {
+                return 0.0f64;
+            };
+
+            let max = if let Some(l) = output.split(" ").last() {
+                if let Ok(v) = l.trim().parse::<u64>() {
+                    v
+                } else {
+                    return 0.0;
+                }
+            } else {
+                return 0.0;
+            };
+
+            let cur = if let Ok(child) = Command::new("/bin/sh")
+                .arg("-c")
+                .arg("brightnessctl get")
+                .output()
+            {
+                if let Ok(val) = String::from_utf8(child.stdout) {
+                    if let Ok(v) = val.trim().parse::<u64>() {
+                        v
+                    } else {
+                        return 0.0;
+                    }
+                } else {
+                    return 0.0;
+                }
+            } else {
+                return 0.0f64;
+            };
+
+            (cur * 100 / max) as f64
         }
         BriCmdProvider::NoCmd => 0f64,
     }
@@ -212,6 +257,13 @@ fn set_bri(cmd: &BriCmdProvider, val: f64) {
                 println!("Error trying to set the current brightness: {}", e);
                 false
             });
+        }
+
+        BriCmdProvider::BrightnessCtl => {
+            let _ = Command::new("/bin/sh")
+                .arg("-c")
+                .arg(format!("brightnessctl set {}%", val))
+                .output();
         }
 
         BriCmdProvider::NoCmd => {}

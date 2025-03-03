@@ -8,7 +8,7 @@ use super::window::WindowDescriptor;
 
 pub const DEFAULT_CSS_PATH: &str = "/usr/share/dvvidget/style.css";
 pub const DEFAULT_VOL_CMD: VolCmdProvider = VolCmdProvider::Wpctl;
-pub const DEFAULT_BRI_CMD: BriCmdProvider = BriCmdProvider::Builtin;
+pub const DEFAULT_BRI_CMD: BriCmdProvider = BriCmdProvider::BrightnessCtl;
 
 #[derive(Clone, Deserialize, Debug, SmartDefault)]
 pub struct AppConf {
@@ -109,8 +109,9 @@ pub struct AppConfVol {
 
 #[derive(Clone, Debug, SmartDefault)]
 pub enum BriCmdProvider {
-    #[default]
     Builtin,
+    #[default]
+    BrightnessCtl,
     NoCmd,
 }
 
@@ -120,9 +121,10 @@ impl<'de> Deserialize<'de> for BriCmdProvider {
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Ok(match s.as_str() {
-            "Builtin" | "builtin" => BriCmdProvider::Builtin,
-            "None" | "none" => BriCmdProvider::NoCmd,
+        Ok(match s.to_lowercase().as_str() {
+            "builtin" => BriCmdProvider::Builtin,
+            "brightnessctl" => Self::BrightnessCtl,
+            "none" => BriCmdProvider::NoCmd,
             _ => DEFAULT_BRI_CMD,
         })
     }

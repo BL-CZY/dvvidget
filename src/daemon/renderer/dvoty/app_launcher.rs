@@ -31,7 +31,6 @@ fn add_file(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
 
     let desktop_file = match freedesktop_file_parser::parse(&content) {
         Err(e) => {
-            println!("{:?}: {:?}", path, e);
             return Err(Box::new(e));
         }
         Ok(r) => r,
@@ -41,10 +40,6 @@ fn add_file(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
         if bool {
             return Ok(());
         }
-    }
-
-    if path.starts_with("/home") {
-        println!("{:?}", path);
     }
 
     DESKTOP_FILES
