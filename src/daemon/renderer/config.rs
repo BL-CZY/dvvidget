@@ -489,7 +489,7 @@ fn parse_config(content: &str) -> AppConf {
 }
 
 pub fn read_config(target_path: &PathBuf) -> AppConf {
-    match std::fs::read_to_string(&target_path) {
+    match std::fs::read_to_string(target_path) {
         Ok(val) => {
             println!("there is a config");
             parse_config(&val)

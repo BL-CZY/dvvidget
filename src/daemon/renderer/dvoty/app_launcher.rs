@@ -27,10 +27,15 @@ use once_cell::sync::OnceCell;
 pub static DESKTOP_FILES: OnceCell<Arc<Mutex<Vec<DesktopFile>>>> = OnceCell::new();
 
 fn add_file(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-    // TODO: user overrides
     let content = std::fs::read_to_string(path)?;
 
-    let desktop_file = freedesktop_file_parser::parse(&content)?;
+    let desktop_file = match freedesktop_file_parser::parse(&content) {
+        Err(e) => {
+            println!("{:?}: {:?}", path, e);
+            return Err(Box::new(e));
+        }
+        Ok(r) => r,
+    };
 
     if let Some(bool) = desktop_file.entry.no_display {
         if bool {
@@ -38,40 +43,20 @@ fn add_file(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    Ok(DESKTOP_FILES
+    if path.starts_with("/home") {
+        println!("{:?}", path);
+    }
+
+    DESKTOP_FILES
         .get()
         .unwrap()
         .lock()
         .unwrap_or_else(|p| p.into_inner())
-        .push(desktop_file))
+        .push(desktop_file);
+
+    Ok(())
 }
-//
-//fn fill_files(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-//    let dirs = std::fs::read_dir(path).context("Can't read directory")?;
-//
-//    let mut exist: HashSet<OsString> = HashSet::new();
-//
-//    let paths = dirs
-//        .filter_map(|entry| match entry {
-//            Ok(res) => {
-//                if !exist.contains(&res.file_name()) {
-//                    exist.insert(res.file_name());
-//                    Some(res.path())
-//                } else {
-//                    None
-//                }
-//            }
-//            Err(_) => None,
-//        })
-//        .collect::<Vec<PathBuf>>();
-//
-//    paths.par_iter().for_each(|p| {
-//        let _ = add_file(p);
-//    });
-//
-//    Ok(())
-//}
-//
+
 pub async fn process_paths() -> Result<(), Box<dyn std::error::Error>> {
     DESKTOP_FILES
         .get()
@@ -86,12 +71,16 @@ pub async fn process_paths() -> Result<(), Box<dyn std::error::Error>> {
 
     // Process directories in order (later directories will override earlier ones)
     for dir in paths {
-        if !dir.is_dir() {
-            continue; // Skip if not a directory
+        match tokio::fs::metadata(&dir).await {
+            Ok(metadata) if metadata.is_dir() => {}
+            _ => continue, // Skip if not a directory or can't access
         }
 
+        // otherwise it will stuck on the first one
+        let mut iter = tokio::fs::read_dir(&dir).await?;
+
         // Read all entries in the directory
-        while let Ok(Some(entry)) = tokio::fs::read_dir(&dir).await?.next_entry().await {
+        while let Some(entry) = iter.next_entry().await? {
             let path = entry.path();
 
             // Check if it's a .desktop file
@@ -135,7 +124,6 @@ fn send(
     icon: IconString,
     id: Uuid,
 ) {
-    //tokio::spawn(async move {
     sender
         .send(DaemonEvt {
             evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Launch {
@@ -147,7 +135,6 @@ fn send(
             uuid: Some(id),
         })
         .unwrap_or_else(|e| println!("Dvoty: failed to send: {}", e));
-    //});
 }
 
 fn process_content(
@@ -164,53 +151,58 @@ fn process_content(
     // TODO: handle not show in
     // TODO: add user overrides
 
-    if let Some(ref icon) = content.entry.icon {
-        if let EntryType::Application(ref fields) = content.entry.entry_type {
-            if let Some(ref exec) = fields.exec {
-                let mut keywords: Vec<String> = vec![content.entry.name.default.to_lowercase()];
-                if let Some(ref generic_name) = content.entry.generic_name {
-                    keywords.push(generic_name.default.to_lowercase());
-                }
+    if let EntryType::Application(ref fields) = content.entry.entry_type {
+        if let Some(ref exec) = fields.exec {
+            let mut keywords: Vec<String> = vec![content.entry.name.default.to_lowercase()];
+            if let Some(ref generic_name) = content.entry.generic_name {
+                keywords.push(generic_name.default.to_lowercase());
+            }
 
-                if let Some(ref kwds) = fields.keywords {
-                    let temp: Vec<String> = kwds.default.iter().map(|s| s.to_lowercase()).collect();
-                    keywords.extend(temp);
-                }
+            if let Some(ref kwds) = fields.keywords {
+                let temp: Vec<String> = kwds.default.iter().map(|s| s.to_lowercase()).collect();
+                keywords.extend(temp);
+            }
 
-                for kwd in keywords.iter() {
-                    if kwd.contains(input) {
-                        send(
-                            sender.clone(),
-                            content.entry.name.default.clone(),
-                            exec.clone(),
-                            icon.clone(),
-                            id.clone(),
-                        );
+            let default_icon = IconString::default();
+            let icon = if let Some(ref icon) = content.entry.icon {
+                icon
+            } else {
+                &default_icon
+            };
 
-                        for (_, value) in content.actions.clone() {
-                            send(
-                                sender.clone(),
-                                format!("{}: {}", content.entry.name.default, value.name.default),
-                                exec.clone(),
-                                icon.clone(),
-                                id.clone(),
-                            );
-                        }
+            for kwd in keywords.iter() {
+                if kwd.contains(input) {
+                    send(
+                        sender.clone(),
+                        content.entry.name.default.clone(),
+                        exec.clone(),
+                        icon.clone(),
+                        *id,
+                    );
 
-                        return Ok(());
-                    }
-                }
-
-                for (_, value) in content.actions.clone() {
-                    if value.name.default.to_lowercase().contains(input) {
+                    for (_, value) in content.actions.clone() {
                         send(
                             sender.clone(),
                             format!("{}: {}", content.entry.name.default, value.name.default),
                             exec.clone(),
                             icon.clone(),
-                            id.clone(),
+                            *id,
                         );
                     }
+
+                    return Ok(());
+                }
+            }
+
+            for (_, value) in content.actions.clone() {
+                if value.name.default.to_lowercase().contains(input) {
+                    send(
+                        sender.clone(),
+                        format!("{}: {}", content.entry.name.default, value.name.default),
+                        exec.clone(),
+                        icon.clone(),
+                        *id,
+                    );
                 }
             }
         }

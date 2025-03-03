@@ -3,7 +3,7 @@ use crate::utils::{get_paths, shutdown, DaemonErr};
 use anyhow::Context;
 use notify::{Event, Watcher};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
 use tokio;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -24,7 +24,7 @@ async fn is_active_socket(path: &str) -> bool {
 }
 
 pub async fn run_server(
-    config_path: &PathBuf,
+    config_path: &Path,
     socket_path: Option<String>,
     evt_sender: UnboundedSender<DaemonEvt>,
 ) -> Result<(), DaemonErr> {
@@ -75,7 +75,7 @@ pub async fn run_server(
     })
     .map_err(|e| DaemonErr::FileWatchError(e.to_string()))?;
 
-    let mut path = config_path.clone();
+    let mut path = config_path.to_path_buf();
     path.pop();
     let _ = watcher.watch(&path, notify::RecursiveMode::NonRecursive);
 
