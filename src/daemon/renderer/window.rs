@@ -1,6 +1,8 @@
 use gtk4::{Application, ApplicationWindow};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use serde::Deserialize;
+use serde_inline_default::serde_inline_default;
+use smart_default::SmartDefault;
 use toml::map::Map;
 use toml::value::Value;
 
@@ -14,27 +16,54 @@ use x11rb::rust_connection::RustConnection;
 
 use crate::utils::DisplayBackend;
 
-#[derive(Clone, Deserialize)]
+#[serde_inline_default]
+#[derive(Clone, Deserialize, SmartDefault)]
 pub struct WindowDescriptor {
     #[serde(deserialize_with = "deserialize_layer")]
+    #[default(_code = "Layer::Overlay")]
     pub layer: Layer,
 
+    #[serde_inline_default(0)]
     pub margin_left: i32,
+    #[serde_inline_default(0)]
     pub margin_right: i32,
+    #[serde_inline_default(0)]
     pub margin_top: i32,
+    #[serde_inline_default(0)]
     pub margin_bottom: i32,
 
+    #[serde_inline_default(false)]
     pub anchor_left: bool,
+    #[serde_inline_default(false)]
     pub anchor_right: bool,
+    #[serde_inline_default(false)]
     pub anchor_top: bool,
+    #[serde_inline_default(false)]
     pub anchor_bottom: bool,
 
+    #[serde_inline_default(true)]
     pub exclusive: bool,
-    #[serde(deserialize_with = "deserialize_keyboard")]
-    pub keyboard_mode: KeyboardMode,
 
+    #[serde(skip_deserializing)]
+    pub keyboard_mode: KeyboardModeWrapper,
+
+    #[serde_inline_default(true)]
     pub visible_on_start: bool,
+    #[serde_inline_default("dvvidget".into())]
     pub namespace: String,
+}
+
+#[derive(Clone)]
+pub struct KeyboardModeWrapper {
+    pub inner: KeyboardMode,
+}
+
+impl Default for KeyboardModeWrapper {
+    fn default() -> Self {
+        Self {
+            inner: KeyboardMode::None,
+        }
+    }
 }
 
 fn deserialize_layer<'de, D>(deserializer: D) -> Result<Layer, D::Error>
@@ -60,30 +89,6 @@ where
     D: serde::Deserializer<'de>,
 {
     Ok(KeyboardMode::None)
-}
-
-impl Default for WindowDescriptor {
-    fn default() -> Self {
-        WindowDescriptor {
-            layer: Layer::Overlay,
-
-            margin_left: 0,
-            margin_right: 0,
-            margin_top: 0,
-            margin_bottom: 0,
-
-            anchor_left: false,
-            anchor_right: false,
-            anchor_top: false,
-            anchor_bottom: false,
-
-            exclusive: false,
-            keyboard_mode: KeyboardMode::None,
-
-            visible_on_start: true,
-            namespace: "dvvidget".into(),
-        }
-    }
 }
 
 impl WindowDescriptor {
@@ -193,7 +198,7 @@ fn wayland_window(
         window.set_anchor(anchor, state);
     }
 
-    window.set_namespace(&descriptor.namespace);
+    window.set_namespace(Some(&descriptor.namespace));
 
     window
 }

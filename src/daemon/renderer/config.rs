@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use serde_inline_default::serde_inline_default;
 use toml::{map::Map, Table, Value};
 
-use super::window::WindowDescriptor;
+use super::window::{KeyboardModeWrapper, WindowDescriptor};
 
 pub const DEFAULT_CSS_PATH: &str = "/usr/share/dvvidget/style.css";
 pub const DEFAULT_VOL_CMD: VolCmdProvider = VolCmdProvider::Wpctl;
@@ -17,40 +18,67 @@ pub struct AppConf {
     pub dvoty: AppConfDvoty,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[serde_inline_default]
+#[derive(Clone, Serialize, Deserialize, Default)]
 pub struct AppConfGeneral {
+    #[serde_inline_default("/usr/share/dvvidget/style.css".to_string())]
     pub css_path: String,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone)]
 pub enum VolCmdProvider {
     Wpctl,
     NoCmd,
 }
 
+impl<'de> Deserialize<'de> for VolCmdProvider {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Ok(match s.as_str() {
+            "Wpctl" | "wpctl" => DEFAULT_VOL_CMD,
+            "none" | "None" => VolCmdProvider::NoCmd,
+            _ => DEFAULT_VOL_CMD,
+        })
+    }
+}
+
+#[serde_inline_default]
 #[derive(Clone, Debug, Deserialize)]
 pub struct IconDescriptor {
-    pub range: (f64, f64),
+    #[serde_inline_default(0.0f64)]
+    pub lower: f64,
+    #[serde_inline_default(0.0f64)]
+    pub upper: f64,
+    #[serde_inline_default("".into())]
     pub icon: String,
 }
 
 impl IconDescriptor {
     pub fn from_val(bottom: f64, top: f64, icon: &str) -> Self {
         IconDescriptor {
-            range: (bottom, top),
+            lower: bottom,
+            upper: top,
             icon: icon.to_string(),
         }
     }
 }
 
+#[serde_inline_default]
 #[derive(Clone, Deserialize)]
 pub struct AppConfVol {
+    #[serde_inline_default(true)]
     pub enabled: bool,
     pub window: WindowDescriptor,
+    #[serde_inline_default(100f64)]
     pub max_vol: f64,
     pub run_cmd: VolCmdProvider,
+    #[serde_inline_default(false)]
     pub use_svg: bool,
     pub icons: Vec<IconDescriptor>,
+    #[serde_inline_default(" ".into())]
     pub mute_icon: String,
 }
 
@@ -66,21 +94,22 @@ impl<'de> Deserialize<'de> for BriCmdProvider {
         D: serde::Deserializer<'de>,
     {
         let s = String::deserialize(deserializer)?;
-        Ok({
-            match s.as_str() {
-                "Builtin" | "builtin" => BriCmdProvider::Builtin,
-                "None" | "none" => BriCmdProvider::NoCmd,
-                _ => DEFAULT_BRI_CMD,
-            }
+        Ok(match s.as_str() {
+            "Builtin" | "builtin" => BriCmdProvider::Builtin,
+            "None" | "none" => BriCmdProvider::NoCmd,
+            _ => DEFAULT_BRI_CMD,
         })
     }
 }
 
+#[serde_inline_default]
 #[derive(Clone, Deserialize)]
 pub struct AppConfBri {
+    #[serde_inline_default(true)]
     pub enabled: bool,
     pub window: WindowDescriptor,
     pub run_cmd: BriCmdProvider,
+    #[serde_inline_default(false)]
     pub use_svg: bool,
     pub icons: Vec<IconDescriptor>,
 }
@@ -322,7 +351,8 @@ fn read_icon_table(vec: &[Value]) -> Vec<IconDescriptor> {
                 .unwrap_or("")
                 .to_string();
             result.push(IconDescriptor {
-                range: (lower as f64, upper as f64),
+                lower: lower as f64,
+                upper: upper as f64,
                 icon,
             });
         }
@@ -473,7 +503,9 @@ impl AppConf {
                     WindowDescriptor {
                         //layer: gtk4_layer_shell::Layer::Top,
                         namespace: "dvvidget-dvoty".into(),
-                        keyboard_mode: gtk4_layer_shell::KeyboardMode::OnDemand,
+                        keyboard_mode: KeyboardModeWrapper {
+                            inner: gtk4_layer_shell::KeyboardMode::OnDemand,
+                        },
                         ..Default::default()
                     },
                 ),
