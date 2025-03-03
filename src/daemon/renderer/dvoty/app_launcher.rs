@@ -1,6 +1,5 @@
-use std::{cell::RefMut, collections::HashSet, ffi::OsString, path::PathBuf, sync::Arc};
+use std::{cell::RefMut, collections::HashMap, path::PathBuf, sync::Arc};
 
-use anyhow::Context;
 use freedesktop_file_parser::{EntryType, IconString};
 use gtk4::ListBox;
 use rayon::{
@@ -46,34 +45,34 @@ fn add_file(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or_else(|p| p.into_inner())
         .push(desktop_file))
 }
-
-fn fill_files(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-    let dirs = std::fs::read_dir(path).context("Can't read directory")?;
-
-    let mut exist: HashSet<OsString> = HashSet::new();
-
-    let paths = dirs
-        .filter_map(|entry| match entry {
-            Ok(res) => {
-                if !exist.contains(&res.file_name()) {
-                    exist.insert(res.file_name());
-                    Some(res.path())
-                } else {
-                    None
-                }
-            }
-            Err(_) => None,
-        })
-        .collect::<Vec<PathBuf>>();
-
-    paths.par_iter().for_each(|p| {
-        let _ = add_file(p);
-    });
-
-    Ok(())
-}
-
-pub fn process_paths() {
+//
+//fn fill_files(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+//    let dirs = std::fs::read_dir(path).context("Can't read directory")?;
+//
+//    let mut exist: HashSet<OsString> = HashSet::new();
+//
+//    let paths = dirs
+//        .filter_map(|entry| match entry {
+//            Ok(res) => {
+//                if !exist.contains(&res.file_name()) {
+//                    exist.insert(res.file_name());
+//                    Some(res.path())
+//                } else {
+//                    None
+//                }
+//            }
+//            Err(_) => None,
+//        })
+//        .collect::<Vec<PathBuf>>();
+//
+//    paths.par_iter().for_each(|p| {
+//        let _ = add_file(p);
+//    });
+//
+//    Ok(())
+//}
+//
+pub async fn process_paths() -> Result<(), Box<dyn std::error::Error>> {
     DESKTOP_FILES
         .get()
         .unwrap()
@@ -83,8 +82,34 @@ pub fn process_paths() {
 
     let paths = get_paths();
 
+    let mut desktop_files_map: HashMap<String, PathBuf> = HashMap::new();
+
+    // Process directories in order (later directories will override earlier ones)
+    for dir in paths {
+        if !dir.is_dir() {
+            continue; // Skip if not a directory
+        }
+
+        // Read all entries in the directory
+        while let Ok(Some(entry)) = tokio::fs::read_dir(&dir).await?.next_entry().await {
+            let path = entry.path();
+
+            // Check if it's a .desktop file
+            if path.is_file() && path.extension().map_or(false, |ext| ext == "desktop") {
+                // Get the filename as the key
+                if let Some(filename) = path.file_name().and_then(|f| f.to_str()) {
+                    // Add or replace in the map
+                    desktop_files_map.insert(filename.to_string(), path);
+                }
+            }
+        }
+    }
+
+    // Convert the map values to a vector
+    let paths: Vec<PathBuf> = desktop_files_map.into_values().collect();
+
     paths.par_iter().for_each(|path| {
-        let _ = fill_files(path);
+        let _ = add_file(path);
     });
 
     DESKTOP_FILES
@@ -99,6 +124,8 @@ pub fn process_paths() {
                 .to_lowercase()
                 .cmp(&b.entry.name.default.to_lowercase())
         });
+
+    Ok(())
 }
 
 fn send(
@@ -211,6 +238,7 @@ fn clense_cmd(exec: &mut String, str: &str) {
     }
 }
 
+// TODO: add terminal apps
 pub fn populate_launcher_entry(
     config: Arc<AppConf>,
     list: &ListBox,

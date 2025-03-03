@@ -5,8 +5,10 @@ use gtk4::Image;
 use once_cell::sync::Lazy;
 use tokio::sync::broadcast;
 
+/// returns a list of paths from XDG_DATA_DIRS and attach $HOME/.local/share/applications/ at the
+/// end
 pub fn get_paths() -> Vec<PathBuf> {
-    std::env::var("XDG_DATA_DIRS")
+    let mut result = std::env::var("XDG_DATA_DIRS")
         .unwrap()
         .split(":")
         .filter_map(|s| {
@@ -19,7 +21,15 @@ pub fn get_paths() -> Vec<PathBuf> {
                 None
             }
         })
-        .collect::<Vec<PathBuf>>()
+        .collect::<Vec<PathBuf>>();
+
+    if let Ok(v) = std::env::var("HOME") {
+        let mut p = PathBuf::from(&v);
+        p.push(".local/share/applications/");
+        result.push(p);
+    }
+
+    result
 }
 
 #[derive(Clone, Copy)]

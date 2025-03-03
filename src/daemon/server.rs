@@ -63,7 +63,7 @@ pub async fn run_server(
         let _ = watcher.watch(p, notify::RecursiveMode::Recursive);
     });
 
-    app_launcher::process_paths();
+    let _ = app_launcher::process_paths().await;
 
     // file watcher for config
     let (config_file_sender, mut config_file_receiver) =
@@ -100,7 +100,7 @@ pub async fn run_server(
                 match evt.kind {
                     notify::EventKind::Create(_) | notify::EventKind::Modify(_) | notify::EventKind::Remove(_) => {
                         println!("File watcher: detect file create, modify, or remove");
-                        app_launcher::process_paths();
+                        let _ = app_launcher::process_paths().await;
                     }
 
                     _ => {}
