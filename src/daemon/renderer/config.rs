@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use serde_inline_default::serde_inline_default;
+use smart_default::SmartDefault;
 
 use super::window::WindowDescriptor;
 
@@ -9,7 +10,7 @@ pub const DEFAULT_CSS_PATH: &str = "/usr/share/dvvidget/style.css";
 pub const DEFAULT_VOL_CMD: VolCmdProvider = VolCmdProvider::Wpctl;
 pub const DEFAULT_BRI_CMD: BriCmdProvider = BriCmdProvider::Builtin;
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug, SmartDefault)]
 pub struct AppConf {
     pub general: AppConfGeneral,
     pub vol: AppConfVol,
@@ -18,14 +19,16 @@ pub struct AppConf {
 }
 
 #[serde_inline_default]
-#[derive(Clone, Serialize, Deserialize, Default, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, SmartDefault)]
 pub struct AppConfGeneral {
     #[serde_inline_default("/usr/share/dvvidget/style.css".to_string())]
+    #[default = "/usr/share/dvvidget/style.css"]
     pub css_path: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, SmartDefault)]
 pub enum VolCmdProvider {
+    #[default]
     Wpctl,
     NoCmd,
 }
@@ -45,7 +48,7 @@ impl<'de> Deserialize<'de> for VolCmdProvider {
 }
 
 #[serde_inline_default]
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, SmartDefault)]
 pub struct IconDescriptor {
     #[serde_inline_default(0.0f64)]
     pub lower: f64,
@@ -66,17 +69,23 @@ impl IconDescriptor {
 }
 
 #[serde_inline_default]
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug, SmartDefault)]
 pub struct AppConfVol {
     #[serde_inline_default(true)]
+    #[default = true]
     pub enable: bool,
     #[serde_inline_default(WindowDescriptor {anchor_bottom: true, margin_bottom: 130, ..Default::default()})]
+    #[default(
+        _code = "WindowDescriptor {anchor_bottom: true, margin_bottom: 130, ..Default::default()}"
+    )]
     pub window: WindowDescriptor,
     #[serde_inline_default(100f64)]
+    #[default(_code = "100f64")]
     pub max_vol: f64,
     #[serde_inline_default(DEFAULT_VOL_CMD)]
     pub run_cmd: VolCmdProvider,
     #[serde_inline_default(false)]
+    #[default = false]
     pub use_svg: bool,
     #[serde_inline_default(
         vec![
@@ -85,13 +94,22 @@ pub struct AppConfVol {
             IconDescriptor::from_val(60f64, 100f64, " "),
         ]
     )]
+    #[default(_code = "
+        vec![
+            IconDescriptor::from_val(0f64, 19f64, \" \"),
+            IconDescriptor::from_val(20f64, 59f64, \" \"),
+            IconDescriptor::from_val(60f64, 100f64, \" \"),
+        ]
+    ")]
     pub icons: Vec<IconDescriptor>,
     #[serde_inline_default(" ".into())]
+    #[default = " "]
     pub mute_icon: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, SmartDefault)]
 pub enum BriCmdProvider {
+    #[default]
     Builtin,
     NoCmd,
 }
@@ -111,25 +129,35 @@ impl<'de> Deserialize<'de> for BriCmdProvider {
 }
 
 #[serde_inline_default]
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug, SmartDefault)]
 pub struct AppConfBri {
     #[serde_inline_default(true)]
+    #[default = true]
     pub enable: bool,
     #[serde_inline_default(WindowDescriptor {anchor_bottom: true, margin_bottom: 130, ..Default::default()})]
+    #[default(
+        _code = "WindowDescriptor {anchor_bottom: true, margin_bottom: 130, ..Default::default()}"
+    )]
     pub window: WindowDescriptor,
     #[serde_inline_default(DEFAULT_BRI_CMD)]
     pub run_cmd: BriCmdProvider,
     #[serde_inline_default(false)]
+    #[default = false]
     pub use_svg: bool,
     #[serde_inline_default(vec![
         IconDescriptor::from_val(0f64, 19f64, "0"),
         IconDescriptor::from_val(20f64, 59f64, "1"),
         IconDescriptor::from_val(60f64, 100f64, "2"),
     ])]
+    #[default(_code = "vec![
+        IconDescriptor::from_val(0f64, 19f64, \"0\"),
+        IconDescriptor::from_val(20f64, 59f64, \"1\"),
+        IconDescriptor::from_val(60f64, 100f64, \"2\"),
+    ]")]
     pub icons: Vec<IconDescriptor>,
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, SmartDefault, Debug)]
 pub enum SearchEngine {
     #[default]
     Google,
@@ -175,84 +203,37 @@ impl SearchEngine {
 }
 
 #[serde_inline_default]
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Deserialize, Debug, SmartDefault)]
 pub struct AppConfDvoty {
     #[serde_inline_default(true)]
+    #[default = true]
     pub enable: bool,
     #[serde_inline_default(WindowDescriptor::default())]
+    #[default(_code = "WindowDescriptor::default()")]
     pub window: WindowDescriptor,
     #[serde_inline_default(300)]
+    #[default = 300]
     pub max_height: u32,
     #[serde_inline_default("".into())]
+    #[default = ""]
     pub instruction_icon: String,
     #[serde_inline_default("".into())]
+    #[default = ""]
     pub math_icon: String,
     #[serde_inline_default("".into())]
+    #[default = ""]
     pub serach_icon: String,
     #[serde_inline_default("".into())]
+    #[default = ""]
     pub cmd_icon: String,
     #[serde_inline_default("".into())]
+    #[default = ""]
     pub url_icon: String,
     #[serde_inline_default(SearchEngine::default())]
     pub search_engine: SearchEngine,
-    //pub terminal_exec: String,
-}
-
-impl Default for AppConf {
-    fn default() -> Self {
-        AppConf {
-            general: AppConfGeneral {
-                css_path: DEFAULT_CSS_PATH.to_string(),
-            },
-            vol: AppConfVol {
-                enable: true,
-                window: WindowDescriptor {
-                    anchor_bottom: true,
-                    margin_bottom: 130,
-                    ..Default::default()
-                },
-                max_vol: 100f64,
-                run_cmd: DEFAULT_VOL_CMD,
-                use_svg: false,
-                icons: vec![
-                    IconDescriptor::from_val(0f64, 19f64, " "),
-                    IconDescriptor::from_val(20f64, 59f64, " "),
-                    IconDescriptor::from_val(60f64, 100f64, " "),
-                ],
-                mute_icon: " ".to_string(),
-            },
-            bri: AppConfBri {
-                enable: true,
-                window: WindowDescriptor {
-                    anchor_bottom: true,
-                    margin_bottom: 130,
-                    ..Default::default()
-                },
-                use_svg: false,
-                run_cmd: DEFAULT_BRI_CMD,
-                icons: default_bri_icons(),
-            },
-            dvoty: AppConfDvoty {
-                enable: true,
-                window: WindowDescriptor::default(),
-                max_height: 300,
-                instruction_icon: "".into(),
-                math_icon: "".into(),
-                serach_icon: "".into(),
-                cmd_icon: "".into(),
-                url_icon: "".into(),
-                search_engine: SearchEngine::default(),
-            },
-        }
-    }
-}
-
-fn default_bri_icons() -> Vec<IconDescriptor> {
-    vec![
-        IconDescriptor::from_val(0f64, 19f64, "0"),
-        IconDescriptor::from_val(20f64, 59f64, "1"),
-        IconDescriptor::from_val(60f64, 100f64, "2"),
-    ]
+    #[serde_inline_default("xterm".into())]
+    #[default = "xterm"]
+    pub terminal_exec: String,
 }
 
 pub fn default_config_path() -> PathBuf {
