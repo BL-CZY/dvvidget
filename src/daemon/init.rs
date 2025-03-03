@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use super::renderer::config::default_config_path;
+use super::renderer::window::KeyboardModeWrapper;
 use super::renderer::{app::start_app, config::read_config};
 use super::server;
 use super::structs::DaemonEvt;
@@ -19,7 +20,14 @@ pub fn start_daemon(
         default_config_path()
     };
 
-    let config = Arc::new(read_config(&config_path));
+    let config = Arc::new({
+        let mut c = read_config(&config_path);
+        c.dvoty.window.keyboard_mode = KeyboardModeWrapper {
+            inner: gtk4_layer_shell::KeyboardMode::OnDemand,
+        };
+        println!("{:?}", c);
+        c
+    });
 
     let (evt_sender, evt_receiver): (UnboundedSender<DaemonEvt>, UnboundedReceiver<DaemonEvt>) =
         mpsc::unbounded_channel();

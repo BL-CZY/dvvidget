@@ -220,7 +220,7 @@ fn set_bri(cmd: &BriCmdProvider, val: f64) {
 
 fn set_icon(config: Arc<AppConf>, icon: IconRefHolder, cur_bri: f64) {
     for icon_descriptor in config.bri.icons.iter() {
-        if cur_bri >= icon_descriptor.range.0 && cur_bri < icon_descriptor.range.1 {
+        if cur_bri >= icon_descriptor.lower && cur_bri < icon_descriptor.upper {
             match icon {
                 IconRefHolder::Text(label) => label.set_text(&icon_descriptor.icon),
                 IconRefHolder::Svg(pic) => {

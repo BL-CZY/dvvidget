@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use serde_inline_default::serde_inline_default;
-use toml::{map::Map, Table, Value};
+use toml::{map::Map, Value};
 
 use super::window::{KeyboardModeWrapper, WindowDescriptor};
 
@@ -10,7 +10,7 @@ pub const DEFAULT_CSS_PATH: &str = "/usr/share/dvvidget/style.css";
 pub const DEFAULT_VOL_CMD: VolCmdProvider = VolCmdProvider::Wpctl;
 pub const DEFAULT_BRI_CMD: BriCmdProvider = BriCmdProvider::Builtin;
 
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct AppConf {
     pub general: AppConfGeneral,
     pub vol: AppConfVol,
@@ -19,13 +19,13 @@ pub struct AppConf {
 }
 
 #[serde_inline_default]
-#[derive(Clone, Serialize, Deserialize, Default)]
+#[derive(Clone, Serialize, Deserialize, Default, Debug)]
 pub struct AppConfGeneral {
     #[serde_inline_default("/usr/share/dvvidget/style.css".to_string())]
     pub css_path: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum VolCmdProvider {
     Wpctl,
     NoCmd,
@@ -67,22 +67,31 @@ impl IconDescriptor {
 }
 
 #[serde_inline_default]
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct AppConfVol {
     #[serde_inline_default(true)]
-    pub enabled: bool,
+    pub enable: bool,
+    #[serde_inline_default(WindowDescriptor {anchor_bottom: true, margin_bottom: 130, ..Default::default()})]
     pub window: WindowDescriptor,
     #[serde_inline_default(100f64)]
     pub max_vol: f64,
+    #[serde_inline_default(DEFAULT_VOL_CMD)]
     pub run_cmd: VolCmdProvider,
     #[serde_inline_default(false)]
     pub use_svg: bool,
+    #[serde_inline_default(
+        vec![
+            IconDescriptor::from_val(0f64, 19f64, " "),
+            IconDescriptor::from_val(20f64, 59f64, " "),
+            IconDescriptor::from_val(60f64, 100f64, " "),
+        ]
+    )]
     pub icons: Vec<IconDescriptor>,
     #[serde_inline_default(" ".into())]
     pub mute_icon: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum BriCmdProvider {
     Builtin,
     NoCmd,
@@ -103,18 +112,25 @@ impl<'de> Deserialize<'de> for BriCmdProvider {
 }
 
 #[serde_inline_default]
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Deserialize, Debug)]
 pub struct AppConfBri {
     #[serde_inline_default(true)]
-    pub enabled: bool,
+    pub enable: bool,
+    #[serde_inline_default(WindowDescriptor {anchor_bottom: true, margin_bottom: 130, ..Default::default()})]
     pub window: WindowDescriptor,
+    #[serde_inline_default(DEFAULT_BRI_CMD)]
     pub run_cmd: BriCmdProvider,
     #[serde_inline_default(false)]
     pub use_svg: bool,
+    #[serde_inline_default(vec![
+        IconDescriptor::from_val(0f64, 19f64, "0"),
+        IconDescriptor::from_val(20f64, 59f64, "1"),
+        IconDescriptor::from_val(60f64, 100f64, "2"),
+    ])]
     pub icons: Vec<IconDescriptor>,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub enum SearchEngine {
     #[default]
     Google,
@@ -159,16 +175,26 @@ impl SearchEngine {
     }
 }
 
-#[derive(Clone, Deserialize)]
+#[serde_inline_default]
+#[derive(Clone, Deserialize, Debug)]
 pub struct AppConfDvoty {
-    pub enabled: bool,
+    #[serde_inline_default(true)]
+    pub enable: bool,
+    #[serde_inline_default(WindowDescriptor::default())]
     pub window: WindowDescriptor,
+    #[serde_inline_default(300)]
     pub max_height: u32,
+    #[serde_inline_default("".into())]
     pub instruction_icon: String,
+    #[serde_inline_default("".into())]
     pub math_icon: String,
+    #[serde_inline_default("".into())]
     pub serach_icon: String,
+    #[serde_inline_default("".into())]
     pub cmd_icon: String,
+    #[serde_inline_default("".into())]
     pub url_icon: String,
+    #[serde_inline_default(SearchEngine::default())]
     pub search_engine: SearchEngine,
     //pub terminal_exec: String,
 }
@@ -180,7 +206,7 @@ impl Default for AppConf {
                 css_path: DEFAULT_CSS_PATH.to_string(),
             },
             vol: AppConfVol {
-                enabled: true,
+                enable: true,
                 window: WindowDescriptor {
                     anchor_bottom: true,
                     margin_bottom: 130,
@@ -197,7 +223,7 @@ impl Default for AppConf {
                 mute_icon: " ".to_string(),
             },
             bri: AppConfBri {
-                enabled: true,
+                enable: true,
                 window: WindowDescriptor {
                     anchor_bottom: true,
                     margin_bottom: 130,
@@ -208,7 +234,7 @@ impl Default for AppConf {
                 icons: default_bri_icons(),
             },
             dvoty: AppConfDvoty {
-                enabled: true,
+                enable: true,
                 window: WindowDescriptor::default(),
                 max_height: 300,
                 instruction_icon: "".into(),
@@ -480,7 +506,7 @@ impl AppConf {
                 css_path: css_path(toml),
             },
             vol: AppConfVol {
-                enabled: is_enabled(toml, "volume"),
+                enable: is_enabled(toml, "volume"),
                 window: vol_window(toml),
                 max_vol: max_vol(toml),
                 run_cmd: vol_run_cmd(toml),
@@ -489,14 +515,14 @@ impl AppConf {
                 mute_icon: mute_icon(toml),
             },
             bri: AppConfBri {
-                enabled: is_enabled(toml, "brightness"),
+                enable: is_enabled(toml, "brightness"),
                 window: bri_window(toml),
                 run_cmd: bri_run_cmd(toml),
                 use_svg: is_svg(toml, "brightness"),
                 icons: bri_icons(toml),
             },
             dvoty: AppConfDvoty {
-                enabled: is_enabled(toml, "dvoty"),
+                enable: is_enabled(toml, "dvoty"),
                 window: WindowDescriptor::from_toml(
                     toml,
                     "dvoty",
@@ -536,23 +562,25 @@ pub fn default_config_path() -> PathBuf {
     }
 }
 
-fn parse_config(content: &str) -> AppConf {
-    let toml = match content.parse::<Table>() {
-        Ok(res) => res,
-        Err(e) => {
-            println!("Err trying to parse the config into toml: {}", e);
-            return AppConf::default();
-        }
-    };
-
-    AppConf::from_toml(&toml)
-}
-
+//fn parse_config(content: &str) -> AppConf {
+//    let toml = match content.parse::<Table>() {
+//        Ok(res) => res,
+//        Err(e) => {
+//            println!("Err trying to parse the config into toml: {}", e);
+//            return AppConf::default();
+//        }
+//    };
+//
+//    AppConf::from_toml(&toml)
+//}
+//
 pub fn read_config(target_path: &PathBuf) -> AppConf {
     match std::fs::read_to_string(target_path) {
         Ok(val) => {
             println!("there is a config");
-            parse_config(&val)
+            //toml::from_str(&val).unwrap_or_else(|_| AppConf::default())
+            toml::from_str(&val).unwrap()
+            //parse_config(&val)
         }
         Err(e) => {
             println!(

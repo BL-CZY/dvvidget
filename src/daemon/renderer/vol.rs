@@ -305,7 +305,7 @@ fn set_icon(config: Arc<AppConf>, icon: IconRefHolder, cur_vol: f64, is_muted: b
     }
 
     for icon_descriptor in config.vol.icons.iter() {
-        if cur_vol >= icon_descriptor.range.0 && cur_vol < icon_descriptor.range.1 {
+        if cur_vol >= icon_descriptor.lower && cur_vol < icon_descriptor.upper {
             match icon {
                 IconRefHolder::Text(label) => label.set_text(&icon_descriptor.icon),
                 IconRefHolder::Svg(pic) => {

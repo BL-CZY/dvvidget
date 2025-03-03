@@ -17,10 +17,11 @@ use x11rb::rust_connection::RustConnection;
 use crate::utils::DisplayBackend;
 
 #[serde_inline_default]
-#[derive(Clone, Deserialize, SmartDefault)]
+#[derive(Clone, Deserialize, SmartDefault, Debug)]
 pub struct WindowDescriptor {
     #[serde(deserialize_with = "deserialize_layer")]
     #[default(_code = "Layer::Overlay")]
+    #[serde_inline_default(Layer::Overlay)]
     pub layer: Layer,
 
     #[serde_inline_default(0)]
@@ -53,7 +54,7 @@ pub struct WindowDescriptor {
     pub namespace: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct KeyboardModeWrapper {
     pub inner: KeyboardMode,
 }
@@ -82,13 +83,6 @@ pub fn string_to_layer(str: &str) -> Layer {
         "overlay" | "Overlay" => Layer::Overlay,
         _ => Layer::Overlay,
     }
-}
-
-fn deserialize_keyboard<'de, D>(_deserializer: D) -> Result<KeyboardMode, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    Ok(KeyboardMode::None)
 }
 
 impl WindowDescriptor {
