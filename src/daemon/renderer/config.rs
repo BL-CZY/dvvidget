@@ -274,7 +274,10 @@ pub fn read_config(target_path: &PathBuf) -> AppConf {
     match std::fs::read_to_string(target_path) {
         Ok(val) => {
             println!("there is a config");
-            toml::from_str(&val).unwrap_or_else(|_| AppConf::default())
+            toml::from_str(&val).unwrap_or_else(|e| {
+                println!("Cannot parse the config:\n{}\nGo with default", e);
+                AppConf::default()
+            })
         }
         Err(e) => {
             println!(

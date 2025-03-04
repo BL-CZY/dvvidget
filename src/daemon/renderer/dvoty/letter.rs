@@ -78,6 +78,12 @@ fn search_letter(kwd: &str, mode: &[bool; 2]) -> Option<Vec<String>> {
             val.iter()
                 .map(|letter| {
                     let mut result = vec![];
+
+                    if letter.uppercase == letter.lowercase {
+                        result.push(letter.uppercase.clone());
+                        return result;
+                    }
+
                     if mode[0] {
                         result.push(letter.uppercase.clone());
                     }

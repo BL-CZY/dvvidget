@@ -246,6 +246,22 @@ pub fn start_app(
 
     gtk4::init().unwrap();
 
+    //let recent_manager = gtk4::RecentManager::default();
+    //let recent_items = recent_manager.items();
+
+    //let recent_file_names: Vec<String> = recent_items
+    //    .iter()
+    //    .filter_map(|item| {
+    //        let uri = item.uri();
+    //        gio::File::for_uri(&uri)
+    //            .path()
+    //            .map(|path| path.to_string_lossy().into_owned())
+    //            .or_else(|| Some(uri.to_string()))
+    //    })
+    //    .collect();
+    //
+    //println!("{:?}", recent_file_names);
+
     let app = Rc::new(gtk4::Application::new(
         Some("org.dvida.dvvidgets"),
         ApplicationFlags::default(),
