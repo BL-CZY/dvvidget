@@ -33,7 +33,7 @@ pub fn populate_search_entry(
     sender: UnboundedSender<DaemonEvt>,
 ) {
     let row = create_base_entry(
-        &config.dvoty.serach_icon,
+        &config.dvoty.search_icon,
         &keyword,
         "Click to search",
         sender,

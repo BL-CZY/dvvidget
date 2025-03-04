@@ -7,6 +7,7 @@ pub mod event;
 pub mod general;
 pub mod input;
 pub mod instruction;
+pub mod letter;
 pub mod math;
 pub mod row;
 pub mod search;

@@ -1,11 +1,11 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use gtk4::Window;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     daemon::{
-        renderer::app::AppContext,
+        renderer::{app::AppContext, config::AppConf},
         structs::{DaemonCmd, DaemonEvt, Dvoty},
     },
     utils::DaemonErr,
@@ -13,7 +13,7 @@ use crate::{
 
 use super::{event::CURRENT_ID, general::process_general, DvotyEntry, DvotyTaskType};
 
-fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>) {
+fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>, config: Arc<AppConf>) {
     let id = *CURRENT_ID.lock().unwrap_or_else(|p| p.into_inner());
 
     if input.is_empty() {
@@ -42,6 +42,7 @@ fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>) {
                 },
                 sender,
                 &id,
+                config.clone(),
             );
         }
         '$' => {
@@ -58,7 +59,7 @@ fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>) {
                 });
         }
         ':' => {
-            super::url::send_url(input.chars().skip(1).collect::<String>(), sender);
+            super::url::send_url(input.chars().skip(1).collect::<String>(), sender, &id);
         }
         '/' => {
             sender
@@ -73,8 +74,15 @@ fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>) {
                     println!("Dvoty: Error adding search entry: {}", e);
                 });
         }
+        '^' => {
+            super::letter::process_greek_letters(
+                input.chars().skip(1).collect::<String>(),
+                sender,
+                &id,
+            );
+        }
         _ => {
-            process_general(sender, input, &id);
+            process_general(sender, input, &id, config);
         }
     }
 }
@@ -84,6 +92,7 @@ pub fn process_input(
     context: Rc<RefCell<AppContext>>,
     sender: UnboundedSender<DaemonEvt>,
     window: &Window,
+    config: Arc<AppConf>,
 ) -> Result<(), DaemonErr> {
     let id = uuid::Uuid::new_v4();
     {
@@ -103,7 +112,7 @@ pub fn process_input(
     }
 
     let handle = tokio::spawn(async move {
-        process_input_str(&input, sender.clone());
+        process_input_str(&input, sender.clone(), config);
     });
 
     task_map.insert(DvotyTaskType::ProcessInput, handle);

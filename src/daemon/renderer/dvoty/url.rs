@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use gtk4::ListBox;
 use tokio::sync::mpsc::UnboundedSender;
+use uuid::Uuid;
 
 use crate::daemon::renderer::app::AppContext;
 use crate::daemon::{
@@ -13,7 +14,7 @@ use crate::daemon::{
 use super::class::adjust_class;
 use super::entry::{DvotyEntry, DvotyUIEntry};
 
-pub fn send_url(url: String, sender: UnboundedSender<DaemonEvt>) {
+pub fn send_url(url: String, sender: UnboundedSender<DaemonEvt>, id: &Uuid) {
     let send_url = if !(url.starts_with("https://") || url.starts_with("http://")) {
         let mut res: String = String::from("https://");
         res.push_str(&url);
@@ -26,7 +27,7 @@ pub fn send_url(url: String, sender: UnboundedSender<DaemonEvt>) {
         .send(DaemonEvt {
             evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Url { url: send_url })),
             sender: None,
-            uuid: None,
+            uuid: Some(*id),
         })
         .unwrap_or_else(|e| {
             println!("Dvoty: Failed to send url: {}", e);

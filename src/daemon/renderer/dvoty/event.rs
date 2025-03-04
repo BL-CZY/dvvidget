@@ -29,7 +29,7 @@ pub fn handle_dvoty_cmd(
 ) -> Result<DaemonRes, DaemonErr> {
     match cmd {
         Dvoty::Update(str) => {
-            super::input::process_input(str, app_context, sender.clone(), window)?;
+            super::input::process_input(str, app_context, sender.clone(), window, config.clone())?;
         }
 
         Dvoty::AddEntry(entry) => {

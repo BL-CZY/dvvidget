@@ -38,6 +38,10 @@ pub fn populate_instructions(
             ": for opening url".into(),
             config.dvoty.instruction_icon.clone(),
         ),
+        (
+            "^ for special letters".into(),
+            config.dvoty.instruction_icon.clone(),
+        ),
     ];
 
     for instruction in instructions.iter() {

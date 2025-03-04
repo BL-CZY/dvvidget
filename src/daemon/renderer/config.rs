@@ -210,29 +210,46 @@ pub struct AppConfDvoty {
     #[serde_inline_default(true)]
     #[default = true]
     pub enable: bool,
+
     #[serde_inline_default(WindowDescriptor::default())]
     #[default(_code = "WindowDescriptor::default()")]
     pub window: WindowDescriptor,
+
     #[serde_inline_default(300)]
     #[default = 300]
     pub max_height: u32,
+
     #[serde_inline_default("".into())]
     #[default = ""]
     pub instruction_icon: String,
+
     #[serde_inline_default("".into())]
     #[default = ""]
     pub math_icon: String,
+
     #[serde_inline_default("".into())]
     #[default = ""]
-    pub serach_icon: String,
+    pub search_icon: String,
+
     #[serde_inline_default("".into())]
     #[default = ""]
     pub cmd_icon: String,
+
     #[serde_inline_default("".into())]
     #[default = ""]
     pub url_icon: String,
+
+    #[serde_inline_default("".into())]
+    #[default = ""]
+    pub letter_icon: String,
+
+    #[serde_inline_default("".into())]
+    #[default = ""]
+    pub launch_icon: String,
+
     #[serde_inline_default(SearchEngine::default())]
     pub search_engine: SearchEngine,
+
     #[serde_inline_default("xterm".into())]
     #[default = "xterm"]
     pub terminal_exec: String,

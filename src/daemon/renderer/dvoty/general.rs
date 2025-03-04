@@ -1,10 +1,16 @@
+use std::sync::Arc;
+
 use evalexpr::{context_map, EvalexprError, Value};
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::daemon::structs::{DaemonCmd, DaemonEvt, Dvoty};
+use crate::daemon::{
+    renderer::config::AppConf,
+    structs::{DaemonCmd, DaemonEvt, Dvoty},
+};
 
 use super::{
     app_launcher::process_apps,
+    letter::process_greek_letters,
     math::{post_process_result, preprocess_math},
     DvotyEntry,
 };
@@ -45,7 +51,12 @@ fn identify_math(input: &str) -> Result<Value, EvalexprError> {
     evalexpr::eval_with_context(&preprocess_math(input), &context)
 }
 
-pub fn process_general(sender: UnboundedSender<DaemonEvt>, input: &str, id: &uuid::Uuid) {
+pub fn process_general(
+    sender: UnboundedSender<DaemonEvt>,
+    input: &str,
+    id: &uuid::Uuid,
+    config: Arc<AppConf>,
+) {
     // math
     if let Ok(val) = identify_math(input) {
         sender
@@ -60,8 +71,11 @@ pub fn process_general(sender: UnboundedSender<DaemonEvt>, input: &str, id: &uui
             .unwrap_or_else(|e| println!("Dvoty: Failed to send math result: {}", e));
     }
 
+    // letter
+    process_greek_letters(input.to_string(), sender.clone(), id);
+
     // app launcher
-    process_apps(input, sender.clone(), id);
+    process_apps(input, sender.clone(), id, config);
 
     // search
     sender

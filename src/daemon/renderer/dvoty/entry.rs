@@ -39,6 +39,9 @@ pub enum DvotyEntry {
     Url {
         url: String,
     },
+    Letter {
+        letter: String,
+    },
 }
 
 #[derive(Clone)]
@@ -49,6 +52,7 @@ pub enum DvotyUIEntry {
     Command { exec: String },
     Search { keyword: String },
     Url { url: String },
+    Letter { letter: String },
 }
 
 impl DvotyUIEntry {
@@ -92,7 +96,11 @@ impl DvotyUIEntry {
                     println!("Dvoty: Failed to spawn command: {}", e);
                 }
             }
-            _ => {}
+            DvotyUIEntry::Letter { letter } => {
+                math::set_clipboard_text(&letter);
+            }
+
+            DvotyUIEntry::Instruction => {}
         }
     }
 }
@@ -204,6 +212,9 @@ pub fn add_entry(
                 context_ref,
                 sender,
             );
+        }
+        DvotyEntry::Letter { letter } => {
+            super::letter::populate_letter_entry(config, &list, letter, context_ref, sender);
         }
         _ => {}
     }

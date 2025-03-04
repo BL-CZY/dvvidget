@@ -139,6 +139,7 @@ fn process_content(
     input: &str,
     sender: UnboundedSender<DaemonEvt>,
     id: &Uuid,
+    config: Arc<AppConf>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let input = &input.to_lowercase();
     if *id != *CURRENT_ID.lock().unwrap_or_else(|p| p.into_inner()) {
@@ -160,7 +161,9 @@ fn process_content(
                 keywords.extend(temp);
             }
 
-            let default_icon = IconString::default();
+            let default_icon = IconString {
+                content: config.dvoty.launch_icon.clone(),
+            };
             let icon = if let Some(ref icon) = content.entry.icon {
                 icon
             } else {
@@ -184,7 +187,7 @@ fn process_content(
                         send(
                             sender.clone(),
                             format!("{}: {}", content.entry.name.default, value.name.default),
-                            exec.clone(),
+                            value.exec.clone().map_or(exec.clone(), |v| v),
                             terminal,
                             icon.clone(),
                             *id,
@@ -200,7 +203,7 @@ fn process_content(
                     send(
                         sender.clone(),
                         format!("{}: {}", content.entry.name.default, value.name.default),
-                        exec.clone(),
+                        value.exec.clone().map_or(exec.clone(), |v| v),
                         terminal,
                         icon.clone(),
                         *id,
@@ -213,7 +216,12 @@ fn process_content(
     Ok(())
 }
 
-pub fn process_apps(input: &str, sender: UnboundedSender<DaemonEvt>, id: &Uuid) {
+pub fn process_apps(
+    input: &str,
+    sender: UnboundedSender<DaemonEvt>,
+    id: &Uuid,
+    config: Arc<AppConf>,
+) {
     DESKTOP_FILES
         .get()
         .unwrap()
@@ -221,7 +229,7 @@ pub fn process_apps(input: &str, sender: UnboundedSender<DaemonEvt>, id: &Uuid) 
         .unwrap_or_else(|p| p.into_inner())
         .iter()
         .for_each(|file| {
-            let _ = process_content(file, input, sender.clone(), id);
+            let _ = process_content(file, input, sender.clone(), id, config.clone());
         });
 }
 
