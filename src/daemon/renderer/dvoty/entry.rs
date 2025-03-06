@@ -71,7 +71,7 @@ impl DvotyUIEntry {
                 if let Err(e) = std::process::Command::new("setsid")
                     .arg("/bin/sh")
                     .arg("-c")
-                    .arg(&exec)
+                    .arg(format!("kitty {}", &exec))
                     .stdout(Stdio::null())
                     .spawn()
                 {
