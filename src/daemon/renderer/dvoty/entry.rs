@@ -118,7 +118,7 @@ pub fn create_base_entry(
     let label_begin = Label::builder()
         .use_markup(true)
         .label(content)
-        .css_classes(["dvoty-label"])
+        .css_classes(["dvoty-label", "dvoty-label-mid"])
         .halign(gtk4::Align::Start)
         .hexpand(false)
         .build();
@@ -126,7 +126,7 @@ pub fn create_base_entry(
     let label_end = Label::builder()
         .use_markup(true)
         .label(tip)
-        .css_classes(["dvoty-label"])
+        .css_classes(["dvoty-label", "dvoty-label-end"])
         .halign(gtk4::Align::End)
         .hexpand(true)
         .build();

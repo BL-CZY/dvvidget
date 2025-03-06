@@ -111,8 +111,12 @@ pub fn populate_math_entry(
     context: &mut RefMut<AppContext>,
     sender: UnboundedSender<DaemonEvt>,
 ) {
-    let row =
-        super::entry::create_base_entry(&config.dvoty.math_icon, &result, "Click to copy", sender);
+    let row = super::entry::create_base_entry(
+        &config.dvoty.math_icon,
+        &format!("={}", &result),
+        "Click to copy",
+        sender,
+    );
 
     let result_clone = result.clone();
 

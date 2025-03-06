@@ -142,7 +142,7 @@ pub fn create_dvoty(
     let outer_wrapper = list(config.clone());
 
     let wrapper = Box::builder()
-        .spacing(20)
+        .spacing(config.dvoty.spacing as i32)
         .css_classes(["dvoty-wrapper"])
         .orientation(gtk4::Orientation::Vertical)
         .build();

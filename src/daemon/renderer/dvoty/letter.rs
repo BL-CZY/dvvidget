@@ -59,6 +59,8 @@ lazy_static! {
             ("ae", "Æ", "æ"), ("o-slash", "Ø", "ø"), ("o with slash", "Ø", "ø"), ("o with a slash", "Ø", "ø"),
             ("thorn", "Þ", "þ"),
             ("eth", "Ð", "ð"),
+            ("e-accent", "É", "é"),
+            ("a-accent", "Á", "á")
         ];
 
         for (name, upper, lower) in nordic_letters.iter() {

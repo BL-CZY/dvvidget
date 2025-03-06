@@ -219,6 +219,10 @@ pub struct AppConfDvoty {
     #[default = 300]
     pub max_height: u32,
 
+    #[serde_inline_default(20)]
+    #[default = 20]
+    pub spacing: u32,
+
     #[serde_inline_default("".into())]
     #[default = ""]
     pub instruction_icon: String,
