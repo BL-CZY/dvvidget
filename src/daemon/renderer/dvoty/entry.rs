@@ -71,7 +71,7 @@ impl DvotyUIEntry {
                 if let Err(e) = std::process::Command::new("setsid")
                     .arg("/bin/sh")
                     .arg("-c")
-                    .arg(format!("kitty {}", &exec))
+                    .arg(format!("{} {}", config.dvoty.terminal_exec, &exec))
                     .stdout(Stdio::null())
                     .spawn()
                 {
@@ -82,7 +82,7 @@ impl DvotyUIEntry {
                 let exec = if !terminal {
                     exec
                 } else {
-                    format!("{} \"{}\"", config.dvoty.terminal_exec, exec)
+                    format!("{} {}", config.dvoty.terminal_exec, exec)
                 };
 
                 if let Err(e) = std::process::Command::new("setsid")
