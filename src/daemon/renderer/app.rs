@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -10,12 +11,14 @@ use crate::daemon::structs::DaemonEvt;
 use crate::daemon::structs::DaemonRes;
 use crate::utils::DaemonErr;
 use crate::utils::DisplayBackend;
+use crate::utils::ExitType;
 use gio::ApplicationFlags;
 use gtk4::gdk;
 use gtk4::prelude::*;
 use gtk4::Application;
 use gtk4::CssProvider;
 use lazy_static::lazy_static;
+use std::process::Command;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -43,6 +46,8 @@ pub struct AppContext {
     pub bri: BriContext,
     pub dvoty: DvotyContext,
 }
+
+pub static IS_GUI_SHUT: AtomicBool = AtomicBool::new(false);
 
 impl AppContext {
     pub fn from_config(config: &Arc<AppConf>) -> Self {
@@ -188,9 +193,22 @@ pub fn init_gtk_async(
     glib::MainContext::default().spawn_local(async move {
         loop {
             tokio::select! {
-                Ok(()) = crate::utils::receive_exit() => {
+                Ok(t) = crate::utils::receive_exit() => {
                     println!("Shutting down the GUI...");
                     app.quit();
+                    
+                    if let ExitType::Restart = t {                
+                        let args: Vec<String> = std::env::args().collect();
+                        let executable = &args[0];
+
+                        Command::new(executable)
+                            .args(&args[1..])
+                            .spawn()
+                            .expect("Failed to restart");
+
+                        std::process::exit(0);
+                    }
+
                     break;
                 }
 

@@ -72,7 +72,6 @@ where
     D: serde::Deserializer<'de>,
 {
     let s = String::deserialize(deserializer)?;
-    println!("{}", s);
     Ok(string_to_layer(&s))
 }
 

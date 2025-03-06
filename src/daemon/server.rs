@@ -1,10 +1,10 @@
 use crate::daemon::renderer::dvoty::app_launcher;
-use crate::utils::{get_paths, shutdown, DaemonErr};
+use crate::utils::{get_paths, shutdown, DaemonErr, ExitType, EXIT_BROADCAST, EXIT_SENT};
 use anyhow::Context;
 use notify::{Event, Watcher};
 use std::fs;
 use std::path::Path;
-use std::process::Command;
+use std::rc::Rc;
 use tokio;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::unix::ReadHalf;
@@ -44,7 +44,7 @@ pub async fn run_server(
     }
 
     let listener = if let Ok(res) = tokio::net::UnixListener::bind(Path::new(&socket_path)) {
-        res
+        Rc::new(res)
     } else {
         shutdown("Failed to initialize the server");
     };
@@ -81,8 +81,10 @@ pub async fn run_server(
 
     loop {
         tokio::select! {
-            Ok(()) = receive_exit() => {
-                break;
+            Ok(t) = receive_exit() => {
+                process_exit(t, listener, &socket_path);
+
+                return Ok(());
             }
 
             Ok(res) = listener.accept() => {
@@ -108,32 +110,44 @@ pub async fn run_server(
             }
 
             Some(Ok(evt)) = config_file_receiver.recv() => {
-                handle_config_file_evt(evt);
+                handle_config_file_evt(evt, listener.clone(), &socket_path);
             }
         }
     }
 
+    //Ok(())
+}
+
+fn process_exit(t: ExitType, listener: Rc<tokio::net::UnixListener>, socket_path: &str) {
     println!("shutting down the server..");
     drop(listener);
     fs::remove_file(socket_path).unwrap();
 
-    Ok(())
+    match t {
+        ExitType::Restart => {}
+        ExitType::Exit => {}
+    }
 }
 
-fn handle_config_file_evt(evt: Event) {
+fn handle_config_file_evt(evt: Event, listener: Rc<tokio::net::UnixListener>, socket_path: &str) {
     match evt.kind {
         notify::EventKind::Modify(_)
         | notify::EventKind::Create(_)
         | notify::EventKind::Remove(_) => {
-            let args: Vec<String> = std::env::args().collect();
-            let executable = &args[0];
+            if EXIT_SENT.load(std::sync::atomic::Ordering::SeqCst) {
+                println!("Sent already");
+                return;
+            }
 
-            Command::new(executable)
-                .args(&args[1..])
-                .spawn()
-                .expect("Failed to restart");
+            if let Err(e) = EXIT_BROADCAST.send(ExitType::Restart) {
+                println!("Err sending restart: {}", e);
+            }
 
-            std::process::exit(0);
+            EXIT_SENT.store(true, std::sync::atomic::Ordering::SeqCst);
+
+            println!("shutting down the server..");
+            drop(listener);
+            fs::remove_file(socket_path).unwrap();
         }
         _ => {}
     }

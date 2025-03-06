@@ -1,4 +1,4 @@
-use std::{path::PathBuf, time::Duration};
+use std::{path::PathBuf, sync::atomic::AtomicBool, time::Duration};
 
 use crate::daemon::structs::{DaemonCmd, DaemonEvt, DaemonRes};
 use gtk4::Image;
@@ -54,22 +54,36 @@ pub fn detect_display() -> DisplayBackend {
     }
 }
 
-pub static EXIT_BROADCAST: Lazy<broadcast::Sender<()>> = Lazy::new(|| broadcast::channel(2).0);
+#[derive(Clone)]
+pub enum ExitType {
+    Exit,
+    Restart,
+}
+
+pub static EXIT_BROADCAST: Lazy<broadcast::Sender<ExitType>> =
+    Lazy::new(|| broadcast::channel(2).0);
+
+pub static EXIT_SENT: AtomicBool = AtomicBool::new(false);
 
 pub fn send_exit() -> Result<(), String> {
-    if let Err(e) = EXIT_BROADCAST.send(()) {
+    if EXIT_SENT.load(std::sync::atomic::Ordering::SeqCst) {
+        return Err("Sent already".into());
+    }
+
+    if let Err(e) = EXIT_BROADCAST.send(ExitType::Exit) {
         return Err(e.to_string());
     }
+
+    EXIT_SENT.store(true, std::sync::atomic::Ordering::SeqCst);
 
     Ok(())
 }
 
-pub async fn receive_exit() -> Result<(), ()> {
-    if (EXIT_BROADCAST.subscribe().recv().await).is_err() {
-        return Err(());
+pub async fn receive_exit() -> Result<ExitType, ()> {
+    match EXIT_BROADCAST.subscribe().recv().await {
+        Ok(t) => Ok(t),
+        Err(_) => Err(()),
     }
-
-    Ok(())
 }
 
 pub fn shutdown(msg: &str) -> ! {
