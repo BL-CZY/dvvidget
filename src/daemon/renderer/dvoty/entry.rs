@@ -11,7 +11,7 @@ use crate::{
 use super::{math, search, url};
 use gtk4::{
     prelude::{BoxExt, WidgetExt},
-    Box, GestureClick, Image, Label, ListBoxRow, Window,
+    Box, GestureClick, Image, Label, ListBoxRow, ScrolledWindow, Window,
 };
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
@@ -111,6 +111,7 @@ pub fn create_base_entry(
     content: &str,
     tip: &str,
     sender: UnboundedSender<DaemonEvt>,
+    config: Arc<AppConf>,
 ) -> ListBoxRow {
     let icon = Image::from_file(icon_path);
     icon.add_css_class("dvoty-icon");
@@ -122,6 +123,12 @@ pub fn create_base_entry(
         .css_classes(["dvoty-label", "dvoty-label-mid"])
         .halign(gtk4::Align::Start)
         .hexpand(false)
+        .build();
+
+    let mid_wrapper = ScrolledWindow::builder()
+        .css_classes(["dvoty-mid-scroll"])
+        .min_content_width(config.dvoty.max_mid_width)
+        .child(&label_begin)
         .build();
 
     let label_end = Label::builder()
@@ -138,7 +145,7 @@ pub fn create_base_entry(
         .build();
 
     wrapper_box.append(&icon);
-    wrapper_box.append(&label_begin);
+    wrapper_box.append(&mid_wrapper);
     wrapper_box.append(&label_end);
 
     let res = ListBoxRow::builder()

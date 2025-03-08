@@ -12,6 +12,7 @@ use super::{
     app_launcher::process_apps,
     letter::process_greek_letters,
     math::{post_process_result, preprocess_math},
+    search::process_history,
     DvotyEntry,
 };
 
@@ -75,7 +76,10 @@ pub fn process_general(
     process_greek_letters(input.to_string(), sender.clone(), id);
 
     // app launcher
-    process_apps(input, sender.clone(), id, config);
+    process_apps(input, sender.clone(), id, config.clone());
+
+    // urls
+    process_history(input, config, sender.clone(), id);
 
     // search
     sender

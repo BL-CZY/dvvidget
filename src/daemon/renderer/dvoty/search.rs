@@ -9,6 +9,7 @@ use uuid::Uuid;
 use crate::daemon::renderer::app::AppContext;
 use crate::daemon::renderer::config::AppConf;
 use crate::daemon::renderer::config::SearchEngine;
+use crate::daemon::renderer::dvoty::app_launcher::underline_string;
 use crate::daemon::renderer::dvoty::event::CURRENT_ID;
 use crate::daemon::structs::DaemonCmd;
 use crate::daemon::structs::DaemonEvt;
@@ -20,15 +21,17 @@ use super::entry::create_base_entry;
 use super::entry::DvotyUIEntry;
 use super::DvotyEntry;
 
-fn process_history(
+pub fn process_history(
     keyword: &str,
     config: Arc<AppConf>,
     sender: UnboundedSender<DaemonEvt>,
     id: &Uuid,
 ) {
+    let keyword = keyword.to_lowercase();
+
     let mut path = PathBuf::from(&config.dvoty.firefox_path);
     path.push("profiles.ini");
-    let config = match ini::Ini::load_from_file(&path) {
+    let firefox_config = match ini::Ini::load_from_file(&path) {
         Ok(f) => f,
         Err(e) => {
             println!("Cannot get firefox profile: {}", e);
@@ -36,7 +39,7 @@ fn process_history(
         }
     };
 
-    let sections = config.sections();
+    let sections = firefox_config.sections();
 
     let mut found = false;
     let mut name = "";
@@ -54,7 +57,7 @@ fn process_history(
         return;
     }
 
-    if let Some(section) = config.section(Some(name)) {
+    if let Some(section) = firefox_config.section(Some(name)) {
         if let Some(val) = section.get("Default") {
             path.pop();
             path.push(val);
@@ -86,10 +89,13 @@ fn process_history(
 WHERE 
   (LOWER(title) LIKE LOWER('%{}%')
   OR LOWER(url) LIKE LOWER('%{}%'))
-  AND last_visit_date >= strftime('%s', 'now', '-30 days') * 1000000
+  AND last_visit_date >= strftime('%s', 'now', '-{} days') * 1000000
 ORDER BY id DESC
-LIMIT 30;",
-                keyword, keyword
+LIMIT {};",
+                keyword,
+                keyword,
+                config.dvoty.past_search_date_limit,
+                config.dvoty.past_search_limit
             );
 
             let mut stmt = match conn.prepare(&command) {
@@ -122,8 +128,8 @@ LIMIT 30;",
                     sender
                         .send(DaemonEvt {
                             evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
-                                url: his.url.trim().to_string(),
-                                title: Some(his.title.trim().to_string()),
+                                url: his.url,
+                                title: Some(underline_string(&keyword, &his.title)),
                             })),
                             sender: None,
                             uuid: Some(*id),

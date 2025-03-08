@@ -261,6 +261,18 @@ pub struct AppConfDvoty {
     #[serde_inline_default(default_firefox_path())]
     #[default(_code = "default_firefox_path()")]
     pub firefox_path: String,
+
+    #[serde_inline_default(30)]
+    #[default = 30]
+    pub past_search_date_limit: u32,
+
+    #[serde_inline_default(30)]
+    #[default = 30]
+    pub past_search_limit: u32,
+
+    #[serde_inline_default(600)]
+    #[default = 600]
+    pub max_mid_width: i32,
 }
 
 fn default_firefox_path() -> String {

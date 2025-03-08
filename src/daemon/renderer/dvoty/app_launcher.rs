@@ -134,6 +134,25 @@ fn send(
         .unwrap_or_else(|e| println!("Dvoty: failed to send: {}", e));
 }
 
+pub fn underline_string(input: &str, str: &str) -> String {
+    if input.len() == 0 {
+        return str.to_string();
+    }
+
+    let str_lower = str.to_lowercase();
+    if let Some(i) = str_lower.find(input) {
+        let mut result = "".to_string();
+        result.push_str(&str[0..i]);
+        result.push_str("<u><b>");
+        result.push_str(&str[i..i + input.len()]);
+        result.push_str("</b></u>");
+        result.push_str(&str[i + input.len()..]);
+        return result;
+    }
+
+    str.to_string()
+}
+
 fn process_content(
     content: &DesktopFile,
     input: &str,
@@ -176,7 +195,7 @@ fn process_content(
                 if kwd.contains(input) {
                     send(
                         sender.clone(),
-                        content.entry.name.default.clone(),
+                        underline_string(input, &content.entry.name.default),
                         exec.clone(),
                         terminal,
                         icon.clone(),
@@ -186,7 +205,11 @@ fn process_content(
                     for (_, value) in content.actions.clone() {
                         send(
                             sender.clone(),
-                            format!("{}: {}", content.entry.name.default, value.name.default),
+                            format!(
+                                "{}: {}",
+                                underline_string(input, &content.entry.name.default),
+                                value.name.default
+                            ),
                             value.exec.clone().map_or(exec.clone(), |v| v),
                             terminal,
                             icon.clone(),
@@ -202,7 +225,11 @@ fn process_content(
                 if value.name.default.to_lowercase().contains(input) {
                     send(
                         sender.clone(),
-                        format!("{}: {}", content.entry.name.default, value.name.default),
+                        format!(
+                            "{}: {}",
+                            content.entry.name.default,
+                            underline_string(input, &value.name.default),
+                        ),
                         value.exec.clone().map_or(exec.clone(), |v| v),
                         terminal,
                         icon.clone(),
