@@ -12,7 +12,6 @@ use super::{
     app_launcher::process_apps,
     letter::process_greek_letters,
     math::{post_process_result, preprocess_math},
-    search::process_history,
     DvotyEntry,
 };
 
@@ -90,7 +89,4 @@ pub fn process_general(
         .unwrap_or_else(|e| {
             println!("Dvoty: Error adding search entry: {}", e);
         });
-
-    // urls
-    process_history(input, config, sender.clone(), id);
 }
