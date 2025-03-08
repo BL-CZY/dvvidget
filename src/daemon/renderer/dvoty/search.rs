@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use gtk4::ListBox;
+use rusqlite::OpenFlags;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
@@ -14,7 +15,6 @@ use crate::daemon::renderer::dvoty::event::CURRENT_ID;
 use crate::daemon::structs::DaemonCmd;
 use crate::daemon::structs::DaemonEvt;
 use crate::daemon::structs::Dvoty;
-use crate::utils;
 
 use super::class::adjust_class;
 use super::entry::create_base_entry;
@@ -63,14 +63,21 @@ pub fn process_history(
             path.push(val);
             path.push("places.sqlite");
 
-            let mut copy_path = utils::cache_dir();
-            copy_path.push("places.sqlite");
-            if let Err(e) = std::fs::copy(&path, &copy_path) {
-                println!("Dvoty: cannot copy file: {}", e);
-                return;
-            }
+            // in case it's locked regardless in the future
+            //let mut copy_path = utils::cache_dir();
+            //copy_path.push("places.sqlite");
+            //if let Err(e) = std::fs::copy(&path, &copy_path) {
+            //    println!("Dvoty: cannot copy file: {}", e);
+            //    return;
+            //}
 
-            let conn = match rusqlite::Connection::open(&copy_path) {
+            let conn = match rusqlite::Connection::open_with_flags(
+                format!(
+                    "file:{}?immutable=1",
+                    &path.to_str().unwrap_or_else(|| { "" })
+                ),
+                OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
+            ) {
                 Ok(c) => c,
                 Err(e) => {
                     println!("Cannot open connection: {}", e);
