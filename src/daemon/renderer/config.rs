@@ -257,6 +257,17 @@ pub struct AppConfDvoty {
     #[serde_inline_default("xterm".into())]
     #[default = "xterm"]
     pub terminal_exec: String,
+
+    #[serde_inline_default(default_firefox_path())]
+    #[default(_code = "default_firefox_path()")]
+    pub firefox_path: String,
+}
+
+fn default_firefox_path() -> String {
+    let mut path = PathBuf::from(std::env::var("HOME").expect("HOME is not defined"));
+    path.push(".mozilla/firefox");
+
+    path.to_str().unwrap().to_owned()
 }
 
 pub fn default_config_path() -> PathBuf {

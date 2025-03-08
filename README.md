@@ -98,3 +98,6 @@ for ENTRY: <br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|--icon: .dvoty-icon<br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|--label: .dvoty-label, .dvoty-label-mid<br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|--label: .dvoty-label, .dvoty-label-end<br />
+
+TODO: cache, recent files, url history
+TODO: Monitor support

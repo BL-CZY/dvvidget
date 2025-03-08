@@ -38,6 +38,7 @@ pub enum DvotyEntry {
     },
     Url {
         url: String,
+        title: Option<String>,
     },
     Letter {
         letter: String,
@@ -117,7 +118,7 @@ pub fn create_base_entry(
 
     let label_begin = Label::builder()
         .use_markup(true)
-        .label(content)
+        .label(content.replace("&", "&amp;"))
         .css_classes(["dvoty-label", "dvoty-label-mid"])
         .halign(gtk4::Align::Start)
         .hexpand(false)
@@ -190,9 +191,17 @@ pub fn add_entry(
         DvotyEntry::Search { keyword } => {
             super::search::populate_search_entry(config, &list, keyword, context_ref, sender);
         }
-        DvotyEntry::Url { url } => {
-            super::url::populate_url_entry(config, &list, url, context_ref, sender);
-        }
+        DvotyEntry::Url { url, title } => match title {
+            Some(s) => super::url::populate_url_entry(config, &list, &s, url, context_ref, sender),
+            None => super::url::populate_url_entry(
+                config,
+                &list,
+                &url.clone(),
+                url,
+                context_ref,
+                sender,
+            ),
+        },
         DvotyEntry::Command { exec } => {
             super::cmd::populate_cmd_entry(config, &list, exec, context_ref, sender);
         }

@@ -25,7 +25,10 @@ pub fn send_url(url: String, sender: UnboundedSender<DaemonEvt>, id: &Uuid) {
 
     sender
         .send(DaemonEvt {
-            evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Url { url: send_url })),
+            evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
+                url: send_url,
+                title: None,
+            })),
             sender: None,
             uuid: Some(*id),
         })
@@ -44,7 +47,8 @@ pub fn spawn_url(keyword: String) {
 pub fn populate_url_entry(
     config: Arc<AppConf>,
     list: &ListBox,
-    keyword: String,
+    keyword: &str,
+    url: String,
     context: &mut RefMut<AppContext>,
     sender: UnboundedSender<DaemonEvt>,
 ) {
@@ -54,7 +58,7 @@ pub fn populate_url_entry(
     context
         .dvoty
         .dvoty_entries
-        .push((DvotyUIEntry::Url { url: keyword }, row.clone()));
+        .push((DvotyUIEntry::Url { url }, row.clone()));
 
     if context.dvoty.dvoty_entries.len() <= 1 {
         adjust_class(0, 0, &mut context.dvoty.dvoty_entries);

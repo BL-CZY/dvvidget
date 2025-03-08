@@ -62,17 +62,12 @@ fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>, config: Ar
             super::url::send_url(input.chars().skip(1).collect::<String>(), sender, &id);
         }
         '/' => {
-            sender
-                .send(DaemonEvt {
-                    evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Search {
-                        keyword: input.chars().skip(1).collect::<String>(),
-                    })),
-                    sender: None,
-                    uuid: Some(id),
-                })
-                .unwrap_or_else(|e| {
-                    println!("Dvoty: Error adding search entry: {}", e);
-                });
+            super::search::handle_search(
+                sender,
+                input.chars().skip(1).collect::<String>(),
+                &id,
+                config,
+            );
         }
         '^' => {
             super::letter::process_greek_letters(

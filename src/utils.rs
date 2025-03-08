@@ -5,6 +5,17 @@ use gtk4::Image;
 use once_cell::sync::Lazy;
 use tokio::sync::broadcast;
 
+pub fn cache_dir() -> PathBuf {
+    let mut result = PathBuf::from(std::env::var("HOME").expect("Cannot create home dir"));
+    result.push(".cache/dvvidget");
+
+    if let Err(_) = std::fs::read_dir(&result) {
+        std::fs::create_dir_all(&result).expect("Cannot create cache directory");
+    }
+
+    result
+}
+
 /// returns a list of paths from XDG_DATA_DIRS and attach $HOME/.local/share/applications/ at the
 /// end
 pub fn get_paths() -> Vec<PathBuf> {
