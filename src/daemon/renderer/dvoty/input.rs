@@ -13,7 +13,7 @@ use crate::{
 
 use super::{event::CURRENT_ID, general::process_general, DvotyEntry, DvotyTaskType};
 
-fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>, config: Arc<AppConf>) {
+async fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>, config: Arc<AppConf>) {
     let id = *CURRENT_ID.lock().unwrap_or_else(|p| p.into_inner());
 
     if input.is_empty() {
@@ -67,7 +67,8 @@ fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>, config: Ar
                 input.chars().skip(1).collect::<String>(),
                 &id,
                 config,
-            );
+            )
+            .await;
         }
         '^' => {
             super::letter::process_greek_letters(
@@ -77,7 +78,7 @@ fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>, config: Ar
             );
         }
         _ => {
-            process_general(sender, input, &id, config);
+            process_general(sender, input, &id, config).await;
         }
     }
 }
@@ -107,7 +108,7 @@ pub fn process_input(
     }
 
     let handle = tokio::spawn(async move {
-        process_input_str(&input, sender.clone(), config);
+        process_input_str(&input, sender.clone(), config).await;
     });
 
     task_map.insert(DvotyTaskType::ProcessInput, handle);

@@ -199,7 +199,14 @@ pub fn add_entry(
             super::search::populate_search_entry(config, &list, keyword, context_ref, sender);
         }
         DvotyEntry::Url { url, title } => match title {
-            Some(s) => super::url::populate_url_entry(config, &list, &s, url, context_ref, sender),
+            Some(s) => super::url::populate_url_entry(
+                config,
+                &list,
+                &format!("{} <i><span foreground=\"grey\">{}</span></i>", &s, &url),
+                url,
+                context_ref,
+                sender,
+            ),
             None => super::url::populate_url_entry(
                 config,
                 &list,

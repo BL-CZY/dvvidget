@@ -2,8 +2,9 @@ use std::cell::RefMut;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use anyhow::anyhow;
+use anyhow::Context;
 use gtk4::ListBox;
-use rusqlite::OpenFlags;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
@@ -21,23 +22,18 @@ use super::entry::create_base_entry;
 use super::entry::DvotyUIEntry;
 use super::DvotyEntry;
 
-pub fn process_history(
+pub async fn process_history(
     keyword: &str,
     config: Arc<AppConf>,
     sender: UnboundedSender<DaemonEvt>,
     id: &Uuid,
-) {
+) -> Result<(), Box<dyn std::error::Error>> {
     let keyword = keyword.to_lowercase();
 
     let mut path = PathBuf::from(&config.dvoty.firefox_path);
     path.push("profiles.ini");
-    let firefox_config = match ini::Ini::load_from_file(&path) {
-        Ok(f) => f,
-        Err(e) => {
-            println!("Cannot get firefox profile: {}", e);
-            return;
-        }
-    };
+    let firefox_config =
+        ini::Ini::load_from_file(&path).with_context(|| "Dvoty: Cannot read firefox config")?;
 
     let sections = firefox_config.sections();
 
@@ -53,8 +49,7 @@ pub fn process_history(
     }
 
     if !found {
-        println!("Cannot locate firefox profile folder");
-        return;
+        return Err(anyhow!("Cannot locate firefox profile folder").into());
     }
 
     if let Some(section) = firefox_config.section(Some(name)) {
@@ -71,22 +66,15 @@ pub fn process_history(
             //    return;
             //}
 
-            let conn = match rusqlite::Connection::open_with_flags(
-                format!(
-                    "file:{}?immutable=1",
-                    &path.to_str().unwrap_or_else(|| { "" })
-                ),
-                OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
-            ) {
-                Ok(c) => c,
-                Err(e) => {
-                    println!("Cannot open connection: {}", e);
-                    return;
-                }
-            };
+            let pool = sqlx::SqlitePool::connect(&format!(
+                "sqlite:{}?immutable=1",
+                &path.to_str().unwrap_or_else(|| { "" })
+            ))
+            .await
+            .with_context(|| "Cannot open connection")?;
 
-            #[derive(Debug)]
-            struct History {
+            #[derive(Debug, sqlx::FromRow)]
+            struct Place {
                 url: String,
                 title: String,
             }
@@ -105,52 +93,36 @@ LIMIT {};",
                 config.dvoty.past_search_limit
             );
 
-            let mut stmt = match conn.prepare(&command) {
-                Ok(r) => r,
-                Err(e) => {
-                    println!("Dvoty: cannot query history: {}", e);
-                    return;
-                }
-            };
+            // Build the query using query_as to map results to your struct
+            let places = sqlx::query_as::<_, Place>(&command)
+                .fetch_all(&pool)
+                .await?;
 
-            let result = match stmt.query_map([], |r| {
-                Ok(History {
-                    url: r.get(0)?,
-                    title: r.get(1)?,
-                })
-            }) {
-                Ok(r) => r,
-                Err(e) => {
-                    println!("Dvoty: cannot parse query result: {}", e);
-                    return;
-                }
-            };
-
-            for row in result {
+            places.iter().for_each(|place| {
                 if *id != *CURRENT_ID.lock().unwrap_or_else(|p| p.into_inner()) {
-                    break;
+                    return;
                 }
 
-                if let Ok(his) = row {
-                    sender
-                        .send(DaemonEvt {
-                            evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
-                                url: his.url,
-                                title: Some(underline_string(&keyword, &his.title)),
-                            })),
-                            sender: None,
-                            uuid: Some(*id),
-                        })
-                        .unwrap_or_else(|e| {
-                            println!("Dvoty: Failed to send url: {}", e);
-                        });
-                }
-            }
+                sender
+                    .send(DaemonEvt {
+                        evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
+                            url: place.url.clone(),
+                            title: Some(underline_string(&keyword, &place.title)),
+                        })),
+                        sender: None,
+                        uuid: Some(*id),
+                    })
+                    .unwrap_or_else(|e| {
+                        println!("Dvoty: Failed to send url: {}", e);
+                    });
+            });
         }
     }
+
+    Ok(())
 }
 
-pub fn handle_search(
+pub async fn handle_search(
     sender: UnboundedSender<DaemonEvt>,
     keyword: String,
     id: &Uuid,
@@ -168,7 +140,11 @@ pub fn handle_search(
             println!("Dvoty: Error adding search entry: {}", e);
         });
 
-    process_history(&keyword, config, sender.clone(), id);
+    process_history(&keyword, config, sender.clone(), &id)
+        .await
+        .unwrap_or_else(|e| {
+            println!("{}", e);
+        });
 }
 
 pub fn spawn_keyword(keyword: String, config: Arc<AppConf>) {
