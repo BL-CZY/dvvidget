@@ -292,6 +292,7 @@ pub fn populate_launcher_entry(
         &name,
         "Click to launch",
         sender,
+        config.clone(),
     );
 
     clense_cmd(&mut exec, "%u");

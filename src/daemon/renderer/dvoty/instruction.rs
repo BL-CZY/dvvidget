@@ -45,7 +45,13 @@ pub fn populate_instructions(
     ];
 
     for instruction in instructions.iter() {
-        let entry = create_base_entry(&instruction.1, &instruction.0, "", sender.clone());
+        let entry = create_base_entry(
+            &instruction.1,
+            &instruction.0,
+            "",
+            sender.clone(),
+            config.clone(),
+        );
         context
             .dvoty
             .dvoty_entries

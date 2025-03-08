@@ -78,9 +78,6 @@ pub fn process_general(
     // app launcher
     process_apps(input, sender.clone(), id, config.clone());
 
-    // urls
-    process_history(input, config, sender.clone(), id);
-
     // search
     sender
         .send(DaemonEvt {
@@ -93,4 +90,7 @@ pub fn process_general(
         .unwrap_or_else(|e| {
             println!("Dvoty: Error adding search entry: {}", e);
         });
+
+    // urls
+    process_history(input, config, sender.clone(), id);
 }

@@ -161,6 +161,7 @@ pub fn populate_letter_entry(
         &letter,
         "Click to copy",
         sender,
+        config.clone(),
     );
 
     context

@@ -189,6 +189,7 @@ pub fn populate_search_entry(
         &keyword,
         "Click to search",
         sender,
+        config.clone(),
     );
 
     context

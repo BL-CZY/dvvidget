@@ -16,8 +16,13 @@ pub fn populate_cmd_entry(
     context: &mut RefMut<AppContext>,
     sender: UnboundedSender<DaemonEvt>,
 ) {
-    let row =
-        super::entry::create_base_entry(&config.dvoty.cmd_icon, &cmd, "Click to execute", sender);
+    let row = super::entry::create_base_entry(
+        &config.dvoty.cmd_icon,
+        &cmd,
+        "Click to execute",
+        sender,
+        config.clone(),
+    );
 
     let cmd_clone = cmd.clone();
 

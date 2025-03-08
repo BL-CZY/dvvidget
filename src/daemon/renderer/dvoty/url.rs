@@ -52,8 +52,13 @@ pub fn populate_url_entry(
     context: &mut RefMut<AppContext>,
     sender: UnboundedSender<DaemonEvt>,
 ) {
-    let row =
-        super::entry::create_base_entry(&config.dvoty.url_icon, &keyword, "Click to open", sender);
+    let row = super::entry::create_base_entry(
+        &config.dvoty.url_icon,
+        &keyword,
+        "Click to open",
+        sender,
+        config.clone(),
+    );
 
     context
         .dvoty

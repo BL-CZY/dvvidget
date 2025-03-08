@@ -116,6 +116,7 @@ pub fn populate_math_entry(
         &format!("={}", &result),
         "Click to copy",
         sender,
+        config.clone(),
     );
 
     let result_clone = result.clone();
