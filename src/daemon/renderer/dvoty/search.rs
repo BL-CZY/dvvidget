@@ -99,9 +99,9 @@ AND
     (LOWER(bookmark_title) LIKE LOWER('%{}%')
     OR LOWER(url) LIKE LOWER('%{}%')
 	OR LOWER(folder_name) LIKE LOWER('%{}%'))
-LIMIT 10;
+LIMIT {};
 ",
-                keyword, keyword, keyword
+                keyword, keyword, keyword, config.dvoty.bookmark_search_limit
             );
 
             // Build the query using query_as to map results to your struct
@@ -119,7 +119,7 @@ LIMIT 10;
                         evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
                             url: place.url.clone(),
                             title: Some(format!(
-                                "<u><b><span color=\"{}\">{}:</span></b></u> {}",
+                                "<span color=\"{}\"> <u><b>{}:</b></u></span> {}",
                                 config.dvoty.highlight_color,
                                 underline_string(&keyword, &place.folder_name),
                                 underline_string(&keyword, &place.bookmark_title)

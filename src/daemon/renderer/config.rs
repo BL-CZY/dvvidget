@@ -270,6 +270,10 @@ pub struct AppConfDvoty {
     #[default = 30]
     pub past_search_limit: u32,
 
+    #[serde_inline_default(30)]
+    #[default = 30]
+    pub bookmark_search_limit: u32,
+
     #[serde_inline_default(600)]
     #[default = 600]
     pub max_mid_width: i32,

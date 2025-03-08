@@ -2,6 +2,7 @@ use crate::daemon::renderer::app::register_widget;
 use crate::daemon::renderer::config::AppConf;
 use crate::daemon::structs::{DaemonCmd, DaemonEvt, Dvoty};
 use crate::utils::DisplayBackend;
+use gtk4::gdk::ModifierType;
 use gtk4::prelude::*;
 use gtk4::{Application, ApplicationWindow, Box, Entry, ListBox, ListBoxRow, ScrolledWindow};
 use std::collections::HashMap;
@@ -32,50 +33,66 @@ fn input(sender: UnboundedSender<DaemonEvt>) -> Entry {
 
     let key_controller = gtk4::EventControllerKey::new();
     let sender_clone = sender.clone();
-    key_controller.connect_key_pressed(move |_controller, keyval, _keycode, _state| match keyval {
-        gtk4::gdk::Key::Tab => glib::Propagation::Stop,
-        gtk4::gdk::Key::Up => {
-            super::event::send_dec(sender_clone.clone());
-            glib::Propagation::Stop
-        }
-        gtk4::gdk::Key::Down => {
-            super::event::send_inc(sender_clone.clone());
-            glib::Propagation::Stop
-        }
-        gtk4::gdk::Key::Page_Down => {
-            sender_clone
-                .send(DaemonEvt {
-                    evt: DaemonCmd::Dvoty(Dvoty::ScrollEnd),
-                    sender: None,
-                    uuid: None,
-                })
-                .unwrap();
-            glib::Propagation::Stop
-        }
-        gtk4::gdk::Key::Page_Up => {
-            sender_clone
-                .send(DaemonEvt {
-                    evt: DaemonCmd::Dvoty(Dvoty::ScrollStart),
-                    sender: None,
-                    uuid: None,
-                })
-                .unwrap();
+    key_controller.connect_key_pressed(
+        move |_controller, keyval, _keycode, state: ModifierType| match keyval {
+            gtk4::gdk::Key::Tab => glib::Propagation::Stop,
+            gtk4::gdk::Key::Up => {
+                super::event::send_dec(sender_clone.clone());
 
-            glib::Propagation::Stop
-        }
+                if state.contains(ModifierType::SHIFT_MASK) {
+                    super::event::send_dec(sender_clone.clone());
+                    super::event::send_dec(sender_clone.clone());
+                    super::event::send_dec(sender_clone.clone());
+                    super::event::send_dec(sender_clone.clone());
+                }
+                glib::Propagation::Stop
+            }
+            gtk4::gdk::Key::Down => {
+                super::event::send_inc(sender_clone.clone());
 
-        gtk4::gdk::Key::Escape => {
-            sender_clone
-                .send(DaemonEvt {
-                    evt: DaemonCmd::Dvoty(Dvoty::Close),
-                    sender: None,
-                    uuid: None,
-                })
-                .unwrap_or_else(|e| println!("Dvoty: Failed to send triggering event: {}", e));
-            glib::Propagation::Stop
-        }
-        _ => glib::Propagation::Proceed,
-    });
+                if state.contains(ModifierType::SHIFT_MASK) {
+                    super::event::send_inc(sender_clone.clone());
+                    super::event::send_inc(sender_clone.clone());
+                    super::event::send_inc(sender_clone.clone());
+                    super::event::send_inc(sender_clone.clone());
+                }
+                glib::Propagation::Stop
+            }
+            gtk4::gdk::Key::Page_Down => {
+                sender_clone
+                    .send(DaemonEvt {
+                        evt: DaemonCmd::Dvoty(Dvoty::ScrollEnd),
+                        sender: None,
+                        uuid: None,
+                    })
+                    .unwrap();
+                glib::Propagation::Stop
+            }
+            gtk4::gdk::Key::Page_Up => {
+                sender_clone
+                    .send(DaemonEvt {
+                        evt: DaemonCmd::Dvoty(Dvoty::ScrollStart),
+                        sender: None,
+                        uuid: None,
+                    })
+                    .unwrap();
+
+                glib::Propagation::Stop
+            }
+
+            gtk4::gdk::Key::Escape => {
+                sender_clone
+                    .send(DaemonEvt {
+                        evt: DaemonCmd::Dvoty(Dvoty::Close),
+                        sender: None,
+                        uuid: None,
+                    })
+                    .unwrap_or_else(|e| println!("Dvoty: Failed to send triggering event: {}", e));
+                glib::Propagation::Stop
+            }
+            _ => glib::Propagation::Proceed,
+        },
+    );
 
     let sender_clone = sender.clone();
     key_controller.connect_key_released(move |_, keyval, _, _| {
