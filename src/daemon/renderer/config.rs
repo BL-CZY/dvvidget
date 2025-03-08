@@ -273,6 +273,10 @@ pub struct AppConfDvoty {
     #[serde_inline_default(600)]
     #[default = 600]
     pub max_mid_width: i32,
+
+    #[serde_inline_default("#f9e2af".to_string())]
+    #[default = "#f9e2af"]
+    pub highlight_color: String,
 }
 
 fn default_firefox_path() -> String {

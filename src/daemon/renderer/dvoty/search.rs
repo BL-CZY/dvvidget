@@ -74,11 +74,74 @@ pub async fn process_history(
             .with_context(|| "Cannot open connection")?;
 
             #[derive(Debug, sqlx::FromRow)]
+            struct BookmarkPlace {
+                folder_name: String,
+                bookmark_title: String,
+                url: String,
+            }
+
+            // for bookmarks
+            let command = format!(
+                "
+SELECT
+    b.title AS bookmark_title,
+    p.url AS url,
+    folder.title AS folder_name
+FROM
+    moz_bookmarks AS b
+JOIN
+    moz_places AS p ON b.fk = p.id
+LEFT JOIN
+    moz_bookmarks AS folder ON b.parent = folder.id
+WHERE
+    b.type = 1
+AND
+    (LOWER(bookmark_title) LIKE LOWER('%{}%')
+    OR LOWER(url) LIKE LOWER('%{}%')
+	OR LOWER(folder_name) LIKE LOWER('%{}%'))
+LIMIT 10;
+",
+                keyword, keyword, keyword
+            );
+
+            // Build the query using query_as to map results to your struct
+            let places = sqlx::query_as::<_, BookmarkPlace>(&command)
+                .fetch_all(&pool)
+                .await?;
+
+            for place in places {
+                if *id != *CURRENT_ID.lock().unwrap_or_else(|p| p.into_inner()) {
+                    return Ok(());
+                }
+
+                sender
+                    .send(DaemonEvt {
+                        evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
+                            url: place.url.clone(),
+                            title: Some(format!(
+                                "<u><b><span color=\"{}\">{}:</span></b></u> {}",
+                                config.dvoty.highlight_color,
+                                underline_string(&keyword, &place.folder_name),
+                                underline_string(&keyword, &place.bookmark_title)
+                            )),
+                        })),
+                        sender: None,
+                        uuid: Some(*id),
+                    })
+                    .unwrap_or_else(|e| {
+                        println!("Dvoty: Failed to send url: {}", e);
+                    });
+
+                tokio::task::yield_now().await;
+            }
+
+            #[derive(Debug, sqlx::FromRow)]
             struct Place {
                 url: String,
                 title: String,
             }
 
+            // for history
             let command = format!(
                 "SELECT url, title FROM moz_places
 WHERE 
