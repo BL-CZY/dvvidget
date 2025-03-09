@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::atomic::AtomicBool, time::Duration};
 
-use crate::daemon::structs::{DaemonCmdClient, DaemonCmdType, DaemonEvt, DaemonRes};
+use crate::daemon::structs::{DaemonCmdClient, DaemonEvt, DaemonRes};
 use gtk4::Image;
 use once_cell::sync::Lazy;
 use tokio::sync::broadcast;

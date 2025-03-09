@@ -87,18 +87,6 @@ lazy_static! {
     pub static ref WINDOWS: Mutex<HashMap<Widget, Vec<u32>>> = Mutex::new(HashMap::new());
 }
 
-fn get_window_id(widget: Widget, monitor: usize, map: &HashMap<Widget, Vec<u32>>) -> Result<u32, DaemonErr> {
-    match map.get(&widget) {
-        Some(list) => {
-            match list.get(monitor) {
-                Some(num) => Ok(*num),
-                None => Err(DaemonErr::CannotFindWidget)
-            }
-        }
-        None => Err(DaemonErr::CannotFindWidget)
-    }    
-}
-
 fn get_windows(widget: Widget, guard: &HashMap<Widget, Vec<u32>>, app: &Rc<Application>) -> Vec<Window> {
     guard.get(&widget).unwrap().iter().map(|id|{
         app.window_by_id(*id).unwrap()
