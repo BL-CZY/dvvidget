@@ -42,44 +42,58 @@ pub enum Widget {
 }
 
 pub struct AppContext {
-    pub vol: VolContext,
-    pub bri: BriContext,
-    pub dvoty: DvotyContext,
+    pub vol: Vec<VolContext>,
+    pub bri: Vec<BriContext>,
+    pub dvoty: Vec<DvotyContext>,
 }
 
 pub static IS_GUI_SHUT: AtomicBool = AtomicBool::new(false);
 
 impl AppContext {
-    pub fn from_config(config: &Arc<AppConf>) -> Self {
+    pub fn from_config(config: &Arc<AppConf>, monitor_count: usize) -> Self {
+        let mut vol = vec![];
+        let mut bri = vec![];
+        let mut dvoty=  vec![];
+
+        for _ in 0..monitor_count {
+            vol.push(VolContext::from_config(config));
+            bri.push(BriContext::from_config(config));
+            dvoty.push(DvotyContext::default());
+        }
+
         AppContext {
-            vol: VolContext::from_config(config),
-            bri: BriContext::from_config(config),
-            dvoty: DvotyContext::default(),
+            vol,
+            bri,
+            dvoty,
         }
     }
 
-    pub fn set_virtual_volume(&mut self, val: f64) -> f64 {
-        if val > self.vol.max_vol {
-            self.vol.cur_vol = self.vol.max_vol;
+    pub fn set_virtual_volume(&mut self, val: f64, monitor: usize) -> f64 {
+        let vol = &mut self.vol[monitor];
+
+        if val > vol.max_vol {
+            vol.cur_vol = vol.max_vol;
         } else if val < 0f64 {
-            self.vol.cur_vol = 0f64;
+            vol.cur_vol = 0f64;
         } else {
-            self.vol.cur_vol = val;
+            vol.cur_vol = val;
         }
 
-        self.vol.cur_vol
+        vol.cur_vol
     }
 
-    pub fn set_virtual_brightness(&mut self, val: f64) -> f64 {
+    pub fn set_virtual_brightness(&mut self, val: f64, monitor: usize) -> f64 {
+        let bri = &mut self.bri[monitor];
+
         if val > 100f64 {
-            self.bri.cur_bri = 100f64;
+            bri.cur_bri = 100f64;
         } else if val < 0f64 {
-            self.bri.cur_bri = 0f64;
+            bri.cur_bri = 0f64;
         } else {
-            self.bri.cur_bri = val;
+            bri.cur_bri = val;
         }
 
-        self.bri.cur_bri
+        bri.cur_bri
     }
 }
 
