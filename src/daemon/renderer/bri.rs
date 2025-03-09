@@ -7,7 +7,7 @@ use crate::daemon::structs::{Bri, DaemonEvt, DaemonRes};
 use crate::utils::{self, DisplayBackend};
 use crate::{daemon::structs::DaemonCmdType, utils::DaemonErr};
 
-use super::app::VolBriTaskTypeWindow;
+use super::app::{VolBriTaskType, VolBriTaskTypeWindow};
 use super::config::{AppConf, BriCmdProvider};
 use super::{app::register_widget, window};
 use gtk4::{
@@ -18,7 +18,8 @@ use tokio::task::JoinHandle;
 
 pub struct BriContext {
     pub cur_bri: f64,
-    pub bri_tasks: Vec<HashMap<VolBriTaskTypeWindow, JoinHandle<()>>>,
+    pub bri_tasks_window: Vec<HashMap<VolBriTaskTypeWindow, JoinHandle<()>>>,
+    pub bri_tasks: HashMap<VolBriTaskType, JoinHandle<()>>,
 }
 
 impl BriContext {
@@ -26,13 +27,14 @@ impl BriContext {
         let cur_bri = get_bri(&config.bri.run_cmd);
         BriContext {
             cur_bri,
-            bri_tasks: {
+            bri_tasks_window: {
                 let mut res = vec![];
                 for _ in 0..monitor_count {
                     res.push(HashMap::new());
                 }
                 res
             },
+            bri_tasks: HashMap::new(),
         }
     }
 
@@ -81,14 +83,14 @@ fn murph(
     target: f64,
     config: Arc<AppConf>,
     window: &[Window],
-    monitor: usize,
+    monitors: Vec<usize>,
 ) {
     // shadowing target to adjust it to an appropriate value
     let target = context.set_virtual_brightness(target);
     let task_map = &mut context.bri_tasks;
-    if let Some(handle) = task_map[monitor].get(&VolBriTaskTypeWindow::MurphValue) {
+    if let Some(handle) = task_map.get(&VolBriTaskType::MurphValue) {
         handle.abort();
-        task_map[monitor].remove(&VolBriTaskTypeWindow::MurphValue);
+        task_map.remove(&VolBriTaskType::MurphValue);
     }
 
     set_bri(&config.bri.run_cmd, target);
@@ -102,7 +104,7 @@ fn murph(
                     evt: DaemonCmdType::Bri(Bri::SetRough(current)),
                     sender: None,
                     uuid: None,
-                    monitor,
+                    monitor: monitors.clone(),
                 })
                 .unwrap_or_else(|e| println!("Bri: failed to update: {}", e));
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -113,12 +115,12 @@ fn murph(
                 evt: DaemonCmdType::Bri(Bri::SetRough(target)),
                 sender: None,
                 uuid: None,
-                monitor,
+                monitor: monitors,
             })
             .unwrap_or_else(|e| println!("Bri: failed to update: {}", e));
     });
 
-    task_map[monitor].insert(VolBriTaskTypeWindow::MurphValue, handle);
+    task_map.insert(VolBriTaskType::MurphValue, handle);
 }
 
 fn set_rough(val: f64, windows: &[Window]) {
@@ -166,7 +168,7 @@ pub fn handle_bri_cmd(
         Bri::Set(val) => {
             let current = context.cur_bri;
             let target = utils::round_down(val);
-            murph(sender, current, context, target, config, windows, monitor);
+            murph(sender, current, context, target, config, windows, monitors);
         }
         Bri::Get => {
             return Ok(DaemonRes::GetBri(context.cur_bri));
@@ -174,41 +176,50 @@ pub fn handle_bri_cmd(
         Bri::Inc(val) => {
             let current = context.cur_bri;
             let target = utils::round_down(current + val);
-            murph(sender, current, context, target, config, windows, monitor);
+            murph(sender, current, context, target, config, windows, monitors);
         }
         Bri::Dec(val) => {
             let current = context.cur_bri;
             let target = utils::round_down(current - val);
-            murph(sender, current, context, target, config, windows, monitor);
+            murph(sender, current, context, target, config, windows, monitors);
         }
         Bri::Close => {
-            windows[monitor].set_visible(false);
+            for monitor in monitors {
+                windows[monitor].set_visible(false);
+            }
         }
         Bri::Open => {
-            windows[monitor].set_visible(true);
+            for monitor in monitors {
+                windows[monitor].set_visible(true);
+            }
         }
         Bri::OpenTimed(time) => {
-            windows[monitor].set_visible(true);
-            let map_ref = &mut context.bri_tasks;
-            if let Some(handle) = map_ref[monitor].get(&VolBriTaskTypeWindow::AwaitClose) {
-                handle.abort();
-                map_ref[monitor].remove(&VolBriTaskTypeWindow::AwaitClose);
-            }
-
-            let handle = tokio::spawn(async move {
-                tokio::time::sleep(Duration::from_secs_f64(time)).await;
-
-                if let Err(e) = sender.send(DaemonEvt {
-                    evt: DaemonCmdType::Bri(Bri::Close),
-                    sender: None,
-                    uuid: None,
-                    monitor,
-                }) {
-                    println!("Err closing the openned window: {}", e);
+            for monitor in monitors.iter() {
+                windows[*monitor].set_visible(true);
+                let map_ref = &mut context.bri_tasks_window;
+                if let Some(handle) = map_ref[*monitor].get(&VolBriTaskTypeWindow::AwaitClose) {
+                    handle.abort();
+                    map_ref[*monitor].remove(&VolBriTaskTypeWindow::AwaitClose);
                 }
-            });
 
-            map_ref[monitor].insert(VolBriTaskTypeWindow::AwaitClose, handle);
+                let sender_clone = sender.clone();
+                let monitors_clone = monitors.clone();
+
+                let handle = tokio::spawn(async move {
+                    tokio::time::sleep(Duration::from_secs_f64(time)).await;
+
+                    if let Err(e) = sender_clone.send(DaemonEvt {
+                        evt: DaemonCmdType::Bri(Bri::Close),
+                        sender: None,
+                        uuid: None,
+                        monitor: monitors_clone,
+                    }) {
+                        println!("Err closing the openned window: {}", e);
+                    }
+                });
+
+                map_ref[*monitor].insert(VolBriTaskTypeWindow::AwaitClose, handle);
+            }
         }
     }
 

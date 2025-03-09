@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::daemon::structs::{DaemonEvt, DaemonRes, MonitorClient, Vol};
+use crate::daemon::structs::{DaemonEvt, DaemonRes, Vol};
 use crate::utils::{self, DisplayBackend};
 use crate::{daemon::structs::DaemonCmdType, utils::DaemonErr};
 
@@ -86,15 +86,15 @@ fn murph(
     target: f64,
     config: Arc<AppConf>,
     window: &[Window],
-    monitor: MonitorClient,
+    monitor: Vec<usize>,
 ) {
     let is_mute = context.is_muted;
     // shadowing target to adjust it to an appropriate value
     let target = context.set_virtual_volume(target);
-    let task_map = &mut context.vol_tasks_window;
-    if let Some(handle) = task_map[monitor].get(&VolBriTaskTypeWindow::MurphValue) {
+    let task_map = &mut context.vol_tasks;
+    if let Some(handle) = task_map.get(&VolBriTaskType::MurphValue) {
         handle.abort();
-        task_map[monitor].remove(&VolBriTaskTypeWindow::MurphValue);
+        task_map.remove(&VolBriTaskType::MurphValue);
     }
 
     set_volume(&config.vol.run_cmd, target);
@@ -108,7 +108,7 @@ fn murph(
                     evt: DaemonCmdType::Vol(Vol::SetRough(current)),
                     sender: None,
                     uuid: None,
-                    monitor,
+                    monitor: monitor.clone(),
                 })
                 .unwrap_or_else(|e| println!("Vol: failed to update: {}", e));
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -124,7 +124,7 @@ fn murph(
             .unwrap_or_else(|e| println!("Vol: failed to update: {}", e));
     });
 
-    task_map[monitor].insert(VolBriTaskTypeWindow::MurphValue, handle);
+    task_map.insert(VolBriTaskType::MurphValue, handle);
 }
 
 fn set_rough(val: f64, windows: &[Window]) {
@@ -220,33 +220,42 @@ pub fn handle_vol_cmd(
             murph(sender, current, context, target, config, windows, monitors);
         }
         Vol::Close => {
-            windows[monitors].set_visible(false);
+            for monitor in monitors {
+                windows[monitor].set_visible(false);
+            }
         }
         Vol::Open => {
-            windows[monitors].set_visible(true);
+            for monitor in monitors {
+                windows[monitor].set_visible(true);
+            }
         }
         Vol::OpenTimed(time) => {
-            windows[monitors].set_visible(true);
-            let map_ref = &mut context.vol_tasks_window;
-            if let Some(handle) = map_ref[monitors].get(&VolBriTaskTypeWindow::AwaitClose) {
-                handle.abort();
-                map_ref[monitors].remove(&VolBriTaskTypeWindow::AwaitClose);
-            }
-
-            let handle = tokio::spawn(async move {
-                tokio::time::sleep(Duration::from_secs_f64(time)).await;
-
-                if let Err(e) = sender.send(DaemonEvt {
-                    evt: DaemonCmdType::Vol(Vol::Close),
-                    sender: None,
-                    uuid: None,
-                    monitor: MonitorClient::One(monitors),
-                }) {
-                    println!("Err closing the openned window: {}", e);
+            for monitor in monitors.iter() {
+                windows[*monitor].set_visible(true);
+                let map_ref = &mut context.vol_tasks_window;
+                if let Some(handle) = map_ref[*monitor].get(&VolBriTaskTypeWindow::AwaitClose) {
+                    handle.abort();
+                    map_ref[*monitor].remove(&VolBriTaskTypeWindow::AwaitClose);
                 }
-            });
 
-            map_ref[monitors].insert(VolBriTaskTypeWindow::AwaitClose, handle);
+                let sender_clone = sender.clone();
+                let monitors_clone = monitors.clone();
+
+                let handle = tokio::spawn(async move {
+                    tokio::time::sleep(Duration::from_secs_f64(time)).await;
+
+                    if let Err(e) = sender_clone.send(DaemonEvt {
+                        evt: DaemonCmdType::Vol(Vol::Close),
+                        sender: None,
+                        uuid: None,
+                        monitor: monitors_clone.clone(),
+                    }) {
+                        println!("Err closing the openned window: {}", e);
+                    }
+                });
+
+                map_ref[*monitor].insert(VolBriTaskTypeWindow::AwaitClose, handle);
+            }
         }
     }
 
