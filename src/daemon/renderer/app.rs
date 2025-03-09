@@ -5,7 +5,6 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use crate::daemon::renderer::dvoty::event::CURRENT_ID;
 use crate::daemon::structs::DaemonCmdType;
 use crate::daemon::structs::DaemonEvt;
 use crate::daemon::structs::DaemonRes;
@@ -28,6 +27,7 @@ use super::bri::handle_bri_cmd;
 use super::bri::BriContext;
 use super::config::AppConf;
 use super::dvoty::create_dvoty;
+use super::dvoty::event::CURRENT_IDS;
 use super::dvoty::handle_dvoty_cmd;
 use super::dvoty::DvotyContext;
 use super::vol::create_sound_osd;
@@ -112,6 +112,7 @@ fn process_evt(
     config: Arc<AppConf>,
     app_context: Rc<RefCell<AppContext>>,
     monitors: Vec<usize>,
+    id: Option<uuid::Uuid>
 ) -> Result<DaemonRes, DaemonErr> {
     match evt {
         DaemonCmdType::ShutDown => {
@@ -172,7 +173,8 @@ fn process_evt(
                 sender,
                 dvoty_context,
                 config,
-                monitors
+                monitors,
+                id
             )?;
 
             return Ok(result);
@@ -234,18 +236,9 @@ pub fn init_gtk_async(
                 }
 
                 Some(evt) = evt_receiver.recv() => {
-                    if let Some(id) = evt.uuid {
-                        if id == *CURRENT_ID.lock().unwrap(){
-                            match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), context.clone(), evt.monitors) {
-                                Err(e) => send_res(evt.sender, DaemonRes::Failure(format!("{:?}", e))),
-                                Ok(res) => send_res(evt.sender, res),
-                            }
-                        }
-                    } else {
-                        match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), context.clone(), evt.monitors) {
-                            Err(e) => send_res(evt.sender, DaemonRes::Failure(format!("{:?}", e))),
-                            Ok(res) => send_res(evt.sender, res),
-                        }
+                    match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), context.clone(), evt.monitors, evt.uuid) {
+                        Err(e) => send_res(evt.sender, DaemonRes::Failure(format!("{:?}", e))),
+                        Ok(res) => send_res(evt.sender, res),
                     }
                 }
             }
@@ -293,6 +286,12 @@ pub fn start_app(
     super::dvoty::app_launcher::DESKTOP_FILES
         .set(Arc::new(Mutex::new(vec![])))
         .unwrap();
+    
+    let mut ids = vec![];
+    for _ in 0..monitor_count {
+        ids.push(Arc::new(Mutex::new(uuid::Uuid::new_v4())));
+    }
+    CURRENT_IDS.set(ids).unwrap();
 
     //let recent_manager = gtk4::RecentManager::default();
     //let recent_items = recent_manager.items();

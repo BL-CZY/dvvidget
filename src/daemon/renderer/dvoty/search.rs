@@ -10,7 +10,7 @@ use uuid::Uuid;
 use crate::daemon::renderer::config::AppConf;
 use crate::daemon::renderer::config::SearchEngine;
 use crate::daemon::renderer::dvoty::app_launcher::underline_string;
-use crate::daemon::renderer::dvoty::event::CURRENT_ID;
+use crate::daemon::renderer::dvoty::event::CURRENT_IDS;
 use crate::daemon::structs::DaemonCmdType;
 use crate::daemon::structs::DaemonEvt;
 use crate::daemon::structs::Dvoty;
@@ -110,7 +110,11 @@ LIMIT {};
                 .await?;
 
             for place in places {
-                if *id != *CURRENT_ID.lock().unwrap_or_else(|p| p.into_inner()) {
+                if *id
+                    != *CURRENT_IDS.get().unwrap()[monitor]
+                        .lock()
+                        .unwrap_or_else(|p| p.into_inner())
+                {
                     return Ok(());
                 }
 
@@ -163,7 +167,11 @@ LIMIT {};",
                 .await?;
 
             places.iter().for_each(|place| {
-                if *id != *CURRENT_ID.lock().unwrap_or_else(|p| p.into_inner()) {
+                if *id
+                    != *CURRENT_IDS.get().unwrap()[monitor]
+                        .lock()
+                        .unwrap_or_else(|p| p.into_inner())
+                {
                     return;
                 }
 

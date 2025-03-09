@@ -17,7 +17,7 @@ use crate::{
     utils::get_paths,
 };
 
-use super::{class::adjust_class, entry::DvotyUIEntry, event::CURRENT_ID, DvotyContext};
+use super::{class::adjust_class, entry::DvotyUIEntry, event::CURRENT_IDS, DvotyContext};
 
 use std::sync::Mutex;
 
@@ -164,7 +164,11 @@ fn process_content(
     monitor: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let input = &input.to_lowercase();
-    if *id != *CURRENT_ID.lock().unwrap_or_else(|p| p.into_inner()) {
+    if *id
+        != *CURRENT_IDS.get().unwrap()[monitor]
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+    {
         return Ok(());
     }
 
