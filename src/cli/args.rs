@@ -21,26 +21,26 @@ pub enum Command {
 
     #[clap(about = "Configure the volume panel")]
     Volume {
-        #[clap(subcommand)]
-        actions: VolCmd,
         #[clap(short, long = "monitor")]
         monitor: Option<usize>,
+        #[clap(subcommand)]
+        actions: VolCmd,
     },
 
     #[clap(about = "Configure the brightness panel")]
     Brightness {
-        #[clap(subcommand)]
-        actions: BriCmd,
         #[clap(short, long = "monitor")]
         monitor: Option<usize>,
+        #[clap(subcommand)]
+        actions: BriCmd,
     },
 
     #[clap(about = "Configure dvoty")]
     Dvoty {
-        #[clap(subcommand)]
-        actions: DvotyCmd,
         #[clap(short, long = "monitor")]
         monitor: Option<usize>,
+        #[clap(subcommand)]
+        actions: DvotyCmd,
     },
 }
 
@@ -212,15 +212,15 @@ pub fn handle_args(args: Args) {
             daemon_args(config_path, socket_path, option);
         }
 
-        Command::Volume { actions, monitor } => {
+        Command::Volume { monitor, actions } => {
             volume_args(actions, monitor);
         }
 
-        Command::Brightness { actions, monitor } => {
+        Command::Brightness { monitor, actions } => {
             bri_args(actions, monitor);
         }
 
-        Command::Dvoty { actions, monitor } => {
+        Command::Dvoty { monitor, actions } => {
             dvoty_args(actions, monitor);
         }
     }
