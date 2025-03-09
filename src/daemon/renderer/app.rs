@@ -84,16 +84,36 @@ impl AppContext {
 }
 
 pub fn register_widget(widget: Widget, id: u32) {
-    let mut guard = match IDS.lock() {
+    let mut guard = match WINDOWS.lock() {
         Ok(g) => g,
         Err(poisoned) => poisoned.into_inner(),
     };
 
-    guard.insert(widget, id);
+    match guard.get_mut(&widget) {
+        Some(v) => {
+            v.push(id);
+        }
+        None => {
+            guard.insert(widget, vec![id]);
+        }
+    }
+
 }
 
 lazy_static! {
-    pub static ref IDS: Mutex<HashMap<Widget, u32>> = Mutex::new(HashMap::new());
+    pub static ref WINDOWS: Mutex<HashMap<Widget, Vec<u32>>> = Mutex::new(HashMap::new());
+}
+
+fn get_window_id(widget: Widget, monitor: usize, map: &HashMap<Widget, Vec<u32>>) -> Result<u32, DaemonErr> {
+    match map.get(&widget) {
+        Some(list) => {
+            match list.get(monitor) {
+                Some(num) => Ok(*num),
+                None => Err(DaemonErr::CannotFindWidget)
+            }
+        }
+        None => Err(DaemonErr::CannotFindWidget)
+    }    
 }
 
 fn process_evt(
@@ -102,6 +122,7 @@ fn process_evt(
     sender: UnboundedSender<DaemonEvt>,
     config: Arc<AppConf>,
     app_context: Rc<RefCell<AppContext>>,
+    monitor: usize,
 ) -> Result<DaemonRes, DaemonErr> {
     match evt {
         DaemonCmd::ShutDown => {
@@ -109,33 +130,32 @@ fn process_evt(
         }
 
         DaemonCmd::Vol(evt) => {
-            let guard = match IDS.lock() {
+            let guard = match WINDOWS.lock() {
                 Ok(g) => g,
                 Err(poisoned) => poisoned.into_inner(),
             };
 
             let result = handle_vol_cmd(
                 evt,
-                &app.window_by_id(*guard.get(&Widget::Volume).unwrap())
-                    .unwrap(),
+                &app.window_by_id(get_window_id(Widget::Volume, monitor, &guard)?).unwrap(),
                 sender,
                 app_context,
                 config,
+                monitor
             )?;
 
             return Ok(result);
         }
 
         DaemonCmd::Bri(evt) => {
-            let guard = match IDS.lock() {
+            let guard = match WINDOWS.lock() {
                 Ok(g) => g,
                 Err(poisoned) => poisoned.into_inner(),
             };
 
             let result = handle_bri_cmd(
                 evt,
-                &app.window_by_id(*guard.get(&Widget::Brightness).unwrap())
-                    .unwrap(),
+                &app.window_by_id(get_window_id(Widget::Brightness, monitor, &guard)?).unwrap(),
                 sender,
                 app_context,
                 config,
@@ -145,15 +165,14 @@ fn process_evt(
         }
 
         DaemonCmd::Dvoty(evt) => {
-            let guard = match IDS.lock() {
+            let guard = match WINDOWS.lock() {
                 Ok(g) => g,
                 Err(poisoned) => poisoned.into_inner(),
             };
 
             let result = handle_dvoty_cmd(
                 evt,
-                &app.window_by_id(*guard.get(&Widget::Dvoty).unwrap())
-                    .unwrap(),
+                &app.window_by_id(get_window_id(Widget::Dvoty, monitor, &guard)?).unwrap(),
                 sender,
                 app_context,
                 config,
@@ -215,13 +234,13 @@ pub fn init_gtk_async(
                 Some(evt) = evt_receiver.recv() => {
                     if let Some(id) = evt.uuid {
                         if id == *CURRENT_ID.lock().unwrap(){
-                            match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), context.clone()) {
+                            match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), context.clone(), evt.monitor) {
                                 Err(e) => send_res(evt.sender, DaemonRes::Failure(format!("{:?}", e))),
                                 Ok(res) => send_res(evt.sender, res),
                             }
                         }
                     } else {
-                        match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), context.clone()) {
+                        match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), context.clone(), evt.monitor) {
                             Err(e) => send_res(evt.sender, DaemonRes::Failure(format!("{:?}", e))),
                             Ok(res) => send_res(evt.sender, res),
                         }
@@ -243,11 +262,19 @@ fn activate(
     let css = CssProvider::new();
     css.load_from_path(&config.general.css_path);
     gtk4::style_context_add_provider_for_display(
-        &gdk::Display::default().expect("cant get display"),
+        &gdk::Display::default().expect("Cannot open display"),
         &css,
         gtk4::STYLE_PROVIDER_PRIORITY_SETTINGS,
     );
-    create_sound_osd(backend, app, config.clone());
+    
+    let monitors = gdk::Display::default().expect("Cannot open display").monitors();
+
+    for monitor in &monitors {
+        if let Ok(_mon) = monitor {
+            create_sound_osd(backend, app, config.clone());
+        }
+    }
+
     create_bri_osd(backend, app, config.clone());
     create_dvoty(backend, app, config.clone(), sender.clone());
 }
@@ -279,9 +306,12 @@ pub fn start_app(
     //    .collect();
     //
     //println!("{:?}", recent_file_names);
-
+    
     let app = Rc::new(gtk4::Application::new(
+        #[cfg(not(debug_assertions))]
         Some("org.dvida.dvvidgets"),
+        #[cfg(debug_assertions)]
+        Some("org.dvida.dvvidgets.debug"),
         ApplicationFlags::default(),
     ));
 

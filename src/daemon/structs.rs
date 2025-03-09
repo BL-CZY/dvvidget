@@ -59,6 +59,7 @@ pub struct DaemonEvt {
     pub evt: DaemonCmd,
     pub sender: Option<UnboundedSender<DaemonRes>>,
     pub uuid: Option<Uuid>,
+    pub monitor: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

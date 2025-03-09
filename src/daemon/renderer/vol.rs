@@ -66,6 +66,7 @@ fn murph(
     target: f64,
     config: Arc<AppConf>,
     window: &Window,
+    monitor: usize,
 ) {
     let context_ref = &mut context.borrow_mut();
     let is_mute = context_ref.vol.is_muted;
@@ -88,6 +89,7 @@ fn murph(
                     evt: DaemonCmd::Vol(Vol::SetRough(current)),
                     sender: None,
                     uuid: None,
+                    monitor,
                 })
                 .unwrap_or_else(|e| println!("Vol: failed to update: {}", e));
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -98,6 +100,7 @@ fn murph(
                 evt: DaemonCmd::Vol(Vol::SetRough(target)),
                 sender: None,
                 uuid: None,
+                monitor,
             })
             .unwrap_or_else(|e| println!("Vol: failed to update: {}", e));
     });
@@ -164,6 +167,7 @@ pub fn handle_vol_cmd(
     sender: UnboundedSender<DaemonEvt>,
     context: Rc<RefCell<AppContext>>,
     config: Arc<AppConf>,
+    monitor: usize,
 ) -> Result<DaemonRes, DaemonErr> {
     match cmd {
         Vol::SetMute(val) => {
@@ -182,7 +186,7 @@ pub fn handle_vol_cmd(
         Vol::Set(val) => {
             let current = context.borrow_mut().vol.cur_vol;
             let target = utils::round_down(val);
-            murph(sender, current, context, target, config, window);
+            murph(sender, current, context, target, config, window, monitor);
         }
         Vol::Get => {
             return Ok(DaemonRes::GetVol(context.borrow_mut().vol.cur_vol));
@@ -190,12 +194,12 @@ pub fn handle_vol_cmd(
         Vol::Inc(val) => {
             let current = context.borrow_mut().vol.cur_vol;
             let target = utils::round_down(current + val);
-            murph(sender, current, context, target, config, window);
+            murph(sender, current, context, target, config, window, monitor);
         }
         Vol::Dec(val) => {
             let current = context.borrow_mut().vol.cur_vol;
             let target = utils::round_down(current - val);
-            murph(sender, current, context, target, config, window);
+            murph(sender, current, context, target, config, window, monitor);
         }
         Vol::Close => {
             window.set_visible(false);
@@ -218,6 +222,7 @@ pub fn handle_vol_cmd(
                     evt: DaemonCmd::Vol(Vol::Close),
                     sender: None,
                     uuid: None,
+                    monitor,
                 }) {
                     println!("Err closing the openned window: {}", e);
                 }

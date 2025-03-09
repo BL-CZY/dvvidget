@@ -16,7 +16,11 @@ use crate::utils::receive_exit;
 
 pub fn default_socket_path() -> String {
     let val = env!("CARGO_PKG_VERSION").replace(".", "-");
-    format!("/tmp/dvvidget-{}.sock", val)
+    if cfg!(not(debug_assertions)) {
+        format!("/tmp/dvvidget-{}.sock", val)
+    } else {
+        format!("/tmp/dvvidget-{}-debug.sock", val)
+    }
 }
 
 async fn is_active_socket(path: &str) -> bool {
@@ -77,6 +81,7 @@ pub async fn run_server(
 
     let mut path = config_path.to_path_buf();
     path.pop();
+
     let _ = watcher.watch(&path, notify::RecursiveMode::NonRecursive);
 
     loop {
