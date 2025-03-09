@@ -45,7 +45,7 @@ pub enum Widget {
 pub struct AppContext {
     pub vol: VolContext,
     pub bri: BriContext,
-    pub dvoty: Vec<DvotyContext>,
+    pub dvoty: DvotyContext,
     pub monitor_count: usize,
 }
 
@@ -55,11 +55,7 @@ impl AppContext {
     pub fn from_config(config: &Arc<AppConf>, monitor_count: usize) -> Self {
         let vol = VolContext::from_config(config, monitor_count);
         let bri = BriContext::from_config(config, monitor_count);
-        let mut dvoty=  vec![];
-
-        for _ in 0..monitor_count {
-            dvoty.push(DvotyContext::default());
-        }
+        let dvoty=  DvotyContext::from_config(config, monitor_count);
 
         AppContext {
             vol,
@@ -168,12 +164,15 @@ fn process_evt(
                 Err(poisoned) => poisoned.into_inner(),
             };
 
+            let dvoty_context = &mut app_context.borrow_mut().dvoty;
+
             let result = handle_dvoty_cmd(
                 evt,
-                &app.window_by_id(get_window_id(Widget::Dvoty, monitor, &guard)?).unwrap(),
+                &get_windows(Widget::Dvoty, &guard, &app),
                 sender,
-                app_context,
+                dvoty_context,
                 config,
+                monitor
             )?;
 
             return Ok(result);
@@ -267,15 +266,17 @@ fn activate(
     );
     
     let monitors = gdk::Display::default().expect("Cannot open display").monitors();
-
+    
+    let mut mon_count = 0;
     for monitor in &monitors {
         if let Ok(_mon) = monitor {
             create_sound_osd(backend, app, config.clone());
+            create_bri_osd(backend, app, config.clone());
+            create_dvoty(backend, app, config.clone(), sender.clone(), mon_count);
+            mon_count += 1;
         }
     }
 
-    create_bri_osd(backend, app, config.clone());
-    create_dvoty(backend, app, config.clone(), sender.clone());
 }
 
 pub fn start_app(

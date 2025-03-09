@@ -4,13 +4,13 @@ use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
 use crate::daemon::{
-    renderer::{app::AppContext, config::AppConf},
+    renderer::config::AppConf,
     structs::{DaemonCmd, DaemonEvt, Dvoty},
 };
 
-use std::{cell::RefMut, collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
-use super::{class::adjust_class, entry::DvotyUIEntry, DvotyEntry};
+use super::{class::adjust_class, entry::DvotyUIEntry, DvotyContext, DvotyEntry};
 
 struct Letter {
     pub uppercase: String,
@@ -104,7 +104,12 @@ fn search_letter(kwd: &str, mode: &[bool; 2]) -> Option<Vec<String>> {
     None
 }
 
-pub fn process_greek_letters(input: String, sender: UnboundedSender<DaemonEvt>, id: &Uuid) {
+pub fn process_greek_letters(
+    input: String,
+    sender: UnboundedSender<DaemonEvt>,
+    id: &Uuid,
+    monitor: usize,
+) {
     // [uppercase, lowercase]
     let mut modes: [bool; 2] = [true, true];
     let mut should_cut: bool = false;
@@ -141,6 +146,7 @@ pub fn process_greek_letters(input: String, sender: UnboundedSender<DaemonEvt>, 
                     })),
                     sender: None,
                     uuid: Some(*id),
+                    monitor,
                 })
                 .unwrap_or_else(|e| {
                     println!("Dvoty: can't send letter: {}", e);
@@ -153,8 +159,9 @@ pub fn populate_letter_entry(
     config: Arc<AppConf>,
     list: &ListBox,
     letter: String,
-    context: &mut RefMut<AppContext>,
+    context: &mut DvotyContext,
     sender: UnboundedSender<DaemonEvt>,
+    monitor: usize,
 ) {
     let row = super::entry::create_base_entry(
         &config.dvoty.letter_icon,
@@ -162,15 +169,13 @@ pub fn populate_letter_entry(
         "Click to copy",
         sender,
         config.clone(),
+        monitor,
     );
 
-    context
-        .dvoty
-        .dvoty_entries
-        .push((DvotyUIEntry::Letter { letter }, row.clone()));
+    context.dvoty_entries[monitor].push((DvotyUIEntry::Letter { letter }, row.clone()));
 
-    if context.dvoty.dvoty_entries.len() <= 1 {
-        adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
+    if context.dvoty_entries[monitor].len() <= 1 {
+        adjust_class(0, 0, &mut context.dvoty_entries[monitor]);
     }
 
     list.append(&row);

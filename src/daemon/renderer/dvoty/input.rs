@@ -1,19 +1,24 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::sync::Arc;
 
 use gtk4::Window;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     daemon::{
-        renderer::{app::AppContext, config::AppConf},
+        renderer::config::AppConf,
         structs::{DaemonCmd, DaemonEvt, Dvoty},
     },
     utils::DaemonErr,
 };
 
-use super::{event::CURRENT_ID, general::process_general, DvotyEntry, DvotyTaskType};
+use super::{event::CURRENT_ID, general::process_general, DvotyContext, DvotyEntry, DvotyTaskType};
 
-async fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>, config: Arc<AppConf>) {
+async fn process_input_str(
+    input: &str,
+    sender: UnboundedSender<DaemonEvt>,
+    config: Arc<AppConf>,
+    monitor: usize,
+) {
     let id = *CURRENT_ID.lock().unwrap_or_else(|p| p.into_inner());
 
     if input.is_empty() {
@@ -21,6 +26,7 @@ async fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>, conf
             evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Empty)),
             sender: None,
             uuid: None,
+            monitor,
         }) {
             println!("Dvoty: Failed to send entry: {}, ignoring...", e);
         };
@@ -29,7 +35,7 @@ async fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>, conf
 
     match input.chars().next().unwrap() {
         '=' => {
-            super::math::eval_math(input, sender, &id);
+            super::math::eval_math(input, sender, &id, monitor);
         }
         '@' => {
             super::app_launcher::process_apps(
@@ -43,6 +49,7 @@ async fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>, conf
                 sender,
                 &id,
                 config.clone(),
+                monitor,
             );
         }
         '$' => {
@@ -53,13 +60,19 @@ async fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>, conf
                     })),
                     sender: None,
                     uuid: Some(id),
+                    monitor,
                 })
                 .unwrap_or_else(|e| {
                     println!("Dvoty: Failed to send command: {}", e);
                 });
         }
         ':' => {
-            super::url::send_url(input.chars().skip(1).collect::<String>(), sender, &id);
+            super::url::send_url(
+                input.chars().skip(1).collect::<String>(),
+                sender,
+                &id,
+                monitor,
+            );
         }
         '/' => {
             super::search::handle_search(
@@ -67,6 +80,7 @@ async fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>, conf
                 input.chars().skip(1).collect::<String>(),
                 &id,
                 config,
+                monitor,
             )
             .await;
         }
@@ -75,6 +89,7 @@ async fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>, conf
                 input.chars().skip(1).collect::<String>(),
                 sender,
                 &id,
+                monitor,
             );
         }
         _ => {
@@ -85,39 +100,39 @@ async fn process_input_str(input: &str, sender: UnboundedSender<DaemonEvt>, conf
 
 pub fn process_input(
     input: String,
-    context: Rc<RefCell<AppContext>>,
+    context: &mut DvotyContext,
     sender: UnboundedSender<DaemonEvt>,
-    window: &Window,
+    windows: &[Window],
     config: Arc<AppConf>,
+    monitor: usize,
 ) -> Result<(), DaemonErr> {
     let id = uuid::Uuid::new_v4();
     {
         *CURRENT_ID.lock().unwrap() = id;
     }
 
-    let context_ref = &mut context.borrow_mut();
-    context_ref.dvoty.dvoty_entries.clear();
-    context_ref.dvoty.cur_ind = 0;
-    context_ref.dvoty.target_scroll = 0.0f64;
+    context.dvoty_entries[monitor].clear();
+    context.cur_ind[monitor] = 0;
+    context.target_scroll[monitor] = 0.0f64;
 
-    let task_map = &mut context_ref.dvoty.dvoty_tasks;
+    let task_map = &mut context.dvoty_tasks;
 
-    if let Some(handle) = task_map.get(&DvotyTaskType::ProcessInput) {
+    if let Some(handle) = task_map[monitor].get(&DvotyTaskType::ProcessInput) {
         handle.abort();
-        task_map.remove(&DvotyTaskType::ProcessInput);
+        task_map[monitor].remove(&DvotyTaskType::ProcessInput);
     }
 
     let handle = tokio::spawn(async move {
-        process_input_str(&input, sender.clone(), config).await;
+        process_input_str(&input, sender.clone(), config, monitor).await;
     });
 
-    task_map.insert(DvotyTaskType::ProcessInput, handle);
+    task_map[monitor].insert(DvotyTaskType::ProcessInput, handle);
 
-    let list = if let Some(l) = &context_ref.dvoty.dvoty_list {
+    let list = if let Some(l) = &context.dvoty_list[monitor] {
         l
-    } else if let Ok(res) = super::utils::get_list(window) {
-        context_ref.dvoty.dvoty_list = Some(res);
-        context_ref.dvoty.dvoty_list.as_ref().unwrap()
+    } else if let Ok(res) = super::utils::get_list(&windows[monitor]) {
+        context.dvoty_list[monitor] = Some(res);
+        context.dvoty_list[monitor].as_ref().unwrap()
     } else {
         println!("Dvoty: can't find list");
         return Err(DaemonErr::CannotFindWidget);

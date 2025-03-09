@@ -1,6 +1,15 @@
 use gtk4::{prelude::*, Box, Entry, ScrolledWindow};
 use gtk4::{ListBox, Window};
 
+pub fn create_list_of<T: Default>(count: usize) -> Vec<T> {
+    let mut res = vec![];
+    for _ in 0..count {
+        res.push(T::default());
+    }
+
+    res
+}
+
 pub enum UIErr {
     NotFound,
 }

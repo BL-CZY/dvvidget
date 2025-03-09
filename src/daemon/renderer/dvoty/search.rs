@@ -20,6 +20,7 @@ use crate::daemon::structs::Dvoty;
 use super::class::adjust_class;
 use super::entry::create_base_entry;
 use super::entry::DvotyUIEntry;
+use super::DvotyContext;
 use super::DvotyEntry;
 
 pub async fn process_history(
@@ -27,6 +28,7 @@ pub async fn process_history(
     config: Arc<AppConf>,
     sender: UnboundedSender<DaemonEvt>,
     id: &Uuid,
+    monitor: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let keyword = keyword.to_lowercase();
 
@@ -127,6 +129,7 @@ LIMIT {};
                         })),
                         sender: None,
                         uuid: Some(*id),
+                        monitor,
                     })
                     .unwrap_or_else(|e| {
                         println!("Dvoty: Failed to send url: {}", e);
@@ -174,6 +177,7 @@ LIMIT {};",
                         })),
                         sender: None,
                         uuid: Some(*id),
+                        monitor,
                     })
                     .unwrap_or_else(|e| {
                         println!("Dvoty: Failed to send url: {}", e);
@@ -190,6 +194,7 @@ pub async fn handle_search(
     keyword: String,
     id: &Uuid,
     config: Arc<AppConf>,
+    monitor: usize,
 ) {
     sender
         .send(DaemonEvt {
@@ -198,12 +203,13 @@ pub async fn handle_search(
             })),
             sender: None,
             uuid: Some(*id),
+            monitor,
         })
         .unwrap_or_else(|e| {
             println!("Dvoty: Error adding search entry: {}", e);
         });
 
-    process_history(&keyword, config, sender.clone(), &id)
+    process_history(&keyword, config, sender.clone(), &id, monitor)
         .await
         .unwrap_or_else(|e| {
             println!("{}", e);
@@ -227,8 +233,9 @@ pub fn populate_search_entry(
     config: Arc<AppConf>,
     list: &ListBox,
     keyword: String,
-    context: &mut RefMut<AppContext>,
+    context: &mut DvotyContext,
     sender: UnboundedSender<DaemonEvt>,
+    monitor: usize,
 ) {
     let row = create_base_entry(
         &config.dvoty.search_icon,
@@ -236,15 +243,13 @@ pub fn populate_search_entry(
         "Click to search",
         sender,
         config.clone(),
+        monitor,
     );
 
-    context
-        .dvoty
-        .dvoty_entries
-        .push((DvotyUIEntry::Search { keyword }, row.clone()));
+    context.dvoty_entries[monitor].push((DvotyUIEntry::Search { keyword }, row.clone()));
 
-    if context.dvoty.dvoty_entries.len() <= 1 {
-        adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
+    if context.dvoty_entries[monitor].len() <= 1 {
+        adjust_class(0, 0, &mut context.dvoty_entries[monitor]);
     }
 
     list.append(&row);
