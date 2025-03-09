@@ -26,7 +26,7 @@ async fn process_input_str(
             evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Empty)),
             sender: None,
             uuid: None,
-            monitor,
+            monitor: vec![monitor],
         }) {
             println!("Dvoty: Failed to send entry: {}, ignoring...", e);
         };
@@ -60,7 +60,7 @@ async fn process_input_str(
                     })),
                     sender: None,
                     uuid: Some(id),
-                    monitor,
+                    monitor: vec![monitor],
                 })
                 .unwrap_or_else(|e| {
                     println!("Dvoty: Failed to send command: {}", e);
@@ -93,7 +93,7 @@ async fn process_input_str(
             );
         }
         _ => {
-            process_general(sender, input, &id, config).await;
+            process_general(sender, input, &id, config, monitor).await;
         }
     }
 }

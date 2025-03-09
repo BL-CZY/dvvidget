@@ -51,24 +51,24 @@ fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
         move |_controller, keyval, _keycode, state: ModifierType| match keyval {
             gtk4::gdk::Key::Tab => glib::Propagation::Stop,
             gtk4::gdk::Key::Up => {
-                super::event::send_dec(sender_clone.clone(), monitor);
+                super::event::send_dec(sender_clone.clone(), vec![monitor]);
 
                 if state.contains(ModifierType::SHIFT_MASK) {
-                    super::event::send_dec(sender_clone.clone(), monitor);
-                    super::event::send_dec(sender_clone.clone(), monitor);
-                    super::event::send_dec(sender_clone.clone(), monitor);
-                    super::event::send_dec(sender_clone.clone(), monitor);
+                    super::event::send_dec(sender_clone.clone(), vec![monitor]);
+                    super::event::send_dec(sender_clone.clone(), vec![monitor]);
+                    super::event::send_dec(sender_clone.clone(), vec![monitor]);
+                    super::event::send_dec(sender_clone.clone(), vec![monitor]);
                 }
                 glib::Propagation::Stop
             }
             gtk4::gdk::Key::Down => {
-                super::event::send_inc(sender_clone.clone(), monitor);
+                super::event::send_inc(sender_clone.clone(), vec![monitor]);
 
                 if state.contains(ModifierType::SHIFT_MASK) {
-                    super::event::send_inc(sender_clone.clone(), monitor);
-                    super::event::send_inc(sender_clone.clone(), monitor);
-                    super::event::send_inc(sender_clone.clone(), monitor);
-                    super::event::send_inc(sender_clone.clone(), monitor);
+                    super::event::send_inc(sender_clone.clone(), vec![monitor]);
+                    super::event::send_inc(sender_clone.clone(), vec![monitor]);
+                    super::event::send_inc(sender_clone.clone(), vec![monitor]);
+                    super::event::send_inc(sender_clone.clone(), vec![monitor]);
                 }
                 glib::Propagation::Stop
             }
@@ -78,7 +78,7 @@ fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
                         evt: DaemonCmdType::Dvoty(Dvoty::ScrollEnd),
                         sender: None,
                         uuid: None,
-                        monitor,
+                        monitor: vec![monitor],
                     })
                     .unwrap();
                 glib::Propagation::Stop
@@ -89,7 +89,7 @@ fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
                         evt: DaemonCmdType::Dvoty(Dvoty::ScrollStart),
                         sender: None,
                         uuid: None,
-                        monitor,
+                        monitor: vec![monitor],
                     })
                     .unwrap();
 
@@ -102,7 +102,7 @@ fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
                         evt: DaemonCmdType::Dvoty(Dvoty::Close),
                         sender: None,
                         uuid: None,
-                        monitor,
+                        monitor: vec![monitor],
                     })
                     .unwrap_or_else(|e| println!("Dvoty: Failed to send triggering event: {}", e));
                 glib::Propagation::Stop
@@ -119,7 +119,7 @@ fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
                     evt: DaemonCmdType::Dvoty(Dvoty::TriggerEntry),
                     sender: None,
                     uuid: None,
-                    monitor,
+                    monitor: vec![monitor],
                 })
                 .unwrap_or_else(|e| println!("Dvoty: Failed to send triggering event: {}", e));
         }
@@ -133,7 +133,7 @@ fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
             evt: DaemonCmdType::Dvoty(Dvoty::Update(content)),
             sender: None,
             uuid: None,
-            monitor,
+            monitor: vec![monitor],
         }) {
             println!("Can't send message from Dvoty: {}", e);
         };
@@ -202,7 +202,7 @@ pub fn create_dvoty(
         evt: DaemonCmdType::Dvoty(Dvoty::Update("".into())),
         sender: None,
         uuid: None,
-        monitor,
+        monitor: vec![monitor],
     }) {
         println!("Can't send message from Dvoty: {}", e);
     };

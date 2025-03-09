@@ -1,4 +1,3 @@
-use std::cell::RefMut;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -8,7 +7,6 @@ use gtk4::ListBox;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
-use crate::daemon::renderer::app::AppContext;
 use crate::daemon::renderer::config::AppConf;
 use crate::daemon::renderer::config::SearchEngine;
 use crate::daemon::renderer::dvoty::app_launcher::underline_string;
@@ -129,7 +127,7 @@ LIMIT {};
                         })),
                         sender: None,
                         uuid: Some(*id),
-                        monitor,
+                        monitor: vec![monitor],
                     })
                     .unwrap_or_else(|e| {
                         println!("Dvoty: Failed to send url: {}", e);
@@ -177,7 +175,7 @@ LIMIT {};",
                         })),
                         sender: None,
                         uuid: Some(*id),
-                        monitor,
+                        monitor: vec![monitor],
                     })
                     .unwrap_or_else(|e| {
                         println!("Dvoty: Failed to send url: {}", e);
@@ -203,7 +201,7 @@ pub async fn handle_search(
             })),
             sender: None,
             uuid: Some(*id),
-            monitor,
+            monitor: vec![monitor],
         })
         .unwrap_or_else(|e| {
             println!("Dvoty: Error adding search entry: {}", e);

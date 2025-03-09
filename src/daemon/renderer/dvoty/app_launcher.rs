@@ -131,7 +131,7 @@ fn send(
             })),
             sender: None,
             uuid: Some(id),
-            monitor,
+            monitor: vec![monitor],
         })
         .unwrap_or_else(|e| println!("Dvoty: failed to send: {}", e));
 }

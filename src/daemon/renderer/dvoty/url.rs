@@ -30,7 +30,7 @@ pub fn send_url(url: String, sender: UnboundedSender<DaemonEvt>, id: &Uuid, moni
             })),
             sender: None,
             uuid: Some(*id),
-            monitor,
+            monitor: vec![monitor],
         })
         .unwrap_or_else(|e| {
             println!("Dvoty: Failed to send url: {}", e);

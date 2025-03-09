@@ -16,6 +16,7 @@ use std::sync::Mutex;
 
 use super::{utils::get_input, DvotyContext};
 
+// TODO: handle this
 lazy_static! {
     pub static ref CURRENT_ID: Arc<Mutex<uuid::Uuid>> = Arc::new(Mutex::new(uuid::Uuid::new_v4()));
 }
@@ -30,127 +31,160 @@ pub fn handle_dvoty_cmd(
 ) -> Result<DaemonRes, DaemonErr> {
     match cmd {
         Dvoty::Update(str) => {
-            super::input::process_input(
-                str,
-                context,
-                sender.clone(),
-                windows,
-                config.clone(),
-                monitors,
-            )?;
+            for monitor in monitors {
+                super::input::process_input(
+                    str.clone(),
+                    context,
+                    sender.clone(),
+                    windows,
+                    config.clone(),
+                    monitor,
+                )?;
+            }
         }
 
         Dvoty::AddEntry(entry) => {
-            super::entry::add_entry(entry, windows, context, config, sender.clone(), monitors)?;
+            for monitor in monitors {
+                super::entry::add_entry(
+                    entry.clone(),
+                    windows,
+                    context,
+                    config.clone(),
+                    sender.clone(),
+                    monitor,
+                )?;
+            }
         }
 
         Dvoty::IncEntryIndex => {
-            if !context.dvoty_entries.is_empty() {
-                let old = context.cur_ind[monitors];
-                let max = context.dvoty_entries[monitors].len() - 1;
-                context.cur_ind[monitors] += 1;
-                if context.cur_ind[monitors] > max {
-                    context.cur_ind[monitors] = 0;
+            for monitor in monitors {
+                if !context.dvoty_entries[monitor].is_empty() {
+                    let old = context.cur_ind[monitor];
+                    let max = context.dvoty_entries[monitor].len() - 1;
+                    context.cur_ind[monitor] += 1;
+                    if context.cur_ind[monitor] > max {
+                        context.cur_ind[monitor] = 0;
+                    }
+                    let new = context.cur_ind[monitor];
+                    super::class::adjust_class(old, new, &mut context.dvoty_entries[monitor]);
+                    super::row::ensure_row_in_viewport(
+                        context,
+                        &windows[monitor],
+                        sender.clone(),
+                        monitor,
+                    )?;
                 }
-                let new = context.cur_ind[monitors];
-                super::class::adjust_class(old, new, &mut context.dvoty_entries[monitors]);
-                super::row::ensure_row_in_viewport(
-                    context,
-                    &windows[monitors],
-                    sender.clone(),
-                    monitors,
-                )?;
             }
         }
 
         Dvoty::DecEntryIndex => {
-            if !context.dvoty_entries.is_empty() {
-                let old = context.cur_ind[monitors];
-                let max = context.dvoty_entries[monitors].len() - 1;
-                if context.cur_ind[monitors] == 0 {
-                    context.cur_ind[monitors] = max;
-                } else {
-                    context.cur_ind[monitors] -= 1;
+            for monitor in monitors {
+                if !context.dvoty_entries[monitor].is_empty() {
+                    let old = context.cur_ind[monitor];
+                    let max = context.dvoty_entries[monitor].len() - 1;
+                    if context.cur_ind[monitor] == 0 {
+                        context.cur_ind[monitor] = max;
+                    } else {
+                        context.cur_ind[monitor] -= 1;
+                    }
+                    let new = context.cur_ind[monitor];
+                    super::class::adjust_class(old, new, &mut context.dvoty_entries[monitor]);
+                    super::row::ensure_row_in_viewport(
+                        context,
+                        &windows[monitor],
+                        sender.clone(),
+                        monitor,
+                    )?;
                 }
-                let new = context.cur_ind[monitors];
-                super::class::adjust_class(old, new, &mut context.dvoty_entries[monitors]);
-                super::row::ensure_row_in_viewport(
-                    context,
-                    &windows[monitors],
-                    sender.clone(),
-                    monitors,
-                )?;
             }
         }
 
         Dvoty::ScrollStart => {
-            if !context.dvoty_entries[monitors].is_empty() {
-                let old = context.cur_ind[monitors];
-                context.cur_ind[monitors] = 0;
-                let new = 0;
-                super::class::adjust_class(old, new, &mut context.dvoty_entries[monitors]);
-                super::row::ensure_row_in_viewport(
-                    context,
-                    &windows[monitors],
-                    sender.clone(),
-                    monitors,
-                )?;
+            for monitor in monitors {
+                if !context.dvoty_entries[monitor].is_empty() {
+                    let old = context.cur_ind[monitor];
+                    context.cur_ind[monitor] = 0;
+                    let new = 0;
+                    super::class::adjust_class(old, new, &mut context.dvoty_entries[monitor]);
+                    super::row::ensure_row_in_viewport(
+                        context,
+                        &windows[monitor],
+                        sender.clone(),
+                        monitor,
+                    )?;
+                }
             }
         }
 
         Dvoty::ScrollEnd => {
-            if !context.dvoty_entries[monitors].is_empty() {
-                let old = context.cur_ind[monitors];
-                context.cur_ind[monitors] = context.dvoty_entries[monitors].len() - 1;
-                let new = context.dvoty_entries[monitors].len() - 1;
-                super::class::adjust_class(old, new, &mut context.dvoty_entries[monitors].clone());
-                super::row::ensure_row_in_viewport(
-                    context,
-                    &windows[monitors],
-                    sender.clone(),
-                    monitors,
-                )?;
+            for monitor in monitors {
+                if !context.dvoty_entries[monitor].is_empty() {
+                    let old = context.cur_ind[monitor];
+                    context.cur_ind[monitor] = context.dvoty_entries[monitor].len() - 1;
+                    let new = context.dvoty_entries[monitor].len() - 1;
+                    super::class::adjust_class(
+                        old,
+                        new,
+                        &mut context.dvoty_entries[monitor].clone(),
+                    );
+                    super::row::ensure_row_in_viewport(
+                        context,
+                        &windows[monitor],
+                        sender.clone(),
+                        monitor,
+                    )?;
+                }
             }
         }
 
         Dvoty::TriggerEntry => {
-            if !context.dvoty_entries[monitors].is_empty() {
-                context.dvoty_entries[monitors][context.cur_ind[monitors]]
-                    .0
-                    .clone()
-                    .run(config);
+            for monitor in monitors {
+                if !context.dvoty_entries[monitor].is_empty() {
+                    context.dvoty_entries[monitor][context.cur_ind[monitor]]
+                        .0
+                        .clone()
+                        .run(config.clone());
+                }
+                windows[monitor].set_visible(false);
             }
-            windows[monitors].set_visible(false);
         }
 
         Dvoty::Open => {
-            windows[monitors].set_visible(true);
-            if let Ok(input) = get_input(&windows[monitors]) {
-                input.select_region(0, -1);
+            for monitor in monitors {
+                windows[monitor].set_visible(true);
+                if let Ok(input) = get_input(&windows[monitor]) {
+                    input.select_region(0, -1);
+                }
             }
         }
 
         Dvoty::Close => {
-            windows[monitors].set_visible(false);
+            for monitor in monitors {
+                windows[monitor].set_visible(false);
+            }
         }
 
         Dvoty::Toggle => {
-            if windows[monitors].is_visible() {
-                windows[monitors].set_visible(false);
-            } else {
-                windows[monitors].set_visible(true);
+            for monitor in monitors {
+                if windows[monitor].is_visible() {
+                    windows[monitor].set_visible(false);
+                } else {
+                    windows[monitor].set_visible(true);
+                }
             }
         }
 
         Dvoty::SetScroll(val) => {
-            super::row::set_scroll(context, &windows[monitors], val, monitors)?;
+            for monitor in monitors {
+                super::row::set_scroll(context, &windows[monitor], val, monitor)?;
+            }
         }
     }
 
     Ok(DaemonRes::Success)
 }
 
-pub fn send_inc(sender: UnboundedSender<DaemonEvt>, monitor: usize) {
+pub fn send_inc(sender: UnboundedSender<DaemonEvt>, monitor: Vec<usize>) {
     sender
         .send(DaemonEvt {
             evt: DaemonCmdType::Dvoty(Dvoty::IncEntryIndex),
@@ -161,7 +195,7 @@ pub fn send_inc(sender: UnboundedSender<DaemonEvt>, monitor: usize) {
         .unwrap_or_else(|e| println!("Dvoty: Failed to send inc index: {}", e));
 }
 
-pub fn send_dec(sender: UnboundedSender<DaemonEvt>, monitor: usize) {
+pub fn send_dec(sender: UnboundedSender<DaemonEvt>, monitor: Vec<usize>) {
     sender
         .send(DaemonEvt {
             evt: DaemonCmdType::Dvoty(Dvoty::DecEntryIndex),

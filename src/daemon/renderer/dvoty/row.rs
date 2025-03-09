@@ -22,7 +22,7 @@ async fn murph(sender: UnboundedSender<DaemonEvt>, target: f64, mut current: f64
                 evt: DaemonCmdType::Dvoty(Dvoty::SetScroll(current)),
                 sender: None,
                 uuid: None,
-                monitor,
+                monitor: vec![monitor],
             })
             .unwrap_or_else(|e| {
                 println!("Dvoty: Can't send scroll: {}", e);
@@ -35,7 +35,7 @@ async fn murph(sender: UnboundedSender<DaemonEvt>, target: f64, mut current: f64
             evt: DaemonCmdType::Dvoty(Dvoty::SetScroll(target)),
             sender: None,
             uuid: None,
-            monitor,
+            monitor: vec![monitor],
         })
         .unwrap_or_else(|e| {
             println!("Dvoty: Can't send scroll: {}", e);
