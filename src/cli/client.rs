@@ -3,7 +3,7 @@ use std::path::Path;
 use crate::{
     daemon::{
         server::default_socket_path,
-        structs::{DaemonCmdType, DaemonRes},
+        structs::{DaemonCmdClient, DaemonCmdType, DaemonRes},
     },
     utils::ClientErr,
 };
@@ -14,7 +14,7 @@ use tokio::{
 };
 
 async fn send_to_stream(
-    evt: DaemonCmdType,
+    evt: DaemonCmdClient,
     mut stream: UnixStream,
 ) -> Result<UnixStream, ClientErr> {
     let evt_buf = match bincode::serialize(&evt).context("Failed to serialize command") {
@@ -70,7 +70,7 @@ async fn read_res(mut stream: UnixStream) -> Result<DaemonRes, ClientErr> {
     )
 }
 
-pub async fn send_evt_async(evt: DaemonCmdType) -> Result<(), ClientErr> {
+pub async fn send_evt_async(evt: DaemonCmdClient) -> Result<(), ClientErr> {
     let stream: UnixStream =
         if let Ok(res) = UnixStream::connect(Path::new(&default_socket_path())).await {
             res
@@ -80,7 +80,7 @@ pub async fn send_evt_async(evt: DaemonCmdType) -> Result<(), ClientErr> {
 
     let stream = send_to_stream(evt.clone(), stream).await?;
 
-    if let DaemonCmdType::ShutDown = evt {
+    if let DaemonCmdType::ShutDown = evt.cmd {
         println!("Signal sent");
         return Ok(());
     }

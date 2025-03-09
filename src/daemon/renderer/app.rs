@@ -289,17 +289,15 @@ pub fn start_app(
         .set(Arc::new(Mutex::new(vec![])))
         .unwrap();
 
-    gtk4::init().unwrap();
-
     let display = gtk4::gdk::Display::default().unwrap();
     let monitors = display.monitors();
-    
-    let mut count: usize = 0;
+
+    let mut monitor_count: usize = 0;
 
     for monitor in &monitors {
         if let Ok(monitor) = monitor {
             if monitor.downcast::<gtk4::gdk::Monitor>().is_ok() {
-                count += 1;
+                monitor_count += 1;
             }
         }
     }
@@ -333,7 +331,7 @@ pub fn start_app(
         evt_sender.clone(),
         app.clone(),
         config.clone(),
-        count
+        monitor_count
     ) {
         println!("Err handling command: {:?}", e);
     }

@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::atomic::AtomicBool, time::Duration};
 
-use crate::daemon::structs::{DaemonCmdType, DaemonEvt, DaemonRes};
+use crate::daemon::structs::{DaemonCmdClient, DaemonCmdType, DaemonEvt, DaemonRes};
 use gtk4::Image;
 use once_cell::sync::Lazy;
 use tokio::sync::broadcast;
@@ -126,7 +126,7 @@ pub enum DaemonErr {
 #[derive(Debug)]
 pub enum ClientErr {
     CannotConnectServer,
-    SerializeError(DaemonCmdType, String),
+    SerializeError(DaemonCmdClient, String),
     DeserializeError(String),
     ReadingFailed(String),
     WriteErr(String),

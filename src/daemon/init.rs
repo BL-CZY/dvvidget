@@ -46,6 +46,10 @@ pub fn start_daemon(
         },
     );
 
+    let _g = handle.enter();
+
+    gtk4::init().unwrap();
+
     // run the server in a different thread
     let evt_sender_clone = evt_sender.clone();
     std::thread::Builder::new()
@@ -59,8 +63,6 @@ pub fn start_daemon(
             });
         })
         .expect("Failed to start the async thread.");
-
-    let _g = handle.enter();
 
     start_app(backend, evt_receiver, evt_sender_clone.clone(), config);
 

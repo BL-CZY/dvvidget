@@ -13,9 +13,15 @@ pub enum DaemonCmdType {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum MonitorClient {
+    All,
+    One(usize),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DaemonCmdClient {
-    monitor: usize,
-    cmd: DaemonCmdType,
+    pub monitor: MonitorClient,
+    pub cmd: DaemonCmdType,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
@@ -65,7 +71,7 @@ pub struct DaemonEvt {
     pub evt: DaemonCmdType,
     pub sender: Option<UnboundedSender<DaemonRes>>,
     pub uuid: Option<Uuid>,
-    pub monitor: usize,
+    pub monitor: MonitorClient,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -1,4 +1,4 @@
-use crate::daemon::structs::{Bri, DaemonCmdType, Vol};
+use crate::daemon::structs::{Bri, DaemonCmdClient, DaemonCmdType, MonitorClient, Vol};
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -117,7 +117,10 @@ fn daemon_args(
                 };
             }
             DaemonSubCmd::Shutdown => {
-                if let Err(e) = crate::cli::send_evt(DaemonCmdType::ShutDown) {
+                if let Err(e) = crate::cli::send_evt(crate::daemon::structs::DaemonCmdClient {
+                    monitor: MonitorClient::All,
+                    cmd: DaemonCmdType::ShutDown,
+                }) {
                     println!("Error sending event: {:?}", e)
                 }
             }
@@ -146,7 +149,10 @@ fn volume_args(actions: VolCmd) {
             }
         }
     };
-    if let Err(e) = crate::cli::send_evt(evt) {
+    if let Err(e) = crate::cli::send_evt(DaemonCmdClient {
+        monitor: MonitorClient::All,
+        cmd: evt,
+    }) {
         println!("Err Sending event: {:?}", e);
     }
 }
@@ -167,18 +173,27 @@ fn bri_args(actions: BriCmd) {
             }
         }
     };
-    if let Err(e) = crate::cli::send_evt(evt) {
+    if let Err(e) = crate::cli::send_evt(DaemonCmdClient {
+        monitor: MonitorClient::All,
+        cmd: evt,
+    }) {
         println!("Err Sending event: {:?}", e);
     }
 }
 
 fn dvoty_args(actions: DvotyCmd) {
-    crate::cli::send_evt(match actions {
-        DvotyCmd::Open => DaemonCmdType::Dvoty(crate::daemon::structs::Dvoty::Open),
-        DvotyCmd::Close => DaemonCmdType::Dvoty(crate::daemon::structs::Dvoty::Close),
-        DvotyCmd::Toggle => DaemonCmdType::Dvoty(crate::daemon::structs::Dvoty::Toggle),
-    })
-    .unwrap_or_else(|e| println!("Error seding event: {:?}", e));
+    let command = {
+        let cmd = match actions {
+            DvotyCmd::Open => DaemonCmdType::Dvoty(crate::daemon::structs::Dvoty::Open),
+            DvotyCmd::Close => DaemonCmdType::Dvoty(crate::daemon::structs::Dvoty::Close),
+            DvotyCmd::Toggle => DaemonCmdType::Dvoty(crate::daemon::structs::Dvoty::Toggle),
+        };
+        DaemonCmdClient {
+            monitor: MonitorClient::All,
+            cmd,
+        }
+    };
+    crate::cli::send_evt(command).unwrap_or_else(|e| println!("Error seding event: {:?}", e));
 }
 
 pub fn handle_args(args: Args) {
