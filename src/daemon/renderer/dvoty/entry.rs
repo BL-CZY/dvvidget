@@ -3,7 +3,7 @@ use std::{path::PathBuf, process::Stdio, sync::Arc};
 use crate::{
     daemon::{
         renderer::config::AppConf,
-        structs::{DaemonCmd, DaemonEvt, DaemonRes, Dvoty},
+        structs::{DaemonCmdType, DaemonEvt, DaemonRes, Dvoty},
     },
     utils::DaemonErr,
 };
@@ -158,7 +158,7 @@ pub fn create_base_entry(
     gesture_click.connect_pressed(move |_, _, _, _| {
         sender
             .send(DaemonEvt {
-                evt: DaemonCmd::Dvoty(Dvoty::TriggerEntry),
+                evt: DaemonCmdType::Dvoty(Dvoty::TriggerEntry),
                 sender: None,
                 uuid: None,
                 monitor,

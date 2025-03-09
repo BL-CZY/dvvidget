@@ -1,6 +1,6 @@
 use crate::daemon::renderer::app::register_widget;
 use crate::daemon::renderer::config::AppConf;
-use crate::daemon::structs::{DaemonCmd, DaemonEvt, Dvoty};
+use crate::daemon::structs::{DaemonCmdType, DaemonEvt, Dvoty};
 use crate::utils::DisplayBackend;
 use gtk4::gdk::ModifierType;
 use gtk4::prelude::*;
@@ -75,7 +75,7 @@ fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
             gtk4::gdk::Key::Page_Down => {
                 sender_clone
                     .send(DaemonEvt {
-                        evt: DaemonCmd::Dvoty(Dvoty::ScrollEnd),
+                        evt: DaemonCmdType::Dvoty(Dvoty::ScrollEnd),
                         sender: None,
                         uuid: None,
                         monitor,
@@ -86,7 +86,7 @@ fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
             gtk4::gdk::Key::Page_Up => {
                 sender_clone
                     .send(DaemonEvt {
-                        evt: DaemonCmd::Dvoty(Dvoty::ScrollStart),
+                        evt: DaemonCmdType::Dvoty(Dvoty::ScrollStart),
                         sender: None,
                         uuid: None,
                         monitor,
@@ -99,7 +99,7 @@ fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
             gtk4::gdk::Key::Escape => {
                 sender_clone
                     .send(DaemonEvt {
-                        evt: DaemonCmd::Dvoty(Dvoty::Close),
+                        evt: DaemonCmdType::Dvoty(Dvoty::Close),
                         sender: None,
                         uuid: None,
                         monitor,
@@ -116,7 +116,7 @@ fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
         if keyval == gtk4::gdk::Key::Return || keyval == gtk4::gdk::Key::KP_Enter {
             sender_clone
                 .send(DaemonEvt {
-                    evt: DaemonCmd::Dvoty(Dvoty::TriggerEntry),
+                    evt: DaemonCmdType::Dvoty(Dvoty::TriggerEntry),
                     sender: None,
                     uuid: None,
                     monitor,
@@ -130,7 +130,7 @@ fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
     input.connect_changed(move |entry| {
         let content: String = entry.text().into();
         if let Err(e) = sender.send(DaemonEvt {
-            evt: DaemonCmd::Dvoty(Dvoty::Update(content)),
+            evt: DaemonCmdType::Dvoty(Dvoty::Update(content)),
             sender: None,
             uuid: None,
             monitor,
@@ -199,7 +199,7 @@ pub fn create_dvoty(
 
     // update the list after creation
     if let Err(e) = sender.send(DaemonEvt {
-        evt: DaemonCmd::Dvoty(Dvoty::Update("".into())),
+        evt: DaemonCmdType::Dvoty(Dvoty::Update("".into())),
         sender: None,
         uuid: None,
         monitor,

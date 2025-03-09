@@ -1,4 +1,4 @@
-use crate::daemon::structs::{Bri, DaemonCmd, Vol};
+use crate::daemon::structs::{Bri, DaemonCmdType, Vol};
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -117,7 +117,7 @@ fn daemon_args(
                 };
             }
             DaemonSubCmd::Shutdown => {
-                if let Err(e) = crate::cli::send_evt(DaemonCmd::ShutDown) {
+                if let Err(e) = crate::cli::send_evt(DaemonCmdType::ShutDown) {
                     println!("Error sending event: {:?}", e)
                 }
             }
@@ -128,21 +128,21 @@ fn daemon_args(
 fn volume_args(actions: VolCmd) {
     let evt = match actions {
         VolCmd::SetMute { value } => match value {
-            Some(val) => DaemonCmd::Vol(Vol::SetMute(val)),
-            None => DaemonCmd::Vol(Vol::ToggleMute),
+            Some(val) => DaemonCmdType::Vol(Vol::SetMute(val)),
+            None => DaemonCmdType::Vol(Vol::ToggleMute),
         },
-        VolCmd::GetMute => DaemonCmd::Vol(Vol::GetMute),
-        VolCmd::Get => DaemonCmd::Vol(Vol::Get),
-        VolCmd::SetRough { value } => DaemonCmd::Vol(Vol::SetRough(value as f64)),
-        VolCmd::Set { value } => DaemonCmd::Vol(Vol::Set(value as f64)),
-        VolCmd::Inc { value } => DaemonCmd::Vol(Vol::Inc(value as f64)),
-        VolCmd::Dec { value } => DaemonCmd::Vol(Vol::Dec(value as f64)),
-        VolCmd::Close => DaemonCmd::Vol(Vol::Close),
+        VolCmd::GetMute => DaemonCmdType::Vol(Vol::GetMute),
+        VolCmd::Get => DaemonCmdType::Vol(Vol::Get),
+        VolCmd::SetRough { value } => DaemonCmdType::Vol(Vol::SetRough(value as f64)),
+        VolCmd::Set { value } => DaemonCmdType::Vol(Vol::Set(value as f64)),
+        VolCmd::Inc { value } => DaemonCmdType::Vol(Vol::Inc(value as f64)),
+        VolCmd::Dec { value } => DaemonCmdType::Vol(Vol::Dec(value as f64)),
+        VolCmd::Close => DaemonCmdType::Vol(Vol::Close),
         VolCmd::Open { time } => {
             if let Some(t) = time {
-                DaemonCmd::Vol(Vol::OpenTimed(t))
+                DaemonCmdType::Vol(Vol::OpenTimed(t))
             } else {
-                DaemonCmd::Vol(Vol::Open)
+                DaemonCmdType::Vol(Vol::Open)
             }
         }
     };
@@ -153,17 +153,17 @@ fn volume_args(actions: VolCmd) {
 
 fn bri_args(actions: BriCmd) {
     let evt = match actions {
-        BriCmd::Get => DaemonCmd::Bri(Bri::Get),
-        BriCmd::SetRough { value } => DaemonCmd::Bri(Bri::SetRough(value as f64)),
-        BriCmd::Set { value } => DaemonCmd::Bri(Bri::Set(value as f64)),
-        BriCmd::Inc { value } => DaemonCmd::Bri(Bri::Inc(value as f64)),
-        BriCmd::Dec { value } => DaemonCmd::Bri(Bri::Dec(value as f64)),
-        BriCmd::Close => DaemonCmd::Bri(Bri::Close),
+        BriCmd::Get => DaemonCmdType::Bri(Bri::Get),
+        BriCmd::SetRough { value } => DaemonCmdType::Bri(Bri::SetRough(value as f64)),
+        BriCmd::Set { value } => DaemonCmdType::Bri(Bri::Set(value as f64)),
+        BriCmd::Inc { value } => DaemonCmdType::Bri(Bri::Inc(value as f64)),
+        BriCmd::Dec { value } => DaemonCmdType::Bri(Bri::Dec(value as f64)),
+        BriCmd::Close => DaemonCmdType::Bri(Bri::Close),
         BriCmd::Open { time } => {
             if let Some(t) = time {
-                DaemonCmd::Bri(Bri::OpenTimed(t))
+                DaemonCmdType::Bri(Bri::OpenTimed(t))
             } else {
-                DaemonCmd::Bri(Bri::Open)
+                DaemonCmdType::Bri(Bri::Open)
             }
         }
     };
@@ -174,9 +174,9 @@ fn bri_args(actions: BriCmd) {
 
 fn dvoty_args(actions: DvotyCmd) {
     crate::cli::send_evt(match actions {
-        DvotyCmd::Open => DaemonCmd::Dvoty(crate::daemon::structs::Dvoty::Open),
-        DvotyCmd::Close => DaemonCmd::Dvoty(crate::daemon::structs::Dvoty::Close),
-        DvotyCmd::Toggle => DaemonCmd::Dvoty(crate::daemon::structs::Dvoty::Toggle),
+        DvotyCmd::Open => DaemonCmdType::Dvoty(crate::daemon::structs::Dvoty::Open),
+        DvotyCmd::Close => DaemonCmdType::Dvoty(crate::daemon::structs::Dvoty::Close),
+        DvotyCmd::Toggle => DaemonCmdType::Dvoty(crate::daemon::structs::Dvoty::Toggle),
     })
     .unwrap_or_else(|e| println!("Error seding event: {:?}", e));
 }

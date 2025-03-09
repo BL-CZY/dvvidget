@@ -7,7 +7,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     daemon::{
         renderer::config::AppConf,
-        structs::{DaemonCmd, DaemonEvt, DaemonRes, Dvoty},
+        structs::{DaemonCmdType, DaemonEvt, DaemonRes, Dvoty},
     },
     utils::DaemonErr,
 };
@@ -153,7 +153,7 @@ pub fn handle_dvoty_cmd(
 pub fn send_inc(sender: UnboundedSender<DaemonEvt>, monitor: usize) {
     sender
         .send(DaemonEvt {
-            evt: DaemonCmd::Dvoty(Dvoty::IncEntryIndex),
+            evt: DaemonCmdType::Dvoty(Dvoty::IncEntryIndex),
             sender: None,
             uuid: None,
             monitor,
@@ -164,7 +164,7 @@ pub fn send_inc(sender: UnboundedSender<DaemonEvt>, monitor: usize) {
 pub fn send_dec(sender: UnboundedSender<DaemonEvt>, monitor: usize) {
     sender
         .send(DaemonEvt {
-            evt: DaemonCmd::Dvoty(Dvoty::DecEntryIndex),
+            evt: DaemonCmdType::Dvoty(Dvoty::DecEntryIndex),
             sender: None,
             uuid: None,
             monitor,

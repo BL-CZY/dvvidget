@@ -6,7 +6,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use crate::daemon::renderer::dvoty::event::CURRENT_ID;
-use crate::daemon::structs::DaemonCmd;
+use crate::daemon::structs::DaemonCmdType;
 use crate::daemon::structs::DaemonEvt;
 use crate::daemon::structs::DaemonRes;
 use crate::utils::DaemonErr;
@@ -106,7 +106,7 @@ fn get_windows(widget: Widget, guard: &HashMap<Widget, Vec<u32>>, app: &Rc<Appli
 }
 
 fn process_evt(
-    evt: DaemonCmd,
+    evt: DaemonCmdType,
     app: Rc<Application>,
     sender: UnboundedSender<DaemonEvt>,
     config: Arc<AppConf>,
@@ -114,11 +114,11 @@ fn process_evt(
     monitor: usize,
 ) -> Result<DaemonRes, DaemonErr> {
     match evt {
-        DaemonCmd::ShutDown => {
+        DaemonCmdType::ShutDown => {
             app.quit();
         }
 
-        DaemonCmd::Vol(evt) => {
+        DaemonCmdType::Vol(evt) => {
             let guard = match WINDOWS.lock() {
                 Ok(g) => g,
                 Err(poisoned) => poisoned.into_inner(),
@@ -138,7 +138,7 @@ fn process_evt(
             return Ok(result);
         }
 
-        DaemonCmd::Bri(evt) => {
+        DaemonCmdType::Bri(evt) => {
             let guard = match WINDOWS.lock() {
                 Ok(g) => g,
                 Err(poisoned) => poisoned.into_inner(),
@@ -158,7 +158,7 @@ fn process_evt(
             return Ok(result);
         }
 
-        DaemonCmd::Dvoty(evt) => {
+        DaemonCmdType::Dvoty(evt) => {
             let guard = match WINDOWS.lock() {
                 Ok(g) => g,
                 Err(poisoned) => poisoned.into_inner(),

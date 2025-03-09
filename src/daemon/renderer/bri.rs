@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use crate::daemon::structs::{Bri, DaemonEvt, DaemonRes};
 use crate::utils::{self, DisplayBackend};
-use crate::{daemon::structs::DaemonCmd, utils::DaemonErr};
+use crate::{daemon::structs::DaemonCmdType, utils::DaemonErr};
 
 use super::app::VolBriTaskType;
 use super::config::{AppConf, BriCmdProvider};
@@ -99,7 +99,7 @@ fn murph(
             current += (target - current) * 0.1f64;
             sender
                 .send(DaemonEvt {
-                    evt: DaemonCmd::Bri(Bri::SetRough(current)),
+                    evt: DaemonCmdType::Bri(Bri::SetRough(current)),
                     sender: None,
                     uuid: None,
                     monitor,
@@ -110,7 +110,7 @@ fn murph(
 
         sender
             .send(DaemonEvt {
-                evt: DaemonCmd::Bri(Bri::SetRough(target)),
+                evt: DaemonCmdType::Bri(Bri::SetRough(target)),
                 sender: None,
                 uuid: None,
                 monitor,
@@ -199,7 +199,7 @@ pub fn handle_bri_cmd(
                 tokio::time::sleep(Duration::from_secs_f64(time)).await;
 
                 if let Err(e) = sender.send(DaemonEvt {
-                    evt: DaemonCmd::Bri(Bri::Close),
+                    evt: DaemonCmdType::Bri(Bri::Close),
                     sender: None,
                     uuid: None,
                     monitor,

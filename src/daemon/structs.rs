@@ -5,11 +5,17 @@ use uuid::Uuid;
 use super::renderer::dvoty::DvotyEntry;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum DaemonCmd {
+pub enum DaemonCmdType {
     ShutDown,
     Vol(Vol),
     Bri(Bri),
     Dvoty(Dvoty),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DaemonCmdClient {
+    monitor: usize,
+    cmd: DaemonCmdType,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
@@ -56,7 +62,7 @@ pub enum Dvoty {
 
 #[derive(Debug, Clone)]
 pub struct DaemonEvt {
-    pub evt: DaemonCmd,
+    pub evt: DaemonCmdType,
     pub sender: Option<UnboundedSender<DaemonRes>>,
     pub uuid: Option<Uuid>,
     pub monitor: usize,

@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use crate::daemon::structs::{DaemonEvt, DaemonRes, Vol};
 use crate::utils::{self, DisplayBackend};
-use crate::{daemon::structs::DaemonCmd, utils::DaemonErr};
+use crate::{daemon::structs::DaemonCmdType, utils::DaemonErr};
 
 use super::app::VolBriTaskType;
 use super::config::{AppConf, VolCmdProvider};
@@ -103,7 +103,7 @@ fn murph(
             current += (target - current) * 0.1f64;
             sender
                 .send(DaemonEvt {
-                    evt: DaemonCmd::Vol(Vol::SetRough(current)),
+                    evt: DaemonCmdType::Vol(Vol::SetRough(current)),
                     sender: None,
                     uuid: None,
                     monitor,
@@ -114,7 +114,7 @@ fn murph(
 
         sender
             .send(DaemonEvt {
-                evt: DaemonCmd::Vol(Vol::SetRough(target)),
+                evt: DaemonCmdType::Vol(Vol::SetRough(target)),
                 sender: None,
                 uuid: None,
                 monitor,
@@ -235,7 +235,7 @@ pub fn handle_vol_cmd(
                 tokio::time::sleep(Duration::from_secs_f64(time)).await;
 
                 if let Err(e) = sender.send(DaemonEvt {
-                    evt: DaemonCmd::Vol(Vol::Close),
+                    evt: DaemonCmdType::Vol(Vol::Close),
                     sender: None,
                     uuid: None,
                     monitor,

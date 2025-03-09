@@ -13,7 +13,7 @@ use crate::daemon::renderer::config::AppConf;
 use crate::daemon::renderer::config::SearchEngine;
 use crate::daemon::renderer::dvoty::app_launcher::underline_string;
 use crate::daemon::renderer::dvoty::event::CURRENT_ID;
-use crate::daemon::structs::DaemonCmd;
+use crate::daemon::structs::DaemonCmdType;
 use crate::daemon::structs::DaemonEvt;
 use crate::daemon::structs::Dvoty;
 
@@ -118,7 +118,7 @@ LIMIT {};
 
                 sender
                     .send(DaemonEvt {
-                        evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
+                        evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
                             url: place.url.clone(),
                             title: Some(format!(
                                 "<span color=\"{}\"> <u><b>{}:</b></u></span> {}",
@@ -171,7 +171,7 @@ LIMIT {};",
 
                 sender
                     .send(DaemonEvt {
-                        evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
+                        evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
                             url: place.url.clone(),
                             title: Some(underline_string(&keyword, &place.title)),
                         })),
@@ -198,7 +198,7 @@ pub async fn handle_search(
 ) {
     sender
         .send(DaemonEvt {
-            evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Search {
+            evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Search {
                 keyword: keyword.clone(),
             })),
             sender: None,

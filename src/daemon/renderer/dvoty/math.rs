@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::daemon::{
     renderer::{config::AppConf, dvoty::entry::DvotyEntry},
-    structs::{DaemonCmd, DaemonEvt, Dvoty},
+    structs::{DaemonCmdType, DaemonEvt, Dvoty},
 };
 
 use super::entry::DvotyUIEntry;
@@ -79,7 +79,7 @@ pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>, id: &Uuid, mon
         Ok(res) => {
             sender
                 .send(DaemonEvt {
-                    evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Math {
+                    evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Math {
                         expression: expr,
                         result: post_process_result(res),
                     })),
@@ -93,7 +93,7 @@ pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>, id: &Uuid, mon
             println!("Dvoty: Failed to evaluate math: {}", e);
             sender
                 .send(DaemonEvt {
-                    evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Math {
+                    evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Math {
                         expression: expr,
                         result: e.to_string(),
                     })),

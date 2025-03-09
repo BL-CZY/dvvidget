@@ -5,7 +5,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::daemon::{
     renderer::config::AppConf,
-    structs::{DaemonCmd, DaemonEvt, Dvoty},
+    structs::{DaemonCmdType, DaemonEvt, Dvoty},
 };
 
 use super::{
@@ -62,7 +62,7 @@ pub async fn process_general(
     if let Ok(val) = identify_math(input) {
         sender
             .send(DaemonEvt {
-                evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Math {
+                evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Math {
                     expression: input.to_string(),
                     result: post_process_result(val),
                 })),
@@ -81,7 +81,7 @@ pub async fn process_general(
     // search
     sender
         .send(DaemonEvt {
-            evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Search {
+            evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Search {
                 keyword: input.into(),
             })),
             sender: None,

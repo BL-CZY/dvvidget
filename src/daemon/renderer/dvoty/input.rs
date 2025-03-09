@@ -6,7 +6,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     daemon::{
         renderer::config::AppConf,
-        structs::{DaemonCmd, DaemonEvt, Dvoty},
+        structs::{DaemonCmdType, DaemonEvt, Dvoty},
     },
     utils::DaemonErr,
 };
@@ -23,7 +23,7 @@ async fn process_input_str(
 
     if input.is_empty() {
         if let Err(e) = sender.send(DaemonEvt {
-            evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Empty)),
+            evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Empty)),
             sender: None,
             uuid: None,
             monitor,
@@ -55,7 +55,7 @@ async fn process_input_str(
         '$' => {
             sender
                 .send(DaemonEvt {
-                    evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Command {
+                    evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Command {
                         exec: input.chars().skip(1).collect::<String>(),
                     })),
                     sender: None,

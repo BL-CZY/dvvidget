@@ -8,7 +8,7 @@ use gtk4::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    daemon::structs::{DaemonCmd, DaemonEvt, Dvoty},
+    daemon::structs::{DaemonCmdType, DaemonEvt, Dvoty},
     utils::DaemonErr,
 };
 
@@ -19,7 +19,7 @@ async fn murph(sender: UnboundedSender<DaemonEvt>, target: f64, mut current: f64
         current += (target - current) * 0.15f64;
         sender
             .send(DaemonEvt {
-                evt: DaemonCmd::Dvoty(Dvoty::SetScroll(current)),
+                evt: DaemonCmdType::Dvoty(Dvoty::SetScroll(current)),
                 sender: None,
                 uuid: None,
                 monitor,
@@ -32,7 +32,7 @@ async fn murph(sender: UnboundedSender<DaemonEvt>, target: f64, mut current: f64
 
     sender
         .send(DaemonEvt {
-            evt: DaemonCmd::Dvoty(Dvoty::SetScroll(target)),
+            evt: DaemonCmdType::Dvoty(Dvoty::SetScroll(target)),
             sender: None,
             uuid: None,
             monitor,

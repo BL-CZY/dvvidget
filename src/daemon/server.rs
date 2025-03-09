@@ -11,7 +11,7 @@ use tokio::net::unix::ReadHalf;
 use tokio::net::UnixStream;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
-use super::structs::{DaemonCmd, DaemonEvt, DaemonRes};
+use super::structs::{DaemonCmdType, DaemonEvt, DaemonRes};
 use crate::utils::receive_exit;
 
 pub fn default_socket_path() -> String {
@@ -162,12 +162,13 @@ fn handle_config_file_evt(evt: Event, listener: Rc<tokio::net::UnixListener>, so
 async fn handle_connection(
     mut stream: UnixStream,
     evt_sender: UnboundedSender<DaemonEvt>,
+    monitor: usize,
 ) -> Result<(), DaemonErr> {
     let (mut reader, mut writer) = stream.split();
     let (res_sender, mut res_receiver): (UnboundedSender<DaemonRes>, UnboundedReceiver<DaemonRes>) =
         mpsc::unbounded_channel();
 
-    let evt: DaemonCmd = match read_cmd(&mut reader).await {
+    let evt: DaemonCmdType = match read_cmd(&mut reader).await {
         Ok(res) => res,
         Err(e) => return Err(e),
     };
@@ -176,11 +177,12 @@ async fn handle_connection(
         evt: evt.clone(),
         sender: Some(res_sender),
         uuid: None,
+        monitor,
     };
 
     println!("Event receiverd from client: {:?}", evt);
 
-    if let DaemonCmd::ShutDown = evt {
+    if let DaemonCmdType::ShutDown = evt {
         shutdown("Shutting down...");
     }
 
@@ -221,7 +223,7 @@ async fn handle_connection(
  * | u32 size in littlen endian | actual data |
  * +----------------------------+-------------+
  */
-async fn read_cmd(reader: &mut ReadHalf<'_>) -> Result<DaemonCmd, DaemonErr> {
+async fn read_cmd(reader: &mut ReadHalf<'_>) -> Result<DaemonCmdType, DaemonErr> {
     let mut msg_len_buf = [0u8; 4];
     if let Err(e) = reader.read_exact(&mut msg_len_buf).await {
         return Err(DaemonErr::ReadingFailed(e.to_string()));

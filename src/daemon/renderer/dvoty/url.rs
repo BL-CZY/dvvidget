@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::daemon::{
     renderer::config::AppConf,
-    structs::{DaemonCmd, DaemonEvt, Dvoty},
+    structs::{DaemonCmdType, DaemonEvt, Dvoty},
 };
 
 use super::class::adjust_class;
@@ -24,7 +24,7 @@ pub fn send_url(url: String, sender: UnboundedSender<DaemonEvt>, id: &Uuid, moni
 
     sender
         .send(DaemonEvt {
-            evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
+            evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
                 url: send_url,
                 title: None,
             })),

@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::{
     daemon::{
         renderer::{config::AppConf, dvoty::DvotyEntry},
-        structs::{DaemonCmd, DaemonEvt, Dvoty},
+        structs::{DaemonCmdType, DaemonEvt, Dvoty},
     },
     utils::get_paths,
 };
@@ -123,7 +123,7 @@ fn send(
 ) {
     sender
         .send(DaemonEvt {
-            evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Launch {
+            evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Launch {
                 terminal,
                 name: name.to_string(),
                 exec: exec.to_string(),

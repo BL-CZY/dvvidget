@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::daemon::{
     renderer::config::AppConf,
-    structs::{DaemonCmd, DaemonEvt, Dvoty},
+    structs::{DaemonCmdType, DaemonEvt, Dvoty},
 };
 
 use std::{collections::HashMap, sync::Arc};
@@ -141,7 +141,7 @@ pub fn process_greek_letters(
         val.iter().for_each(|v| {
             sender
                 .send(DaemonEvt {
-                    evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Letter {
+                    evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Letter {
                         letter: v.clone(),
                     })),
                     sender: None,
