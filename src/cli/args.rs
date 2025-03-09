@@ -23,18 +23,24 @@ pub enum Command {
     Volume {
         #[clap(subcommand)]
         actions: VolCmd,
+        #[clap(short, long = "monitor")]
+        monitor: Option<usize>,
     },
 
     #[clap(about = "Configure the brightness panel")]
     Brightness {
         #[clap(subcommand)]
         actions: BriCmd,
+        #[clap(short, long = "monitor")]
+        monitor: Option<usize>,
     },
 
     #[clap(about = "Configure dvoty")]
     Dvoty {
         #[clap(subcommand)]
         actions: DvotyCmd,
+        #[clap(short, long = "monitor")]
+        monitor: Option<usize>,
     },
 }
 
@@ -128,7 +134,7 @@ fn daemon_args(
     }
 }
 
-fn volume_args(actions: VolCmd) {
+fn volume_args(actions: VolCmd, monitor: Option<usize>) {
     let evt = match actions {
         VolCmd::SetMute { value } => match value {
             Some(val) => DaemonCmdType::Vol(Vol::SetMute(val)),
@@ -150,14 +156,14 @@ fn volume_args(actions: VolCmd) {
         }
     };
     if let Err(e) = crate::cli::send_evt(DaemonCmdClient {
-        monitor: MonitorClient::All,
+        monitor: monitor.map_or_else(|| MonitorClient::All, |v| MonitorClient::One(v)),
         cmd: evt,
     }) {
         println!("Err Sending event: {:?}", e);
     }
 }
 
-fn bri_args(actions: BriCmd) {
+fn bri_args(actions: BriCmd, monitor: Option<usize>) {
     let evt = match actions {
         BriCmd::Get => DaemonCmdType::Bri(Bri::Get),
         BriCmd::SetRough { value } => DaemonCmdType::Bri(Bri::SetRough(value as f64)),
@@ -174,14 +180,14 @@ fn bri_args(actions: BriCmd) {
         }
     };
     if let Err(e) = crate::cli::send_evt(DaemonCmdClient {
-        monitor: MonitorClient::All,
+        monitor: monitor.map_or_else(|| MonitorClient::All, |v| MonitorClient::One(v)),
         cmd: evt,
     }) {
         println!("Err Sending event: {:?}", e);
     }
 }
 
-fn dvoty_args(actions: DvotyCmd) {
+fn dvoty_args(actions: DvotyCmd, monitor: Option<usize>) {
     let command = {
         let cmd = match actions {
             DvotyCmd::Open => DaemonCmdType::Dvoty(crate::daemon::structs::Dvoty::Open),
@@ -189,7 +195,7 @@ fn dvoty_args(actions: DvotyCmd) {
             DvotyCmd::Toggle => DaemonCmdType::Dvoty(crate::daemon::structs::Dvoty::Toggle),
         };
         DaemonCmdClient {
-            monitor: MonitorClient::All,
+            monitor: monitor.map_or_else(|| MonitorClient::All, |v| MonitorClient::One(v)),
             cmd,
         }
     };
@@ -206,16 +212,16 @@ pub fn handle_args(args: Args) {
             daemon_args(config_path, socket_path, option);
         }
 
-        Command::Volume { actions } => {
-            volume_args(actions);
+        Command::Volume { actions, monitor } => {
+            volume_args(actions, monitor);
         }
 
-        Command::Brightness { actions } => {
-            bri_args(actions);
+        Command::Brightness { actions, monitor } => {
+            bri_args(actions, monitor);
         }
 
-        Command::Dvoty { actions } => {
-            dvoty_args(actions);
+        Command::Dvoty { actions, monitor } => {
+            dvoty_args(actions, monitor);
         }
     }
 }
