@@ -159,6 +159,7 @@ fn process_evt(
                 sender,
                 app_context,
                 config,
+                monitor
             )?;
 
             return Ok(result);

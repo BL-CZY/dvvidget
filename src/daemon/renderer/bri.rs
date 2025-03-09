@@ -63,6 +63,7 @@ fn murph(
     target: f64,
     config: Arc<AppConf>,
     window: &Window,
+    monitor: usize,
 ) {
     let context_ref = &mut context.borrow_mut();
     // shadowing target to adjust it to an appropriate value
@@ -84,6 +85,7 @@ fn murph(
                     evt: DaemonCmd::Bri(Bri::SetRough(current)),
                     sender: None,
                     uuid: None,
+                    monitor,
                 })
                 .unwrap_or_else(|e| println!("Bri: failed to update: {}", e));
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -94,6 +96,7 @@ fn murph(
                 evt: DaemonCmd::Bri(Bri::SetRough(target)),
                 sender: None,
                 uuid: None,
+                monitor,
             })
             .unwrap_or_else(|e| println!("Bri: failed to update: {}", e));
     });
@@ -135,6 +138,7 @@ pub fn handle_bri_cmd(
     sender: UnboundedSender<DaemonEvt>,
     context: Rc<RefCell<AppContext>>,
     config: Arc<AppConf>,
+    monitor: usize,
 ) -> Result<DaemonRes, DaemonErr> {
     match cmd {
         Bri::SetRough(val) => {
@@ -143,7 +147,7 @@ pub fn handle_bri_cmd(
         Bri::Set(val) => {
             let current = context.borrow_mut().bri.cur_bri;
             let target = utils::round_down(val);
-            murph(sender, current, context, target, config, window);
+            murph(sender, current, context, target, config, window, monitor);
         }
         Bri::Get => {
             return Ok(DaemonRes::GetBri(context.borrow_mut().bri.cur_bri));
@@ -151,12 +155,12 @@ pub fn handle_bri_cmd(
         Bri::Inc(val) => {
             let current = context.borrow_mut().bri.cur_bri;
             let target = utils::round_down(current + val);
-            murph(sender, current, context, target, config, window);
+            murph(sender, current, context, target, config, window, monitor);
         }
         Bri::Dec(val) => {
             let current = context.borrow_mut().bri.cur_bri;
             let target = utils::round_down(current - val);
-            murph(sender, current, context, target, config, window);
+            murph(sender, current, context, target, config, window, monitor);
         }
         Bri::Close => {
             window.set_visible(false);
@@ -179,6 +183,7 @@ pub fn handle_bri_cmd(
                     evt: DaemonCmd::Bri(Bri::Close),
                     sender: None,
                     uuid: None,
+                    monitor,
                 }) {
                     println!("Err closing the openned window: {}", e);
                 }
