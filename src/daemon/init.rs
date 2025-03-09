@@ -55,23 +55,24 @@ pub fn start_daemon(
     let display = gtk4::gdk::Display::default().unwrap();
     let monitors = display.monitors();
 
-    let mut monitor_count: usize = 0;
+    let mut monitor_list = vec![];
 
     for monitor in &monitors {
         if let Ok(monitor) = monitor {
-            if monitor.downcast::<gtk4::gdk::Monitor>().is_ok() {
-                monitor_count += 1;
+            if let Ok(mon) = monitor.downcast::<gtk4::gdk::Monitor>() {
+                monitor_list.push(mon);
             }
         }
     }
 
     // run the server in a different thread
     let evt_sender_clone = evt_sender.clone();
+    let len = monitor_list.len();
     std::thread::Builder::new()
         .name("dvvidget server".into())
         .spawn(move || {
             rt.block_on(async {
-                if let Err(e) = server::run_server(&config_path, socket_path, evt_sender.clone(), monitor_count).await {
+                if let Err(e) = server::run_server(&config_path, socket_path, evt_sender.clone(), len).await {
                     println!("Error running the IPC server: {:?}. Dvvidget will keep running, but the cli won't work", e);
                 }
                 // use tokio::spawn if there are more tasks here, such as information puller
@@ -84,7 +85,7 @@ pub fn start_daemon(
         evt_receiver,
         evt_sender_clone.clone(),
         config,
-        monitor_count,
+        monitor_list,
     );
 
     Ok(())

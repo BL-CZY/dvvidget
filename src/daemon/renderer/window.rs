@@ -155,6 +155,7 @@ fn wayland_window(
     app: &Application,
     descriptor: &WindowDescriptor,
     mode: KeyboardMode,
+    monitor: &gtk4::gdk::Monitor,
 ) -> ApplicationWindow {
     // Create a normal GTK window however you like
     let window = gtk4::ApplicationWindow::new(app);
@@ -166,6 +167,8 @@ fn wayland_window(
     window.set_layer(descriptor.layer);
 
     window.set_keyboard_mode(mode);
+
+    window.set_monitor(Some(monitor));
 
     // Push other windows out of the way
     if descriptor.exclusive {
@@ -252,9 +255,10 @@ pub fn create_window(
     app: &Application,
     descriptor: &WindowDescriptor,
     mode: KeyboardMode,
+    monitor: &gtk4::gdk::Monitor,
 ) -> ApplicationWindow {
     match backend {
-        DisplayBackend::Wayland => wayland_window(app, descriptor, mode),
+        DisplayBackend::Wayland => wayland_window(app, descriptor, mode, monitor),
         DisplayBackend::X11 => x11_window(app, descriptor),
     }
 }

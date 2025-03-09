@@ -165,17 +165,19 @@ pub fn create_dvoty(
     app: &Application,
     config: Arc<AppConf>,
     sender: UnboundedSender<DaemonEvt>,
-    monitor: usize,
+    monitor_ind: usize,
+    monitor: &gtk4::gdk::Monitor,
 ) -> ApplicationWindow {
     let result = crate::daemon::renderer::window::create_window(
         &backend,
         app,
         &config.dvoty.window,
         gtk4_layer_shell::KeyboardMode::OnDemand,
+        monitor,
     );
     result.add_css_class("dvoty-window");
 
-    let input = input(sender.clone(), monitor);
+    let input = input(sender.clone(), monitor_ind);
     let outer_wrapper = list(config.clone());
 
     let wrapper = Box::builder()
@@ -202,7 +204,7 @@ pub fn create_dvoty(
         evt: DaemonCmdType::Dvoty(Dvoty::Update("".into())),
         sender: None,
         uuid: None,
-        monitors: vec![monitor],
+        monitors: vec![monitor_ind],
     }) {
         println!("Can't send message from Dvoty: {}", e);
     };

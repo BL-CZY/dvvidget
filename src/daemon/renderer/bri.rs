@@ -330,12 +330,14 @@ pub fn create_bri_osd(
     backend: DisplayBackend,
     app: &Application,
     config: Arc<AppConf>,
+    monitor: &gtk4::gdk::Monitor,
 ) -> ApplicationWindow {
     let result = window::create_window(
         &backend,
         app,
         &config.bri.window,
         gtk4_layer_shell::KeyboardMode::None,
+        monitor,
     );
     result.add_css_class("bri-window");
 

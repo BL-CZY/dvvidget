@@ -360,12 +360,14 @@ pub fn create_sound_osd(
     backend: DisplayBackend,
     app: &Application,
     config: Arc<AppConf>,
+    monitor: &gtk4::gdk::Monitor,
 ) -> ApplicationWindow {
     let result = window::create_window(
         &backend,
         app,
         &config.vol.window,
         gtk4_layer_shell::KeyboardMode::None,
+        monitor,
     );
     result.add_css_class("sound-window");
 

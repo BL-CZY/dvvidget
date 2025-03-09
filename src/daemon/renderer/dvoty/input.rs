@@ -11,7 +11,9 @@ use crate::{
     utils::DaemonErr,
 };
 
-use super::{event::CURRENT_ID, general::process_general, DvotyContext, DvotyEntry, DvotyTaskType};
+use super::{
+    event::CURRENT_IDS, general::process_general, DvotyContext, DvotyEntry, DvotyTaskType,
+};
 
 async fn process_input_str(
     input: &str,
@@ -19,7 +21,9 @@ async fn process_input_str(
     config: Arc<AppConf>,
     monitor: usize,
 ) {
-    let id = *CURRENT_ID.lock().unwrap_or_else(|p| p.into_inner());
+    let id = *CURRENT_IDS.get().unwrap()[monitor]
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
 
     if input.is_empty() {
         if let Err(e) = sender.send(DaemonEvt {
@@ -108,7 +112,7 @@ pub fn process_input(
 ) -> Result<(), DaemonErr> {
     let id = uuid::Uuid::new_v4();
     {
-        *CURRENT_ID.lock().unwrap() = id;
+        *CURRENT_IDS.get().unwrap()[monitor].lock().unwrap() = id;
     }
 
     context.dvoty_entries[monitor].clear();

@@ -209,9 +209,9 @@ pub fn init_gtk_async(
     evt_sender: UnboundedSender<DaemonEvt>,
     app: Rc<Application>,
     config: Arc<AppConf>,
-    monitor_count: usize,
+    monitor_count: &Vec<gdk::Monitor>,
 ) -> Result<(), DaemonErr> {
-    let context = Rc::new(RefCell::new(AppContext::from_config(&config, monitor_count)));
+    let context = Rc::new(RefCell::new(AppContext::from_config(&config, monitor_count.len())));
 
     glib::MainContext::default().spawn_local(async move {
         loop {
@@ -253,6 +253,7 @@ fn activate(
     app: &gtk4::Application,
     config: Arc<AppConf>,
     sender: UnboundedSender<DaemonEvt>,
+    monitors: Vec<gdk::Monitor>
 ) {
     let css = CssProvider::new();
     css.load_from_path(&config.general.css_path);
@@ -261,19 +262,12 @@ fn activate(
         &css,
         gtk4::STYLE_PROVIDER_PRIORITY_SETTINGS,
     );
-    
-    let monitors = gdk::Display::default().expect("Cannot open display").monitors();
-    
-    let mut mon_count = 0;
-    for monitor in &monitors {
-        if let Ok(_mon) = monitor {
-            create_sound_osd(backend, app, config.clone());
-            create_bri_osd(backend, app, config.clone());
-            create_dvoty(backend, app, config.clone(), sender.clone(), mon_count);
-            mon_count += 1;
-        }
-    }
 
+    for (ind, monitor ) in monitors.iter().enumerate() {
+        create_sound_osd(backend, app, config.clone(), monitor);
+        create_bri_osd(backend, app, config.clone(), monitor);
+        create_dvoty(backend, app, config.clone(), sender.clone(), ind, monitor);
+    }
 }
 
 pub fn start_app(
@@ -281,14 +275,14 @@ pub fn start_app(
     evt_receiver: UnboundedReceiver<DaemonEvt>,
     evt_sender: UnboundedSender<DaemonEvt>,
     config: Arc<AppConf>,
-    monitor_count: usize
+    monitor_list: Vec<gdk::Monitor>
 ) {
     super::dvoty::app_launcher::DESKTOP_FILES
         .set(Arc::new(Mutex::new(vec![])))
         .unwrap();
     
     let mut ids = vec![];
-    for _ in 0..monitor_count {
+    for _ in 0..monitor_list.len() {
         ids.push(Arc::new(Mutex::new(uuid::Uuid::new_v4())));
     }
     CURRENT_IDS.set(ids).unwrap();
@@ -322,12 +316,12 @@ pub fn start_app(
         evt_sender.clone(),
         app.clone(),
         config.clone(),
-        monitor_count
+        &monitor_list
     ) {
         println!("Err handling command: {:?}", e);
     }
 
-    app.connect_activate(move |app| activate(backend, app, config.clone(), evt_sender.clone()));
+    app.connect_activate(move |app| activate(backend, app, config.clone(), evt_sender.clone(), monitor_list.clone()));
 
     app.run_with_args(&[""]);
 }
