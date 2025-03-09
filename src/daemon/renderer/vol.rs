@@ -1,6 +1,4 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -8,7 +6,7 @@ use crate::daemon::structs::{DaemonEvt, DaemonRes, Vol};
 use crate::utils::{self, DisplayBackend};
 use crate::{daemon::structs::DaemonCmd, utils::DaemonErr};
 
-use super::app::{AppContext, VolBriTaskType};
+use super::app::VolBriTaskType;
 use super::config::{AppConf, VolCmdProvider};
 use super::{app::register_widget, window};
 use gtk4::{
@@ -33,6 +31,18 @@ impl VolContext {
             is_muted,
             vol_tasks: HashMap::new(),
         }
+    }
+
+    pub fn set_virtual_volume(&mut self, val: f64) -> f64 {
+        if val > self.max_vol {
+            self.cur_vol = self.max_vol;
+        } else if val < 0f64 {
+            self.cur_vol = 0f64;
+        } else {
+            self.cur_vol = val;
+        }
+
+        self.cur_vol
     }
 }
 
@@ -62,17 +72,16 @@ fn update_display_info(config: Arc<AppConf>, window: &Window, val: f64, is_muted
 fn murph(
     sender: UnboundedSender<DaemonEvt>,
     mut current: f64,
-    context: Rc<RefCell<AppContext>>,
+    context: &mut VolContext,
     target: f64,
     config: Arc<AppConf>,
     window: &Window,
     monitor: usize,
 ) {
-    let context_ref = &mut context.borrow_mut();
-    let is_mute = context_ref.vol.is_muted;
+    let is_mute = context.is_muted;
     // shadowing target to adjust it to an appropriate value
-    let target = context_ref.set_virtual_volume(target);
-    let task_map = &mut context_ref.vol.vol_tasks;
+    let target = context.set_virtual_volume(target);
+    let task_map = &mut context.vol_tasks;
     if let Some(handle) = task_map.get(&VolBriTaskType::MurphValue) {
         handle.abort();
         task_map.remove(&VolBriTaskType::MurphValue);
@@ -136,12 +145,7 @@ fn set_rough(val: f64, window: &Window) {
     println!("Vol: Couldn't find the scale, ignoring...");
 }
 
-fn handle_set_mute(
-    context: Rc<RefCell<AppContext>>,
-    config: Arc<AppConf>,
-    val: bool,
-    window: &Window,
-) {
+fn handle_set_mute(context: &mut VolContext, config: Arc<AppConf>, val: bool, window: &Window) {
     let child = if let Some(w) = window.child() {
         w
     } else {
@@ -149,12 +153,12 @@ fn handle_set_mute(
     };
 
     if let Some(label) = child.first_child().and_downcast_ref::<Label>() {
-        context.borrow_mut().vol.is_muted = val;
+        context.is_muted = val;
         set_mute(&config.vol.run_cmd, val);
         let vol = get_volume(&config.vol.run_cmd).0;
         set_icon(config, IconRefHolder::Text(label), vol, val);
     } else if let Some(pic) = child.first_child().and_downcast_ref::<Image>() {
-        context.borrow_mut().vol.is_muted = val;
+        context.is_muted = val;
         set_mute(&config.vol.run_cmd, val);
         let vol = get_volume(&config.vol.run_cmd).0;
         set_icon(config, IconRefHolder::Svg(pic), vol, val);
@@ -165,7 +169,7 @@ pub fn handle_vol_cmd(
     cmd: Vol,
     window: &Window,
     sender: UnboundedSender<DaemonEvt>,
-    context: Rc<RefCell<AppContext>>,
+    context: &mut VolContext,
     config: Arc<AppConf>,
     monitor: usize,
 ) -> Result<DaemonRes, DaemonErr> {
@@ -174,30 +178,30 @@ pub fn handle_vol_cmd(
             handle_set_mute(context, config, val, window);
         }
         Vol::ToggleMute => {
-            let mute = !context.borrow_mut().vol.is_muted;
+            let mute = !context.is_muted;
             handle_set_mute(context, config, mute, window);
         }
         Vol::GetMute => {
-            return Ok(DaemonRes::GetMute(context.borrow_mut().vol.is_muted));
+            return Ok(DaemonRes::GetMute(context.is_muted));
         }
         Vol::SetRough(val) => {
             set_rough(val, window);
         }
         Vol::Set(val) => {
-            let current = context.borrow_mut().vol.cur_vol;
+            let current = context.cur_vol;
             let target = utils::round_down(val);
             murph(sender, current, context, target, config, window, monitor);
         }
         Vol::Get => {
-            return Ok(DaemonRes::GetVol(context.borrow_mut().vol.cur_vol));
+            return Ok(DaemonRes::GetVol(context.cur_vol));
         }
         Vol::Inc(val) => {
-            let current = context.borrow_mut().vol.cur_vol;
+            let current = context.cur_vol;
             let target = utils::round_down(current + val);
             murph(sender, current, context, target, config, window, monitor);
         }
         Vol::Dec(val) => {
-            let current = context.borrow_mut().vol.cur_vol;
+            let current = context.cur_vol;
             let target = utils::round_down(current - val);
             murph(sender, current, context, target, config, window, monitor);
         }
@@ -209,7 +213,7 @@ pub fn handle_vol_cmd(
         }
         Vol::OpenTimed(time) => {
             window.set_visible(true);
-            let map_ref = &mut context.borrow_mut().vol.vol_tasks;
+            let map_ref = &mut context.vol_tasks;
             if let Some(handle) = map_ref.get(&VolBriTaskType::AwaitClose) {
                 handle.abort();
                 map_ref.remove(&VolBriTaskType::AwaitClose);

@@ -1,7 +1,5 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::process::Command;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -9,7 +7,7 @@ use crate::daemon::structs::{Bri, DaemonEvt, DaemonRes};
 use crate::utils::{self, DisplayBackend};
 use crate::{daemon::structs::DaemonCmd, utils::DaemonErr};
 
-use super::app::{AppContext, VolBriTaskType};
+use super::app::VolBriTaskType;
 use super::config::{AppConf, BriCmdProvider};
 use super::{app::register_widget, window};
 use gtk4::{
@@ -30,6 +28,18 @@ impl BriContext {
             cur_bri,
             bri_tasks: HashMap::new(),
         }
+    }
+
+    pub fn set_virtual_brightness(&mut self, val: f64) -> f64 {
+        if val > 100f64 {
+            self.cur_bri = 100f64;
+        } else if val < 0f64 {
+            self.cur_bri = 0f64;
+        } else {
+            self.cur_bri = val;
+        }
+
+        self.cur_bri
     }
 }
 
@@ -59,16 +69,15 @@ fn update_display_info(config: Arc<AppConf>, window: &Window, val: f64) {
 fn murph(
     sender: UnboundedSender<DaemonEvt>,
     mut current: f64,
-    context: Rc<RefCell<AppContext>>,
+    context: &mut BriContext,
     target: f64,
     config: Arc<AppConf>,
     window: &Window,
     monitor: usize,
 ) {
-    let context_ref = &mut context.borrow_mut();
     // shadowing target to adjust it to an appropriate value
-    let target = context_ref.set_virtual_brightness(target);
-    let task_map = &mut context_ref.bri.bri_tasks;
+    let target = context.set_virtual_brightness(target);
+    let task_map = &mut context.bri_tasks;
     if let Some(handle) = task_map.get(&VolBriTaskType::MurphValue) {
         handle.abort();
         task_map.remove(&VolBriTaskType::MurphValue);
@@ -136,7 +145,7 @@ pub fn handle_bri_cmd(
     cmd: Bri,
     window: &Window,
     sender: UnboundedSender<DaemonEvt>,
-    context: Rc<RefCell<AppContext>>,
+    context: &mut BriContext,
     config: Arc<AppConf>,
     monitor: usize,
 ) -> Result<DaemonRes, DaemonErr> {
@@ -145,20 +154,20 @@ pub fn handle_bri_cmd(
             set_rough(val, window);
         }
         Bri::Set(val) => {
-            let current = context.borrow_mut().bri.cur_bri;
+            let current = context.cur_bri;
             let target = utils::round_down(val);
             murph(sender, current, context, target, config, window, monitor);
         }
         Bri::Get => {
-            return Ok(DaemonRes::GetBri(context.borrow_mut().bri.cur_bri));
+            return Ok(DaemonRes::GetBri(context.cur_bri));
         }
         Bri::Inc(val) => {
-            let current = context.borrow_mut().bri.cur_bri;
+            let current = context.cur_bri;
             let target = utils::round_down(current + val);
             murph(sender, current, context, target, config, window, monitor);
         }
         Bri::Dec(val) => {
-            let current = context.borrow_mut().bri.cur_bri;
+            let current = context.cur_bri;
             let target = utils::round_down(current - val);
             murph(sender, current, context, target, config, window, monitor);
         }
@@ -170,7 +179,7 @@ pub fn handle_bri_cmd(
         }
         Bri::OpenTimed(time) => {
             window.set_visible(true);
-            let map_ref = &mut context.borrow_mut().bri.bri_tasks;
+            let map_ref = &mut context.bri_tasks;
             if let Some(handle) = map_ref.get(&VolBriTaskType::AwaitClose) {
                 handle.abort();
                 map_ref.remove(&VolBriTaskType::AwaitClose);

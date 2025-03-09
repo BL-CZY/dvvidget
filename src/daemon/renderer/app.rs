@@ -67,34 +67,6 @@ impl AppContext {
             dvoty,
         }
     }
-
-    pub fn set_virtual_volume(&mut self, val: f64, monitor: usize) -> f64 {
-        let vol = &mut self.vol[monitor];
-
-        if val > vol.max_vol {
-            vol.cur_vol = vol.max_vol;
-        } else if val < 0f64 {
-            vol.cur_vol = 0f64;
-        } else {
-            vol.cur_vol = val;
-        }
-
-        vol.cur_vol
-    }
-
-    pub fn set_virtual_brightness(&mut self, val: f64, monitor: usize) -> f64 {
-        let bri = &mut self.bri[monitor];
-
-        if val > 100f64 {
-            bri.cur_bri = 100f64;
-        } else if val < 0f64 {
-            bri.cur_bri = 0f64;
-        } else {
-            bri.cur_bri = val;
-        }
-
-        bri.cur_bri
-    }
 }
 
 pub fn register_widget(widget: Widget, id: u32) {
@@ -149,11 +121,13 @@ fn process_evt(
                 Err(poisoned) => poisoned.into_inner(),
             };
 
+            let vol_context = &mut app_context.borrow_mut().vol[monitor];
+
             let result = handle_vol_cmd(
                 evt,
                 &app.window_by_id(get_window_id(Widget::Volume, monitor, &guard)?).unwrap(),
                 sender,
-                app_context,
+                vol_context,
                 config,
                 monitor
             )?;
@@ -167,11 +141,13 @@ fn process_evt(
                 Err(poisoned) => poisoned.into_inner(),
             };
 
+            let bri_context = &mut app_context.borrow_mut().bri[monitor];
+
             let result = handle_bri_cmd(
                 evt,
                 &app.window_by_id(get_window_id(Widget::Brightness, monitor, &guard)?).unwrap(),
                 sender,
-                app_context,
+                bri_context,
                 config,
                 monitor
             )?;
@@ -221,8 +197,9 @@ pub fn init_gtk_async(
     evt_sender: UnboundedSender<DaemonEvt>,
     app: Rc<Application>,
     config: Arc<AppConf>,
+    monitor_count: usize,
 ) -> Result<(), DaemonErr> {
-    let context = Rc::new(RefCell::new(AppContext::from_config(&config)));
+    let context = Rc::new(RefCell::new(AppContext::from_config(&config, monitor_count)));
 
     glib::MainContext::default().spawn_local(async move {
         loop {
@@ -306,6 +283,19 @@ pub fn start_app(
 
     gtk4::init().unwrap();
 
+    let display = gtk4::gdk::Display::default().unwrap();
+    let monitors = display.monitors();
+    
+    let mut count: usize = 0;
+
+    for monitor in &monitors {
+        if let Ok(monitor) = monitor {
+            if monitor.downcast::<gtk4::gdk::Monitor>().is_ok() {
+                count += 1;
+            }
+        }
+    }
+
     //let recent_manager = gtk4::RecentManager::default();
     //let recent_items = recent_manager.items();
 
@@ -335,6 +325,7 @@ pub fn start_app(
         evt_sender.clone(),
         app.clone(),
         config.clone(),
+        count
     ) {
         println!("Err handling command: {:?}", e);
     }
