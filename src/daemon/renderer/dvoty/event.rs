@@ -26,7 +26,7 @@ pub fn handle_dvoty_cmd(
     sender: UnboundedSender<DaemonEvt>,
     context: &mut DvotyContext,
     config: Arc<AppConf>,
-    monitor: usize,
+    monitors: Vec<usize>,
 ) -> Result<DaemonRes, DaemonErr> {
     match cmd {
         Dvoty::Update(str) => {
@@ -36,114 +36,114 @@ pub fn handle_dvoty_cmd(
                 sender.clone(),
                 windows,
                 config.clone(),
-                monitor,
+                monitors,
             )?;
         }
 
         Dvoty::AddEntry(entry) => {
-            super::entry::add_entry(entry, windows, context, config, sender.clone(), monitor)?;
+            super::entry::add_entry(entry, windows, context, config, sender.clone(), monitors)?;
         }
 
         Dvoty::IncEntryIndex => {
             if !context.dvoty_entries.is_empty() {
-                let old = context.cur_ind[monitor];
-                let max = context.dvoty_entries[monitor].len() - 1;
-                context.cur_ind[monitor] += 1;
-                if context.cur_ind[monitor] > max {
-                    context.cur_ind[monitor] = 0;
+                let old = context.cur_ind[monitors];
+                let max = context.dvoty_entries[monitors].len() - 1;
+                context.cur_ind[monitors] += 1;
+                if context.cur_ind[monitors] > max {
+                    context.cur_ind[monitors] = 0;
                 }
-                let new = context.cur_ind[monitor];
-                super::class::adjust_class(old, new, &mut context.dvoty_entries[monitor]);
+                let new = context.cur_ind[monitors];
+                super::class::adjust_class(old, new, &mut context.dvoty_entries[monitors]);
                 super::row::ensure_row_in_viewport(
                     context,
-                    &windows[monitor],
+                    &windows[monitors],
                     sender.clone(),
-                    monitor,
+                    monitors,
                 )?;
             }
         }
 
         Dvoty::DecEntryIndex => {
             if !context.dvoty_entries.is_empty() {
-                let old = context.cur_ind[monitor];
-                let max = context.dvoty_entries[monitor].len() - 1;
-                if context.cur_ind[monitor] == 0 {
-                    context.cur_ind[monitor] = max;
+                let old = context.cur_ind[monitors];
+                let max = context.dvoty_entries[monitors].len() - 1;
+                if context.cur_ind[monitors] == 0 {
+                    context.cur_ind[monitors] = max;
                 } else {
-                    context.cur_ind[monitor] -= 1;
+                    context.cur_ind[monitors] -= 1;
                 }
-                let new = context.cur_ind[monitor];
-                super::class::adjust_class(old, new, &mut context.dvoty_entries[monitor]);
+                let new = context.cur_ind[monitors];
+                super::class::adjust_class(old, new, &mut context.dvoty_entries[monitors]);
                 super::row::ensure_row_in_viewport(
                     context,
-                    &windows[monitor],
+                    &windows[monitors],
                     sender.clone(),
-                    monitor,
+                    monitors,
                 )?;
             }
         }
 
         Dvoty::ScrollStart => {
-            if !context.dvoty_entries[monitor].is_empty() {
-                let old = context.cur_ind[monitor];
-                context.cur_ind[monitor] = 0;
+            if !context.dvoty_entries[monitors].is_empty() {
+                let old = context.cur_ind[monitors];
+                context.cur_ind[monitors] = 0;
                 let new = 0;
-                super::class::adjust_class(old, new, &mut context.dvoty_entries[monitor]);
+                super::class::adjust_class(old, new, &mut context.dvoty_entries[monitors]);
                 super::row::ensure_row_in_viewport(
                     context,
-                    &windows[monitor],
+                    &windows[monitors],
                     sender.clone(),
-                    monitor,
+                    monitors,
                 )?;
             }
         }
 
         Dvoty::ScrollEnd => {
-            if !context.dvoty_entries[monitor].is_empty() {
-                let old = context.cur_ind[monitor];
-                context.cur_ind[monitor] = context.dvoty_entries[monitor].len() - 1;
-                let new = context.dvoty_entries[monitor].len() - 1;
-                super::class::adjust_class(old, new, &mut context.dvoty_entries[monitor].clone());
+            if !context.dvoty_entries[monitors].is_empty() {
+                let old = context.cur_ind[monitors];
+                context.cur_ind[monitors] = context.dvoty_entries[monitors].len() - 1;
+                let new = context.dvoty_entries[monitors].len() - 1;
+                super::class::adjust_class(old, new, &mut context.dvoty_entries[monitors].clone());
                 super::row::ensure_row_in_viewport(
                     context,
-                    &windows[monitor],
+                    &windows[monitors],
                     sender.clone(),
-                    monitor,
+                    monitors,
                 )?;
             }
         }
 
         Dvoty::TriggerEntry => {
-            if !context.dvoty_entries[monitor].is_empty() {
-                context.dvoty_entries[monitor][context.cur_ind[monitor]]
+            if !context.dvoty_entries[monitors].is_empty() {
+                context.dvoty_entries[monitors][context.cur_ind[monitors]]
                     .0
                     .clone()
                     .run(config);
             }
-            windows[monitor].set_visible(false);
+            windows[monitors].set_visible(false);
         }
 
         Dvoty::Open => {
-            windows[monitor].set_visible(true);
-            if let Ok(input) = get_input(&windows[monitor]) {
+            windows[monitors].set_visible(true);
+            if let Ok(input) = get_input(&windows[monitors]) {
                 input.select_region(0, -1);
             }
         }
 
         Dvoty::Close => {
-            windows[monitor].set_visible(false);
+            windows[monitors].set_visible(false);
         }
 
         Dvoty::Toggle => {
-            if windows[monitor].is_visible() {
-                windows[monitor].set_visible(false);
+            if windows[monitors].is_visible() {
+                windows[monitors].set_visible(false);
             } else {
-                windows[monitor].set_visible(true);
+                windows[monitors].set_visible(true);
             }
         }
 
         Dvoty::SetScroll(val) => {
-            super::row::set_scroll(context, &windows[monitor], val, monitor)?;
+            super::row::set_scroll(context, &windows[monitors], val, monitors)?;
         }
     }
 

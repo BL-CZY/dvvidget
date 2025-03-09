@@ -111,7 +111,7 @@ fn process_evt(
     sender: UnboundedSender<DaemonEvt>,
     config: Arc<AppConf>,
     app_context: Rc<RefCell<AppContext>>,
-    monitor: usize,
+    monitors: Vec<usize>,
 ) -> Result<DaemonRes, DaemonErr> {
     match evt {
         DaemonCmdType::ShutDown => {
@@ -132,7 +132,7 @@ fn process_evt(
                 sender,
                 vol_context,
                 config,
-                monitor
+                monitors
             )?;
 
             return Ok(result);
@@ -152,7 +152,7 @@ fn process_evt(
                 sender,
                 bri_context,
                 config,
-                monitor
+                monitors
             )?;
 
             return Ok(result);
@@ -172,7 +172,7 @@ fn process_evt(
                 sender,
                 dvoty_context,
                 config,
-                monitor
+                monitors
             )?;
 
             return Ok(result);
@@ -193,8 +193,12 @@ fn send_res(sender: Option<UnboundedSender<DaemonRes>>, res: DaemonRes) {
 }
 
 #[derive(Hash, PartialEq, Eq)]
-pub enum VolBriTaskType {
+pub enum VolBriTaskTypeWindow {
     AwaitClose,
+}
+
+#[derive(Hash, PartialEq, Eq)]
+pub enum VolBriTaskType {
     MurphValue,
 }
 
@@ -284,23 +288,11 @@ pub fn start_app(
     evt_receiver: UnboundedReceiver<DaemonEvt>,
     evt_sender: UnboundedSender<DaemonEvt>,
     config: Arc<AppConf>,
+    monitor_count: usize
 ) {
     super::dvoty::app_launcher::DESKTOP_FILES
         .set(Arc::new(Mutex::new(vec![])))
         .unwrap();
-
-    let display = gtk4::gdk::Display::default().unwrap();
-    let monitors = display.monitors();
-
-    let mut monitor_count: usize = 0;
-
-    for monitor in &monitors {
-        if let Ok(monitor) = monitor {
-            if monitor.downcast::<gtk4::gdk::Monitor>().is_ok() {
-                monitor_count += 1;
-            }
-        }
-    }
 
     //let recent_manager = gtk4::RecentManager::default();
     //let recent_items = recent_manager.items();

@@ -18,6 +18,15 @@ pub enum MonitorClient {
     One(usize),
 }
 
+impl MonitorClient {
+    pub fn get_val(&self, monitor_count: usize) -> Vec<usize> {
+        match self {
+            Self::All => (0..monitor_count).collect(),
+            Self::One(num) => vec![*num],
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DaemonCmdClient {
     pub monitor: MonitorClient,
@@ -71,7 +80,7 @@ pub struct DaemonEvt {
     pub evt: DaemonCmdType,
     pub sender: Option<UnboundedSender<DaemonRes>>,
     pub uuid: Option<Uuid>,
-    pub monitor: MonitorClient,
+    pub monitor: Vec<usize>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

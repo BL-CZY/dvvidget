@@ -1,5 +1,4 @@
 use crate::daemon::renderer::dvoty::app_launcher;
-use crate::daemon::structs::MonitorClient;
 use crate::utils::{get_paths, shutdown, DaemonErr, ExitType, EXIT_BROADCAST, EXIT_SENT};
 use anyhow::Context;
 use notify::{Event, Watcher};
@@ -32,6 +31,7 @@ pub async fn run_server(
     config_path: &Path,
     socket_path: Option<String>,
     evt_sender: UnboundedSender<DaemonEvt>,
+    monitor_count: usize,
 ) -> Result<(), DaemonErr> {
     let socket_path = if let Some(p) = socket_path {
         p
@@ -98,7 +98,7 @@ pub async fn run_server(
                 let new_sender = evt_sender.clone();
 
                 tokio::spawn(async move {
-                    if let Err(e) = handle_connection(stream, new_sender).await {
+                    if let Err(e) = handle_connection(stream, new_sender, monitor_count).await {
                         println!("Error reading the command: {:?}, ignoring", e)
                     }
                 });
@@ -163,6 +163,7 @@ fn handle_config_file_evt(evt: Event, listener: Rc<tokio::net::UnixListener>, so
 async fn handle_connection(
     mut stream: UnixStream,
     evt_sender: UnboundedSender<DaemonEvt>,
+    monitor_count: usize,
 ) -> Result<(), DaemonErr> {
     let (mut reader, mut writer) = stream.split();
     let (res_sender, mut res_receiver): (UnboundedSender<DaemonRes>, UnboundedReceiver<DaemonRes>) =
@@ -179,7 +180,7 @@ async fn handle_connection(
         evt: evt.cmd.clone(),
         sender: Some(res_sender),
         uuid: None,
-        monitor: evt.monitor,
+        monitor: evt.monitor.get_val(monitor_count),
     };
 
     if let DaemonCmdType::ShutDown = evt.cmd {

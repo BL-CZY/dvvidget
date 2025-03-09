@@ -2,11 +2,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::daemon::structs::{DaemonEvt, DaemonRes, Vol};
+use crate::daemon::structs::{DaemonEvt, DaemonRes, MonitorClient, Vol};
 use crate::utils::{self, DisplayBackend};
 use crate::{daemon::structs::DaemonCmdType, utils::DaemonErr};
 
-use super::app::VolBriTaskType;
+use super::app::{VolBriTaskType, VolBriTaskTypeWindow};
 use super::config::{AppConf, VolCmdProvider};
 use super::{app::register_widget, window};
 use gtk4::{
@@ -19,7 +19,8 @@ pub struct VolContext {
     pub cur_vol: f64,
     pub max_vol: f64,
     pub is_muted: bool,
-    pub vol_tasks: Vec<HashMap<VolBriTaskType, JoinHandle<()>>>,
+    pub vol_tasks_window: Vec<HashMap<VolBriTaskTypeWindow, JoinHandle<()>>>,
+    pub vol_tasks: HashMap<VolBriTaskType, JoinHandle<()>>,
 }
 
 impl VolContext {
@@ -29,13 +30,14 @@ impl VolContext {
             cur_vol,
             max_vol: config.vol.max_vol,
             is_muted,
-            vol_tasks: {
+            vol_tasks_window: {
                 let mut res = vec![];
                 for _ in 0..monitor_count {
                     res.push(HashMap::new());
                 }
                 res
             },
+            vol_tasks: HashMap::new(),
         }
     }
 
@@ -84,15 +86,15 @@ fn murph(
     target: f64,
     config: Arc<AppConf>,
     window: &[Window],
-    monitor: usize,
+    monitor: MonitorClient,
 ) {
     let is_mute = context.is_muted;
     // shadowing target to adjust it to an appropriate value
     let target = context.set_virtual_volume(target);
-    let task_map = &mut context.vol_tasks;
-    if let Some(handle) = task_map[monitor].get(&VolBriTaskType::MurphValue) {
+    let task_map = &mut context.vol_tasks_window;
+    if let Some(handle) = task_map[monitor].get(&VolBriTaskTypeWindow::MurphValue) {
         handle.abort();
-        task_map[monitor].remove(&VolBriTaskType::MurphValue);
+        task_map[monitor].remove(&VolBriTaskTypeWindow::MurphValue);
     }
 
     set_volume(&config.vol.run_cmd, target);
@@ -122,7 +124,7 @@ fn murph(
             .unwrap_or_else(|e| println!("Vol: failed to update: {}", e));
     });
 
-    task_map[monitor].insert(VolBriTaskType::MurphValue, handle);
+    task_map[monitor].insert(VolBriTaskTypeWindow::MurphValue, handle);
 }
 
 fn set_rough(val: f64, windows: &[Window]) {
@@ -183,7 +185,7 @@ pub fn handle_vol_cmd(
     sender: UnboundedSender<DaemonEvt>,
     context: &mut VolContext,
     config: Arc<AppConf>,
-    monitor: usize,
+    monitors: Vec<usize>,
 ) -> Result<DaemonRes, DaemonErr> {
     match cmd {
         Vol::SetMute(val) => {
@@ -202,7 +204,7 @@ pub fn handle_vol_cmd(
         Vol::Set(val) => {
             let current = context.cur_vol;
             let target = utils::round_down(val);
-            murph(sender, current, context, target, config, windows, monitor);
+            murph(sender, current, context, target, config, windows, monitors);
         }
         Vol::Get => {
             return Ok(DaemonRes::GetVol(context.cur_vol));
@@ -210,25 +212,25 @@ pub fn handle_vol_cmd(
         Vol::Inc(val) => {
             let current = context.cur_vol;
             let target = utils::round_down(current + val);
-            murph(sender, current, context, target, config, windows, monitor);
+            murph(sender, current, context, target, config, windows, monitors);
         }
         Vol::Dec(val) => {
             let current = context.cur_vol;
             let target = utils::round_down(current - val);
-            murph(sender, current, context, target, config, windows, monitor);
+            murph(sender, current, context, target, config, windows, monitors);
         }
         Vol::Close => {
-            windows[monitor].set_visible(false);
+            windows[monitors].set_visible(false);
         }
         Vol::Open => {
-            windows[monitor].set_visible(true);
+            windows[monitors].set_visible(true);
         }
         Vol::OpenTimed(time) => {
-            windows[monitor].set_visible(true);
-            let map_ref = &mut context.vol_tasks;
-            if let Some(handle) = map_ref[monitor].get(&VolBriTaskType::AwaitClose) {
+            windows[monitors].set_visible(true);
+            let map_ref = &mut context.vol_tasks_window;
+            if let Some(handle) = map_ref[monitors].get(&VolBriTaskTypeWindow::AwaitClose) {
                 handle.abort();
-                map_ref[monitor].remove(&VolBriTaskType::AwaitClose);
+                map_ref[monitors].remove(&VolBriTaskTypeWindow::AwaitClose);
             }
 
             let handle = tokio::spawn(async move {
@@ -238,13 +240,13 @@ pub fn handle_vol_cmd(
                     evt: DaemonCmdType::Vol(Vol::Close),
                     sender: None,
                     uuid: None,
-                    monitor,
+                    monitor: MonitorClient::One(monitors),
                 }) {
                     println!("Err closing the openned window: {}", e);
                 }
             });
 
-            map_ref[monitor].insert(VolBriTaskType::AwaitClose, handle);
+            map_ref[monitors].insert(VolBriTaskTypeWindow::AwaitClose, handle);
         }
     }
 

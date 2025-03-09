@@ -7,7 +7,7 @@ use crate::daemon::structs::{Bri, DaemonEvt, DaemonRes};
 use crate::utils::{self, DisplayBackend};
 use crate::{daemon::structs::DaemonCmdType, utils::DaemonErr};
 
-use super::app::VolBriTaskType;
+use super::app::VolBriTaskTypeWindow;
 use super::config::{AppConf, BriCmdProvider};
 use super::{app::register_widget, window};
 use gtk4::{
@@ -18,7 +18,7 @@ use tokio::task::JoinHandle;
 
 pub struct BriContext {
     pub cur_bri: f64,
-    pub bri_tasks: Vec<HashMap<VolBriTaskType, JoinHandle<()>>>,
+    pub bri_tasks: Vec<HashMap<VolBriTaskTypeWindow, JoinHandle<()>>>,
 }
 
 impl BriContext {
@@ -86,9 +86,9 @@ fn murph(
     // shadowing target to adjust it to an appropriate value
     let target = context.set_virtual_brightness(target);
     let task_map = &mut context.bri_tasks;
-    if let Some(handle) = task_map[monitor].get(&VolBriTaskType::MurphValue) {
+    if let Some(handle) = task_map[monitor].get(&VolBriTaskTypeWindow::MurphValue) {
         handle.abort();
-        task_map[monitor].remove(&VolBriTaskType::MurphValue);
+        task_map[monitor].remove(&VolBriTaskTypeWindow::MurphValue);
     }
 
     set_bri(&config.bri.run_cmd, target);
@@ -118,7 +118,7 @@ fn murph(
             .unwrap_or_else(|e| println!("Bri: failed to update: {}", e));
     });
 
-    task_map[monitor].insert(VolBriTaskType::MurphValue, handle);
+    task_map[monitor].insert(VolBriTaskTypeWindow::MurphValue, handle);
 }
 
 fn set_rough(val: f64, windows: &[Window]) {
@@ -157,7 +157,7 @@ pub fn handle_bri_cmd(
     sender: UnboundedSender<DaemonEvt>,
     context: &mut BriContext,
     config: Arc<AppConf>,
-    monitor: usize,
+    monitors: Vec<usize>,
 ) -> Result<DaemonRes, DaemonErr> {
     match cmd {
         Bri::SetRough(val) => {
@@ -190,9 +190,9 @@ pub fn handle_bri_cmd(
         Bri::OpenTimed(time) => {
             windows[monitor].set_visible(true);
             let map_ref = &mut context.bri_tasks;
-            if let Some(handle) = map_ref[monitor].get(&VolBriTaskType::AwaitClose) {
+            if let Some(handle) = map_ref[monitor].get(&VolBriTaskTypeWindow::AwaitClose) {
                 handle.abort();
-                map_ref[monitor].remove(&VolBriTaskType::AwaitClose);
+                map_ref[monitor].remove(&VolBriTaskTypeWindow::AwaitClose);
             }
 
             let handle = tokio::spawn(async move {
@@ -208,7 +208,7 @@ pub fn handle_bri_cmd(
                 }
             });
 
-            map_ref[monitor].insert(VolBriTaskType::AwaitClose, handle);
+            map_ref[monitor].insert(VolBriTaskTypeWindow::AwaitClose, handle);
         }
     }
 
