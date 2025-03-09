@@ -46,25 +46,27 @@ impl VolContext {
     }
 }
 
-fn update_display_info(config: Arc<AppConf>, window: &Window, val: f64, is_muted: bool) {
-    let child = if let Some(w) = window.child() {
-        w
-    } else {
-        println!("Vol: can't find the box");
-        return;
-    };
+fn update_display_info(config: Arc<AppConf>, window: &[Window], val: f64, is_muted: bool) {
+    for window in window.iter() {
+        let child = if let Some(w) = window.child() {
+            w
+        } else {
+            println!("Vol: can't find the box");
+            return;
+        };
 
-    if let Some(widget) = child.first_child() {
-        if let Some(label) = widget.downcast_ref::<Label>() {
-            set_icon(config.clone(), IconRefHolder::Text(label), val, is_muted);
-        } else if let Some(pic) = widget.downcast_ref::<Image>() {
-            set_icon(config.clone(), IconRefHolder::Svg(pic), val, is_muted);
+        if let Some(widget) = child.first_child() {
+            if let Some(label) = widget.downcast_ref::<Label>() {
+                set_icon(config.clone(), IconRefHolder::Text(label), val, is_muted);
+            } else if let Some(pic) = widget.downcast_ref::<Image>() {
+                set_icon(config.clone(), IconRefHolder::Svg(pic), val, is_muted);
+            }
         }
-    }
 
-    if let Some(widget) = child.last_child() {
-        if let Some(label) = widget.downcast_ref::<Label>() {
-            label.set_text(&(val as i64).to_string());
+        if let Some(widget) = child.last_child() {
+            if let Some(label) = widget.downcast_ref::<Label>() {
+                label.set_text(&(val as i64).to_string());
+            }
         }
     }
 }
@@ -75,7 +77,7 @@ fn murph(
     context: &mut VolContext,
     target: f64,
     config: Arc<AppConf>,
-    window: &Window,
+    window: &[Window],
     monitor: usize,
 ) {
     let is_mute = context.is_muted;
@@ -117,57 +119,61 @@ fn murph(
     task_map.insert(VolBriTaskType::MurphValue, handle);
 }
 
-fn set_rough(val: f64, window: &Window) {
-    let child = if let Some(widget) = window
-        .child()
-        .and_downcast_ref::<Box>()
-        .unwrap()
-        .first_child()
-    {
-        widget
-    } else {
-        println!("Vol: Failed to downcast the box");
-        return;
-    };
+fn set_rough(val: f64, windows: &[Window]) {
+    for window in windows.iter() {
+        let child = if let Some(widget) = window
+            .child()
+            .and_downcast_ref::<Box>()
+            .unwrap()
+            .first_child()
+        {
+            widget
+        } else {
+            println!("Vol: Failed to downcast the box");
+            continue;
+        };
 
-    if let Some(scale) = child.downcast_ref::<Scale>() {
-        scale.set_value(val);
-        return;
-    }
-
-    while let Some(widget) = child.next_sibling() {
-        if let Some(scale) = widget.downcast_ref::<Scale>() {
+        if let Some(scale) = child.downcast_ref::<Scale>() {
             scale.set_value(val);
-            return;
+            continue;
         }
-    }
 
-    println!("Vol: Couldn't find the scale, ignoring...");
+        while let Some(widget) = child.next_sibling() {
+            if let Some(scale) = widget.downcast_ref::<Scale>() {
+                scale.set_value(val);
+                continue;
+            }
+        }
+
+        println!("Vol: Couldn't find the scale, ignoring...");
+    }
 }
 
-fn handle_set_mute(context: &mut VolContext, config: Arc<AppConf>, val: bool, window: &Window) {
-    let child = if let Some(w) = window.child() {
-        w
-    } else {
-        return;
-    };
+fn handle_set_mute(context: &mut VolContext, config: Arc<AppConf>, val: bool, windows: &[Window]) {
+    for window in windows.iter() {
+        let child = if let Some(w) = window.child() {
+            w
+        } else {
+            continue;
+        };
 
-    if let Some(label) = child.first_child().and_downcast_ref::<Label>() {
-        context.is_muted = val;
-        set_mute(&config.vol.run_cmd, val);
-        let vol = get_volume(&config.vol.run_cmd).0;
-        set_icon(config, IconRefHolder::Text(label), vol, val);
-    } else if let Some(pic) = child.first_child().and_downcast_ref::<Image>() {
-        context.is_muted = val;
-        set_mute(&config.vol.run_cmd, val);
-        let vol = get_volume(&config.vol.run_cmd).0;
-        set_icon(config, IconRefHolder::Svg(pic), vol, val);
+        if let Some(label) = child.first_child().and_downcast_ref::<Label>() {
+            context.is_muted = val;
+            set_mute(&config.vol.run_cmd, val);
+            let vol = get_volume(&config.vol.run_cmd).0;
+            set_icon(config.clone(), IconRefHolder::Text(label), vol, val);
+        } else if let Some(pic) = child.first_child().and_downcast_ref::<Image>() {
+            context.is_muted = val;
+            set_mute(&config.vol.run_cmd, val);
+            let vol = get_volume(&config.vol.run_cmd).0;
+            set_icon(config.clone(), IconRefHolder::Svg(pic), vol, val);
+        }
     }
 }
 
 pub fn handle_vol_cmd(
     cmd: Vol,
-    window: &Window,
+    windows: &[Window],
     sender: UnboundedSender<DaemonEvt>,
     context: &mut VolContext,
     config: Arc<AppConf>,
@@ -175,22 +181,22 @@ pub fn handle_vol_cmd(
 ) -> Result<DaemonRes, DaemonErr> {
     match cmd {
         Vol::SetMute(val) => {
-            handle_set_mute(context, config, val, window);
+            handle_set_mute(context, config, val, windows);
         }
         Vol::ToggleMute => {
             let mute = !context.is_muted;
-            handle_set_mute(context, config, mute, window);
+            handle_set_mute(context, config, mute, windows);
         }
         Vol::GetMute => {
             return Ok(DaemonRes::GetMute(context.is_muted));
         }
         Vol::SetRough(val) => {
-            set_rough(val, window);
+            set_rough(val, windows);
         }
         Vol::Set(val) => {
             let current = context.cur_vol;
             let target = utils::round_down(val);
-            murph(sender, current, context, target, config, window, monitor);
+            murph(sender, current, context, target, config, windows, monitor);
         }
         Vol::Get => {
             return Ok(DaemonRes::GetVol(context.cur_vol));
@@ -198,21 +204,21 @@ pub fn handle_vol_cmd(
         Vol::Inc(val) => {
             let current = context.cur_vol;
             let target = utils::round_down(current + val);
-            murph(sender, current, context, target, config, window, monitor);
+            murph(sender, current, context, target, config, windows, monitor);
         }
         Vol::Dec(val) => {
             let current = context.cur_vol;
             let target = utils::round_down(current - val);
-            murph(sender, current, context, target, config, window, monitor);
+            murph(sender, current, context, target, config, windows, monitor);
         }
         Vol::Close => {
-            window.set_visible(false);
+            windows[monitor].set_visible(false);
         }
         Vol::Open => {
-            window.set_visible(true);
+            windows[monitor].set_visible(true);
         }
         Vol::OpenTimed(time) => {
-            window.set_visible(true);
+            windows[monitor].set_visible(true);
             let map_ref = &mut context.vol_tasks;
             if let Some(handle) = map_ref.get(&VolBriTaskType::AwaitClose) {
                 handle.abort();

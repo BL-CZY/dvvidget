@@ -17,6 +17,7 @@ use gtk4::gdk;
 use gtk4::prelude::*;
 use gtk4::Application;
 use gtk4::CssProvider;
+use gtk4::Window;
 use lazy_static::lazy_static;
 use std::process::Command;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -42,22 +43,21 @@ pub enum Widget {
 }
 
 pub struct AppContext {
-    pub vol: Vec<VolContext>,
-    pub bri: Vec<BriContext>,
+    pub vol: VolContext,
+    pub bri: BriContext,
     pub dvoty: Vec<DvotyContext>,
+    pub monitor_count: usize,
 }
 
 pub static IS_GUI_SHUT: AtomicBool = AtomicBool::new(false);
 
 impl AppContext {
     pub fn from_config(config: &Arc<AppConf>, monitor_count: usize) -> Self {
-        let mut vol = vec![];
-        let mut bri = vec![];
+        let vol = VolContext::from_config(config);
+        let bri = BriContext::from_config(config);
         let mut dvoty=  vec![];
 
         for _ in 0..monitor_count {
-            vol.push(VolContext::from_config(config));
-            bri.push(BriContext::from_config(config));
             dvoty.push(DvotyContext::default());
         }
 
@@ -65,6 +65,7 @@ impl AppContext {
             vol,
             bri,
             dvoty,
+            monitor_count,
         }
     }
 }
@@ -102,6 +103,12 @@ fn get_window_id(widget: Widget, monitor: usize, map: &HashMap<Widget, Vec<u32>>
     }    
 }
 
+fn get_windows(widget: Widget, guard: &HashMap<Widget, Vec<u32>>, app: &Rc<Application>) -> Vec<Window> {
+    guard.get(&widget).unwrap().iter().map(|id|{
+        app.window_by_id(*id).unwrap()
+    }).collect::<Vec<Window>>()
+}
+
 fn process_evt(
     evt: DaemonCmd,
     app: Rc<Application>,
@@ -121,11 +128,11 @@ fn process_evt(
                 Err(poisoned) => poisoned.into_inner(),
             };
 
-            let vol_context = &mut app_context.borrow_mut().vol[monitor];
+            let vol_context = &mut app_context.borrow_mut().vol;
 
             let result = handle_vol_cmd(
                 evt,
-                &app.window_by_id(get_window_id(Widget::Volume, monitor, &guard)?).unwrap(),
+                &get_windows(Widget::Volume, &guard, &app),
                 sender,
                 vol_context,
                 config,
@@ -141,11 +148,11 @@ fn process_evt(
                 Err(poisoned) => poisoned.into_inner(),
             };
 
-            let bri_context = &mut app_context.borrow_mut().bri[monitor];
+            let bri_context = &mut app_context.borrow_mut().bri;
 
             let result = handle_bri_cmd(
                 evt,
-                &app.window_by_id(get_window_id(Widget::Brightness, monitor, &guard)?).unwrap(),
+                &get_windows(Widget::Brightness, &guard, &app),
                 sender,
                 bri_context,
                 config,

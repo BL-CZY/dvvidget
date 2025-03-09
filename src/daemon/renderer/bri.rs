@@ -43,25 +43,27 @@ impl BriContext {
     }
 }
 
-fn update_display_info(config: Arc<AppConf>, window: &Window, val: f64) {
-    let child = if let Some(w) = window.child() {
-        w
-    } else {
-        println!("Vol: can't find the box");
-        return;
-    };
+fn update_display_info(config: Arc<AppConf>, windows: &[Window], val: f64) {
+    for window in windows {
+        let child = if let Some(w) = window.child() {
+            w
+        } else {
+            println!("Vol: can't find the box");
+            return;
+        };
 
-    if let Some(widget) = child.first_child() {
-        if let Some(label) = widget.downcast_ref::<Label>() {
-            set_icon(config.clone(), IconRefHolder::Text(label), val);
-        } else if let Some(pic) = widget.downcast_ref::<Image>() {
-            set_icon(config.clone(), IconRefHolder::Svg(pic), val);
+        if let Some(widget) = child.first_child() {
+            if let Some(label) = widget.downcast_ref::<Label>() {
+                set_icon(config.clone(), IconRefHolder::Text(label), val);
+            } else if let Some(pic) = widget.downcast_ref::<Image>() {
+                set_icon(config.clone(), IconRefHolder::Svg(pic), val);
+            }
         }
-    }
 
-    if let Some(widget) = child.last_child() {
-        if let Some(label) = widget.downcast_ref::<Label>() {
-            label.set_text(&(val as i64).to_string());
+        if let Some(widget) = child.last_child() {
+            if let Some(label) = widget.downcast_ref::<Label>() {
+                label.set_text(&(val as i64).to_string());
+            }
         }
     }
 }
@@ -72,7 +74,7 @@ fn murph(
     context: &mut BriContext,
     target: f64,
     config: Arc<AppConf>,
-    window: &Window,
+    window: &[Window],
     monitor: usize,
 ) {
     // shadowing target to adjust it to an appropriate value
@@ -113,37 +115,39 @@ fn murph(
     task_map.insert(VolBriTaskType::MurphValue, handle);
 }
 
-fn set_rough(val: f64, window: &Window) {
-    let child = if let Some(widget) = window
-        .child()
-        .and_downcast_ref::<Box>()
-        .unwrap()
-        .first_child()
-    {
-        widget
-    } else {
-        println!("Bri: Failed to downcast the box");
-        return;
-    };
+fn set_rough(val: f64, windows: &[Window]) {
+    for window in windows {
+        let child = if let Some(widget) = window
+            .child()
+            .and_downcast_ref::<Box>()
+            .unwrap()
+            .first_child()
+        {
+            widget
+        } else {
+            println!("Bri: Failed to downcast the box");
+            return;
+        };
 
-    if let Some(scale) = child.downcast_ref::<Scale>() {
-        scale.set_value(val);
-        return;
-    }
-
-    while let Some(widget) = child.next_sibling() {
-        if let Some(scale) = widget.downcast_ref::<Scale>() {
+        if let Some(scale) = child.downcast_ref::<Scale>() {
             scale.set_value(val);
             return;
         }
-    }
 
-    println!("Bri: Couldn't find the scale, ignoring...");
+        while let Some(widget) = child.next_sibling() {
+            if let Some(scale) = widget.downcast_ref::<Scale>() {
+                scale.set_value(val);
+                return;
+            }
+        }
+
+        println!("Bri: Couldn't find the scale, ignoring...");
+    }
 }
 
 pub fn handle_bri_cmd(
     cmd: Bri,
-    window: &Window,
+    windows: &[Window],
     sender: UnboundedSender<DaemonEvt>,
     context: &mut BriContext,
     config: Arc<AppConf>,
@@ -151,12 +155,12 @@ pub fn handle_bri_cmd(
 ) -> Result<DaemonRes, DaemonErr> {
     match cmd {
         Bri::SetRough(val) => {
-            set_rough(val, window);
+            set_rough(val, windows);
         }
         Bri::Set(val) => {
             let current = context.cur_bri;
             let target = utils::round_down(val);
-            murph(sender, current, context, target, config, window, monitor);
+            murph(sender, current, context, target, config, windows, monitor);
         }
         Bri::Get => {
             return Ok(DaemonRes::GetBri(context.cur_bri));
@@ -164,21 +168,21 @@ pub fn handle_bri_cmd(
         Bri::Inc(val) => {
             let current = context.cur_bri;
             let target = utils::round_down(current + val);
-            murph(sender, current, context, target, config, window, monitor);
+            murph(sender, current, context, target, config, windows, monitor);
         }
         Bri::Dec(val) => {
             let current = context.cur_bri;
             let target = utils::round_down(current - val);
-            murph(sender, current, context, target, config, window, monitor);
+            murph(sender, current, context, target, config, windows, monitor);
         }
         Bri::Close => {
-            window.set_visible(false);
+            windows[monitor].set_visible(false);
         }
         Bri::Open => {
-            window.set_visible(true);
+            windows[monitor].set_visible(true);
         }
         Bri::OpenTimed(time) => {
-            window.set_visible(true);
+            windows[monitor].set_visible(true);
             let map_ref = &mut context.bri_tasks;
             if let Some(handle) = map_ref.get(&VolBriTaskType::AwaitClose) {
                 handle.abort();
