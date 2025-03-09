@@ -11,39 +11,55 @@ pub struct Args {
 pub enum Command {
     #[clap(about = "Start the daemon and the graphics")]
     Daemon {
-        #[clap(short, long = "path")]
+        #[clap(
+            short,
+            long = "path",
+            help = "Specify custom socket path for daemon communication"
+        )]
         socket_path: Option<String>,
-        #[clap(short, long = "config")]
+        #[clap(
+            short,
+            long = "config",
+            help = "Specify custom configuration file path"
+        )]
         config_path: Option<String>,
         #[clap(subcommand)]
         option: Option<DaemonSubCmd>,
     },
-
     #[clap(about = "Configure the volume panel")]
     Volume {
-        #[clap(short, long = "monitor")]
+        #[clap(
+            short,
+            long = "monitor",
+            help = "Specify which monitor to display the volume panel on (defaults to all monitors if not specified)"
+        )]
         monitor: Option<usize>,
         #[clap(subcommand)]
         actions: VolCmd,
     },
-
     #[clap(about = "Configure the brightness panel")]
     Brightness {
-        #[clap(short, long = "monitor")]
+        #[clap(
+            short,
+            long = "monitor",
+            help = "Specify which monitor to display the brightness panel on (defaults to all monitors if not specified)"
+        )]
         monitor: Option<usize>,
         #[clap(subcommand)]
         actions: BriCmd,
     },
-
     #[clap(about = "Configure dvoty")]
     Dvoty {
-        #[clap(short, long = "monitor")]
+        #[clap(
+            short,
+            long = "monitor",
+            help = "Specify which monitor to display dvoty on (defaults to all monitors if not specified)"
+        )]
         monitor: Option<usize>,
         #[clap(subcommand)]
         actions: DvotyCmd,
     },
 }
-
 #[derive(Subcommand)]
 pub enum DaemonSubCmd {
     #[clap(about = "Start the daemon")]
