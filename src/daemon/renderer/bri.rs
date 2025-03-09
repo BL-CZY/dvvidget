@@ -134,19 +134,25 @@ fn set_rough(val: f64, windows: &[Window]) {
             widget
         } else {
             println!("Bri: Failed to downcast the box");
-            return;
+            continue;
         };
 
         if let Some(scale) = child.downcast_ref::<Scale>() {
             scale.set_value(val);
-            return;
+            continue;
         }
 
+        let mut found = false;
         while let Some(widget) = child.next_sibling() {
             if let Some(scale) = widget.downcast_ref::<Scale>() {
                 scale.set_value(val);
-                return;
+                found = true;
+                break;
             }
+        }
+
+        if found {
+            continue;
         }
 
         println!("Bri: Couldn't find the scale, ignoring...");

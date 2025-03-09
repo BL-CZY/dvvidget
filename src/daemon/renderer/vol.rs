@@ -146,11 +146,17 @@ fn set_rough(val: f64, windows: &[Window]) {
             continue;
         }
 
+        let mut found = false;
         while let Some(widget) = child.next_sibling() {
             if let Some(scale) = widget.downcast_ref::<Scale>() {
                 scale.set_value(val);
-                continue;
+                found = true;
+                break;
             }
+        }
+
+        if found {
+            continue;
         }
 
         println!("Vol: Couldn't find the scale, ignoring...");
@@ -255,6 +261,7 @@ pub fn handle_vol_cmd(
                 });
 
                 map_ref[*monitor].insert(VolBriTaskTypeWindow::AwaitClose, handle);
+                println!("hi");
             }
         }
     }
