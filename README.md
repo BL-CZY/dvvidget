@@ -14,6 +14,7 @@ Use ```-h/--help``` to print help <br />
 Dvvidget supports custom configs and css files,
 you can use ```-c``` or ```--config``` flag to set the config. The default path is ```$HOME/.config/dvvidget/config.toml```
 you can use ```-p``` or ```--path``` flag to set the socket path. The default path is ```/tmp/dvvidget-[version].sock```
+you can use ```-m``` or ```--monitor``` flag to run commands for a specific monitor
 <br />
 Here is a sample config file:
 ```toml
@@ -96,8 +97,8 @@ for ENTRY: <br />
 *Types are: math, instruction, search, url, launch, and letter* <br />
 &nbsp;&nbsp;&nbsp;&nbsp;|--box: .dvoty-box<br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|--icon: .dvoty-icon<br />
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|--label: .dvoty-label, .dvoty-label-mid<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|--scrolled window: .dvoty-scroll-mid<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|--label: .dvoty-label .dvoty-label-mid<br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|--label: .dvoty-label, .dvoty-label-end<br />
 
-TODO: cache, recent files, url history
-TODO: Monitor support
+TODO: cache, recent files
