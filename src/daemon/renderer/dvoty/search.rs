@@ -127,7 +127,7 @@ LIMIT {};
                         })),
                         sender: None,
                         uuid: Some(*id),
-                        monitor: vec![monitor],
+                        monitors: vec![monitor],
                     })
                     .unwrap_or_else(|e| {
                         println!("Dvoty: Failed to send url: {}", e);
@@ -175,7 +175,7 @@ LIMIT {};",
                         })),
                         sender: None,
                         uuid: Some(*id),
-                        monitor: vec![monitor],
+                        monitors: vec![monitor],
                     })
                     .unwrap_or_else(|e| {
                         println!("Dvoty: Failed to send url: {}", e);
@@ -201,7 +201,7 @@ pub async fn handle_search(
             })),
             sender: None,
             uuid: Some(*id),
-            monitor: vec![monitor],
+            monitors: vec![monitor],
         })
         .unwrap_or_else(|e| {
             println!("Dvoty: Error adding search entry: {}", e);

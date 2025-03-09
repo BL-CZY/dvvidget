@@ -69,7 +69,7 @@ pub async fn process_general(
                 })),
                 sender: None,
                 uuid: Some(*id),
-                monitor: vec![monitor],
+                monitors: vec![monitor],
             })
             .unwrap_or_else(|e| println!("Dvoty: Failed to send math result: {}", e));
     }
@@ -88,7 +88,7 @@ pub async fn process_general(
             })),
             sender: None,
             uuid: Some(*id),
-            monitor: vec![monitor],
+            monitors: vec![monitor],
         })
         .unwrap_or_else(|e| {
             println!("Dvoty: Error adding search entry: {}", e);

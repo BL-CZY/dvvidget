@@ -85,7 +85,7 @@ pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>, id: &Uuid, mon
                     })),
                     sender: None,
                     uuid: Some(*id),
-                    monitor: vec![monitor],
+                    monitors: vec![monitor],
                 })
                 .unwrap_or_else(|e| println!("Dvoty: Failed to send math result: {}", e));
         }
@@ -99,7 +99,7 @@ pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>, id: &Uuid, mon
                     })),
                     sender: None,
                     uuid: Some(*id),
-                    monitor: vec![monitor],
+                    monitors: vec![monitor],
                 })
                 .unwrap_or_else(|e| println!("Dvoty: Failed to send math result: {}", e));
         }

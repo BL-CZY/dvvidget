@@ -161,7 +161,7 @@ pub fn create_base_entry(
                 evt: DaemonCmdType::Dvoty(Dvoty::TriggerEntry),
                 sender: None,
                 uuid: None,
-                monitor: vec![monitor],
+                monitors: vec![monitor],
             })
             .unwrap_or_else(|e| println!("Dvoty: Failed to send trigger event by clicking: {}", e))
     });

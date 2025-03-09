@@ -236,13 +236,13 @@ pub fn init_gtk_async(
                 Some(evt) = evt_receiver.recv() => {
                     if let Some(id) = evt.uuid {
                         if id == *CURRENT_ID.lock().unwrap(){
-                            match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), context.clone(), evt.monitor) {
+                            match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), context.clone(), evt.monitors) {
                                 Err(e) => send_res(evt.sender, DaemonRes::Failure(format!("{:?}", e))),
                                 Ok(res) => send_res(evt.sender, res),
                             }
                         }
                     } else {
-                        match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), context.clone(), evt.monitor) {
+                        match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), context.clone(), evt.monitors) {
                             Err(e) => send_res(evt.sender, DaemonRes::Failure(format!("{:?}", e))),
                             Ok(res) => send_res(evt.sender, res),
                         }

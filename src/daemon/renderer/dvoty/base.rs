@@ -78,7 +78,7 @@ fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
                         evt: DaemonCmdType::Dvoty(Dvoty::ScrollEnd),
                         sender: None,
                         uuid: None,
-                        monitor: vec![monitor],
+                        monitors: vec![monitor],
                     })
                     .unwrap();
                 glib::Propagation::Stop
@@ -89,7 +89,7 @@ fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
                         evt: DaemonCmdType::Dvoty(Dvoty::ScrollStart),
                         sender: None,
                         uuid: None,
-                        monitor: vec![monitor],
+                        monitors: vec![monitor],
                     })
                     .unwrap();
 
@@ -102,7 +102,7 @@ fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
                         evt: DaemonCmdType::Dvoty(Dvoty::Close),
                         sender: None,
                         uuid: None,
-                        monitor: vec![monitor],
+                        monitors: vec![monitor],
                     })
                     .unwrap_or_else(|e| println!("Dvoty: Failed to send triggering event: {}", e));
                 glib::Propagation::Stop
@@ -119,7 +119,7 @@ fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
                     evt: DaemonCmdType::Dvoty(Dvoty::TriggerEntry),
                     sender: None,
                     uuid: None,
-                    monitor: vec![monitor],
+                    monitors: vec![monitor],
                 })
                 .unwrap_or_else(|e| println!("Dvoty: Failed to send triggering event: {}", e));
         }
@@ -133,7 +133,7 @@ fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
             evt: DaemonCmdType::Dvoty(Dvoty::Update(content)),
             sender: None,
             uuid: None,
-            monitor: vec![monitor],
+            monitors: vec![monitor],
         }) {
             println!("Can't send message from Dvoty: {}", e);
         };
@@ -202,7 +202,7 @@ pub fn create_dvoty(
         evt: DaemonCmdType::Dvoty(Dvoty::Update("".into())),
         sender: None,
         uuid: None,
-        monitor: vec![monitor],
+        monitors: vec![monitor],
     }) {
         println!("Can't send message from Dvoty: {}", e);
     };

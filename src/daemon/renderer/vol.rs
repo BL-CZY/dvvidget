@@ -108,7 +108,7 @@ fn murph(
                     evt: DaemonCmdType::Vol(Vol::SetRough(current)),
                     sender: None,
                     uuid: None,
-                    monitor: monitor.clone(),
+                    monitors: monitor.clone(),
                 })
                 .unwrap_or_else(|e| println!("Vol: failed to update: {}", e));
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -119,7 +119,7 @@ fn murph(
                 evt: DaemonCmdType::Vol(Vol::SetRough(target)),
                 sender: None,
                 uuid: None,
-                monitor,
+                monitors: monitor,
             })
             .unwrap_or_else(|e| println!("Vol: failed to update: {}", e));
     });
@@ -248,7 +248,7 @@ pub fn handle_vol_cmd(
                         evt: DaemonCmdType::Vol(Vol::Close),
                         sender: None,
                         uuid: None,
-                        monitor: monitors_clone.clone(),
+                        monitors: monitors_clone.clone(),
                     }) {
                         println!("Err closing the openned window: {}", e);
                     }

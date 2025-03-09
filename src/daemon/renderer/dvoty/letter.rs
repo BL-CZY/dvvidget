@@ -146,7 +146,7 @@ pub fn process_greek_letters(
                     })),
                     sender: None,
                     uuid: Some(*id),
-                    monitor: vec![monitor],
+                    monitors: vec![monitor],
                 })
                 .unwrap_or_else(|e| {
                     println!("Dvoty: can't send letter: {}", e);

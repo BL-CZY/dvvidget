@@ -190,7 +190,7 @@ pub fn send_inc(sender: UnboundedSender<DaemonEvt>, monitor: Vec<usize>) {
             evt: DaemonCmdType::Dvoty(Dvoty::IncEntryIndex),
             sender: None,
             uuid: None,
-            monitor,
+            monitors: monitor,
         })
         .unwrap_or_else(|e| println!("Dvoty: Failed to send inc index: {}", e));
 }
@@ -201,7 +201,7 @@ pub fn send_dec(sender: UnboundedSender<DaemonEvt>, monitor: Vec<usize>) {
             evt: DaemonCmdType::Dvoty(Dvoty::DecEntryIndex),
             sender: None,
             uuid: None,
-            monitor,
+            monitors: monitor,
         })
         .unwrap_or_else(|e| println!("Dvoty: Failed to send dec index: {}", e));
 }

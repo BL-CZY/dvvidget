@@ -104,7 +104,7 @@ fn murph(
                     evt: DaemonCmdType::Bri(Bri::SetRough(current)),
                     sender: None,
                     uuid: None,
-                    monitor: monitors.clone(),
+                    monitors: monitors.clone(),
                 })
                 .unwrap_or_else(|e| println!("Bri: failed to update: {}", e));
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -115,7 +115,7 @@ fn murph(
                 evt: DaemonCmdType::Bri(Bri::SetRough(target)),
                 sender: None,
                 uuid: None,
-                monitor: monitors,
+                monitors,
             })
             .unwrap_or_else(|e| println!("Bri: failed to update: {}", e));
     });
@@ -212,7 +212,7 @@ pub fn handle_bri_cmd(
                         evt: DaemonCmdType::Bri(Bri::Close),
                         sender: None,
                         uuid: None,
-                        monitor: monitors_clone,
+                        monitors: monitors_clone,
                     }) {
                         println!("Err closing the openned window: {}", e);
                     }

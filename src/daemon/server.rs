@@ -180,7 +180,7 @@ async fn handle_connection(
         evt: evt.cmd.clone(),
         sender: Some(res_sender),
         uuid: None,
-        monitor: evt.monitor.get_val(monitor_count),
+        monitors: evt.monitor.get_val(monitor_count),
     };
 
     if let DaemonCmdType::ShutDown = evt.cmd {
