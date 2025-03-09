@@ -53,8 +53,8 @@ pub static IS_GUI_SHUT: AtomicBool = AtomicBool::new(false);
 
 impl AppContext {
     pub fn from_config(config: &Arc<AppConf>, monitor_count: usize) -> Self {
-        let vol = VolContext::from_config(config);
-        let bri = BriContext::from_config(config);
+        let vol = VolContext::from_config(config, monitor_count);
+        let bri = BriContext::from_config(config, monitor_count);
         let mut dvoty=  vec![];
 
         for _ in 0..monitor_count {

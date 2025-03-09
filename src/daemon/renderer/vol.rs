@@ -19,17 +19,23 @@ pub struct VolContext {
     pub cur_vol: f64,
     pub max_vol: f64,
     pub is_muted: bool,
-    pub vol_tasks: HashMap<VolBriTaskType, JoinHandle<()>>,
+    pub vol_tasks: Vec<HashMap<VolBriTaskType, JoinHandle<()>>>,
 }
 
 impl VolContext {
-    pub fn from_config(config: &Arc<AppConf>) -> Self {
+    pub fn from_config(config: &Arc<AppConf>, monitor_count: usize) -> Self {
         let (cur_vol, is_muted) = get_volume(&config.vol.run_cmd);
         VolContext {
             cur_vol,
             max_vol: config.vol.max_vol,
             is_muted,
-            vol_tasks: HashMap::new(),
+            vol_tasks: {
+                let mut res = vec![];
+                for _ in 0..monitor_count {
+                    res.push(HashMap::new());
+                }
+                res
+            },
         }
     }
 
@@ -84,9 +90,9 @@ fn murph(
     // shadowing target to adjust it to an appropriate value
     let target = context.set_virtual_volume(target);
     let task_map = &mut context.vol_tasks;
-    if let Some(handle) = task_map.get(&VolBriTaskType::MurphValue) {
+    if let Some(handle) = task_map[monitor].get(&VolBriTaskType::MurphValue) {
         handle.abort();
-        task_map.remove(&VolBriTaskType::MurphValue);
+        task_map[monitor].remove(&VolBriTaskType::MurphValue);
     }
 
     set_volume(&config.vol.run_cmd, target);
@@ -116,7 +122,7 @@ fn murph(
             .unwrap_or_else(|e| println!("Vol: failed to update: {}", e));
     });
 
-    task_map.insert(VolBriTaskType::MurphValue, handle);
+    task_map[monitor].insert(VolBriTaskType::MurphValue, handle);
 }
 
 fn set_rough(val: f64, windows: &[Window]) {
@@ -220,9 +226,9 @@ pub fn handle_vol_cmd(
         Vol::OpenTimed(time) => {
             windows[monitor].set_visible(true);
             let map_ref = &mut context.vol_tasks;
-            if let Some(handle) = map_ref.get(&VolBriTaskType::AwaitClose) {
+            if let Some(handle) = map_ref[monitor].get(&VolBriTaskType::AwaitClose) {
                 handle.abort();
-                map_ref.remove(&VolBriTaskType::AwaitClose);
+                map_ref[monitor].remove(&VolBriTaskType::AwaitClose);
             }
 
             let handle = tokio::spawn(async move {
@@ -238,7 +244,7 @@ pub fn handle_vol_cmd(
                 }
             });
 
-            map_ref.insert(VolBriTaskType::AwaitClose, handle);
+            map_ref[monitor].insert(VolBriTaskType::AwaitClose, handle);
         }
     }
 
