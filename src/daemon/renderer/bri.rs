@@ -1,15 +1,13 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::process::Command;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 
 use crate::daemon::structs::{Bri, DaemonEvt, DaemonRes};
 use crate::utils::{self, DisplayBackend};
-use crate::{daemon::structs::DaemonCmd, utils::DaemonErr};
+use crate::{daemon::structs::DaemonCmdType, utils::DaemonErr};
 
-use super::app::{AppContext, VolBriTaskType};
+use super::app::{VolBriTaskType, VolBriTaskTypeWindow};
 use super::config::{AppConf, BriCmdProvider};
 use super::{app::register_widget, window};
 use gtk4::{
@@ -20,38 +18,60 @@ use tokio::task::JoinHandle;
 
 pub struct BriContext {
     pub cur_bri: f64,
+    pub bri_tasks_window: Vec<HashMap<VolBriTaskTypeWindow, JoinHandle<()>>>,
     pub bri_tasks: HashMap<VolBriTaskType, JoinHandle<()>>,
 }
 
 impl BriContext {
-    pub fn from_config(config: &Arc<AppConf>) -> Self {
+    pub fn from_config(config: &Arc<AppConf>, monitor_count: usize) -> Self {
         let cur_bri = get_bri(&config.bri.run_cmd);
         BriContext {
             cur_bri,
+            bri_tasks_window: {
+                let mut res = vec![];
+                for _ in 0..monitor_count {
+                    res.push(HashMap::new());
+                }
+                res
+            },
             bri_tasks: HashMap::new(),
         }
     }
+
+    pub fn set_virtual_brightness(&mut self, val: f64) -> f64 {
+        if val > 100f64 {
+            self.cur_bri = 100f64;
+        } else if val < 0f64 {
+            self.cur_bri = 0f64;
+        } else {
+            self.cur_bri = val;
+        }
+
+        self.cur_bri
+    }
 }
 
-fn update_display_info(config: Arc<AppConf>, window: &Window, val: f64) {
-    let child = if let Some(w) = window.child() {
-        w
-    } else {
-        println!("Vol: can't find the box");
-        return;
-    };
+fn update_display_info(config: Arc<AppConf>, windows: &[Window], val: f64) {
+    for window in windows {
+        let child = if let Some(w) = window.child() {
+            w
+        } else {
+            println!("Vol: can't find the box");
+            return;
+        };
 
-    if let Some(widget) = child.first_child() {
-        if let Some(label) = widget.downcast_ref::<Label>() {
-            set_icon(config.clone(), IconRefHolder::Text(label), val);
-        } else if let Some(pic) = widget.downcast_ref::<Image>() {
-            set_icon(config.clone(), IconRefHolder::Svg(pic), val);
+        if let Some(widget) = child.first_child() {
+            if let Some(label) = widget.downcast_ref::<Label>() {
+                set_icon(config.clone(), IconRefHolder::Text(label), val);
+            } else if let Some(pic) = widget.downcast_ref::<Image>() {
+                set_icon(config.clone(), IconRefHolder::Svg(pic), val);
+            }
         }
-    }
 
-    if let Some(widget) = child.last_child() {
-        if let Some(label) = widget.downcast_ref::<Label>() {
-            label.set_text(&(val as i64).to_string());
+        if let Some(widget) = child.last_child() {
+            if let Some(label) = widget.downcast_ref::<Label>() {
+                label.set_text(&(val as i64).to_string());
+            }
         }
     }
 }
@@ -59,15 +79,15 @@ fn update_display_info(config: Arc<AppConf>, window: &Window, val: f64) {
 fn murph(
     sender: UnboundedSender<DaemonEvt>,
     mut current: f64,
-    context: Rc<RefCell<AppContext>>,
+    context: &mut BriContext,
     target: f64,
     config: Arc<AppConf>,
-    window: &Window,
+    window: &[Window],
+    monitors: Vec<usize>,
 ) {
-    let context_ref = &mut context.borrow_mut();
     // shadowing target to adjust it to an appropriate value
-    let target = context_ref.set_virtual_brightness(target);
-    let task_map = &mut context_ref.bri.bri_tasks;
+    let target = context.set_virtual_brightness(target);
+    let task_map = &mut context.bri_tasks;
     if let Some(handle) = task_map.get(&VolBriTaskType::MurphValue) {
         handle.abort();
         task_map.remove(&VolBriTaskType::MurphValue);
@@ -81,9 +101,10 @@ fn murph(
             current += (target - current) * 0.1f64;
             sender
                 .send(DaemonEvt {
-                    evt: DaemonCmd::Bri(Bri::SetRough(current)),
+                    evt: DaemonCmdType::Bri(Bri::SetRough(current)),
                     sender: None,
                     uuid: None,
+                    monitors: monitors.clone(),
                 })
                 .unwrap_or_else(|e| println!("Bri: failed to update: {}", e));
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -91,9 +112,10 @@ fn murph(
 
         sender
             .send(DaemonEvt {
-                evt: DaemonCmd::Bri(Bri::SetRough(target)),
+                evt: DaemonCmdType::Bri(Bri::SetRough(target)),
                 sender: None,
                 uuid: None,
+                monitors,
             })
             .unwrap_or_else(|e| println!("Bri: failed to update: {}", e));
     });
@@ -101,90 +123,103 @@ fn murph(
     task_map.insert(VolBriTaskType::MurphValue, handle);
 }
 
-fn set_rough(val: f64, window: &Window) {
-    let child = if let Some(widget) = window
-        .child()
-        .and_downcast_ref::<Box>()
-        .unwrap()
-        .first_child()
-    {
-        widget
-    } else {
-        println!("Bri: Failed to downcast the box");
-        return;
-    };
+fn set_rough(val: f64, windows: &[Window]) {
+    for window in windows {
+        let child = if let Some(widget) = window
+            .child()
+            .and_downcast_ref::<Box>()
+            .unwrap()
+            .first_child()
+        {
+            widget
+        } else {
+            println!("Bri: Failed to downcast the box");
+            return;
+        };
 
-    if let Some(scale) = child.downcast_ref::<Scale>() {
-        scale.set_value(val);
-        return;
-    }
-
-    while let Some(widget) = child.next_sibling() {
-        if let Some(scale) = widget.downcast_ref::<Scale>() {
+        if let Some(scale) = child.downcast_ref::<Scale>() {
             scale.set_value(val);
             return;
         }
-    }
 
-    println!("Bri: Couldn't find the scale, ignoring...");
+        while let Some(widget) = child.next_sibling() {
+            if let Some(scale) = widget.downcast_ref::<Scale>() {
+                scale.set_value(val);
+                return;
+            }
+        }
+
+        println!("Bri: Couldn't find the scale, ignoring...");
+    }
 }
 
 pub fn handle_bri_cmd(
     cmd: Bri,
-    window: &Window,
+    windows: &[Window],
     sender: UnboundedSender<DaemonEvt>,
-    context: Rc<RefCell<AppContext>>,
+    context: &mut BriContext,
     config: Arc<AppConf>,
+    monitors: Vec<usize>,
 ) -> Result<DaemonRes, DaemonErr> {
     match cmd {
         Bri::SetRough(val) => {
-            set_rough(val, window);
+            set_rough(val, windows);
         }
         Bri::Set(val) => {
-            let current = context.borrow_mut().bri.cur_bri;
+            let current = context.cur_bri;
             let target = utils::round_down(val);
-            murph(sender, current, context, target, config, window);
+            murph(sender, current, context, target, config, windows, monitors);
         }
         Bri::Get => {
-            return Ok(DaemonRes::GetBri(context.borrow_mut().bri.cur_bri));
+            return Ok(DaemonRes::GetBri(context.cur_bri));
         }
         Bri::Inc(val) => {
-            let current = context.borrow_mut().bri.cur_bri;
+            let current = context.cur_bri;
             let target = utils::round_down(current + val);
-            murph(sender, current, context, target, config, window);
+            murph(sender, current, context, target, config, windows, monitors);
         }
         Bri::Dec(val) => {
-            let current = context.borrow_mut().bri.cur_bri;
+            let current = context.cur_bri;
             let target = utils::round_down(current - val);
-            murph(sender, current, context, target, config, window);
+            murph(sender, current, context, target, config, windows, monitors);
         }
         Bri::Close => {
-            window.set_visible(false);
+            for monitor in monitors {
+                windows[monitor].set_visible(false);
+            }
         }
         Bri::Open => {
-            window.set_visible(true);
+            for monitor in monitors {
+                windows[monitor].set_visible(true);
+            }
         }
         Bri::OpenTimed(time) => {
-            window.set_visible(true);
-            let map_ref = &mut context.borrow_mut().bri.bri_tasks;
-            if let Some(handle) = map_ref.get(&VolBriTaskType::AwaitClose) {
-                handle.abort();
-                map_ref.remove(&VolBriTaskType::AwaitClose);
-            }
-
-            let handle = tokio::spawn(async move {
-                tokio::time::sleep(Duration::from_secs_f64(time)).await;
-
-                if let Err(e) = sender.send(DaemonEvt {
-                    evt: DaemonCmd::Bri(Bri::Close),
-                    sender: None,
-                    uuid: None,
-                }) {
-                    println!("Err closing the openned window: {}", e);
+            for monitor in monitors.iter() {
+                windows[*monitor].set_visible(true);
+                let map_ref = &mut context.bri_tasks_window;
+                if let Some(handle) = map_ref[*monitor].get(&VolBriTaskTypeWindow::AwaitClose) {
+                    handle.abort();
+                    map_ref[*monitor].remove(&VolBriTaskTypeWindow::AwaitClose);
                 }
-            });
 
-            map_ref.insert(VolBriTaskType::AwaitClose, handle);
+                let sender_clone = sender.clone();
+                let monitors_clone = monitors.clone();
+
+                let handle = tokio::spawn(async move {
+                    tokio::time::sleep(Duration::from_secs_f64(time)).await;
+
+                    if let Err(e) = sender_clone.send(DaemonEvt {
+                        evt: DaemonCmdType::Bri(Bri::Close),
+                        sender: None,
+                        uuid: None,
+                        monitors: monitors_clone,
+                    }) {
+                        println!("Err closing the openned window: {}", e);
+                    }
+                });
+
+                map_ref[*monitor].insert(VolBriTaskTypeWindow::AwaitClose, handle);
+            }
         }
     }
 
@@ -295,12 +330,14 @@ pub fn create_bri_osd(
     backend: DisplayBackend,
     app: &Application,
     config: Arc<AppConf>,
+    monitor: &gtk4::gdk::Monitor,
 ) -> ApplicationWindow {
     let result = window::create_window(
         &backend,
         app,
         &config.bri.window,
         gtk4_layer_shell::KeyboardMode::None,
+        monitor,
     );
     result.add_css_class("bri-window");
 

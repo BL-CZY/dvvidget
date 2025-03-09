@@ -1,4 +1,3 @@
-use std::cell::RefMut;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -8,18 +7,18 @@ use gtk4::ListBox;
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
-use crate::daemon::renderer::app::AppContext;
 use crate::daemon::renderer::config::AppConf;
 use crate::daemon::renderer::config::SearchEngine;
 use crate::daemon::renderer::dvoty::app_launcher::underline_string;
-use crate::daemon::renderer::dvoty::event::CURRENT_ID;
-use crate::daemon::structs::DaemonCmd;
+use crate::daemon::renderer::dvoty::event::CURRENT_IDS;
+use crate::daemon::structs::DaemonCmdType;
 use crate::daemon::structs::DaemonEvt;
 use crate::daemon::structs::Dvoty;
 
 use super::class::adjust_class;
 use super::entry::create_base_entry;
 use super::entry::DvotyUIEntry;
+use super::DvotyContext;
 use super::DvotyEntry;
 
 pub async fn process_history(
@@ -27,6 +26,7 @@ pub async fn process_history(
     config: Arc<AppConf>,
     sender: UnboundedSender<DaemonEvt>,
     id: &Uuid,
+    monitor: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let keyword = keyword.to_lowercase();
 
@@ -110,13 +110,17 @@ LIMIT {};
                 .await?;
 
             for place in places {
-                if *id != *CURRENT_ID.lock().unwrap_or_else(|p| p.into_inner()) {
+                if *id
+                    != *CURRENT_IDS.get().unwrap()[monitor]
+                        .lock()
+                        .unwrap_or_else(|p| p.into_inner())
+                {
                     return Ok(());
                 }
 
                 sender
                     .send(DaemonEvt {
-                        evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
+                        evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
                             url: place.url.clone(),
                             title: Some(format!(
                                 "<span color=\"{}\"> <u><b>{}:</b></u></span> {}",
@@ -127,6 +131,7 @@ LIMIT {};
                         })),
                         sender: None,
                         uuid: Some(*id),
+                        monitors: vec![monitor],
                     })
                     .unwrap_or_else(|e| {
                         println!("Dvoty: Failed to send url: {}", e);
@@ -162,18 +167,23 @@ LIMIT {};",
                 .await?;
 
             places.iter().for_each(|place| {
-                if *id != *CURRENT_ID.lock().unwrap_or_else(|p| p.into_inner()) {
+                if *id
+                    != *CURRENT_IDS.get().unwrap()[monitor]
+                        .lock()
+                        .unwrap_or_else(|p| p.into_inner())
+                {
                     return;
                 }
 
                 sender
                     .send(DaemonEvt {
-                        evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
+                        evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
                             url: place.url.clone(),
                             title: Some(underline_string(&keyword, &place.title)),
                         })),
                         sender: None,
                         uuid: Some(*id),
+                        monitors: vec![monitor],
                     })
                     .unwrap_or_else(|e| {
                         println!("Dvoty: Failed to send url: {}", e);
@@ -190,20 +200,22 @@ pub async fn handle_search(
     keyword: String,
     id: &Uuid,
     config: Arc<AppConf>,
+    monitor: usize,
 ) {
     sender
         .send(DaemonEvt {
-            evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Search {
+            evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Search {
                 keyword: keyword.clone(),
             })),
             sender: None,
             uuid: Some(*id),
+            monitors: vec![monitor],
         })
         .unwrap_or_else(|e| {
             println!("Dvoty: Error adding search entry: {}", e);
         });
 
-    process_history(&keyword, config, sender.clone(), &id)
+    process_history(&keyword, config, sender.clone(), &id, monitor)
         .await
         .unwrap_or_else(|e| {
             println!("{}", e);
@@ -227,8 +239,9 @@ pub fn populate_search_entry(
     config: Arc<AppConf>,
     list: &ListBox,
     keyword: String,
-    context: &mut RefMut<AppContext>,
+    context: &mut DvotyContext,
     sender: UnboundedSender<DaemonEvt>,
+    monitor: usize,
 ) {
     let row = create_base_entry(
         &config.dvoty.search_icon,
@@ -236,15 +249,13 @@ pub fn populate_search_entry(
         "Click to search",
         sender,
         config.clone(),
+        monitor,
     );
 
-    context
-        .dvoty
-        .dvoty_entries
-        .push((DvotyUIEntry::Search { keyword }, row.clone()));
+    context.dvoty_entries[monitor].push((DvotyUIEntry::Search { keyword }, row.clone()));
 
-    if context.dvoty.dvoty_entries.len() <= 1 {
-        adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
+    if context.dvoty_entries[monitor].len() <= 1 {
+        adjust_class(0, 0, &mut context.dvoty_entries[monitor]);
     }
 
     list.append(&row);

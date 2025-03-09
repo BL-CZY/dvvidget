@@ -1,5 +1,5 @@
 use core::f64;
-use std::{cell::RefMut, sync::Arc};
+use std::sync::Arc;
 
 use evalexpr::{context_map, Value};
 use gtk4::{prelude::DisplayExt, ListBox};
@@ -7,12 +7,12 @@ use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
 
 use crate::daemon::{
-    renderer::{app::AppContext, config::AppConf, dvoty::entry::DvotyEntry},
-    structs::{DaemonCmd, DaemonEvt, Dvoty},
+    renderer::{config::AppConf, dvoty::entry::DvotyEntry},
+    structs::{DaemonCmdType, DaemonEvt, Dvoty},
 };
 
-use super::class::adjust_class;
 use super::entry::DvotyUIEntry;
+use super::{class::adjust_class, DvotyContext};
 
 pub fn set_clipboard_text(text: &str) {
     let display = gtk4::gdk::Display::default().expect("Could not get default display");
@@ -39,7 +39,7 @@ pub fn post_process_result(input: Value) -> String {
     }
 }
 
-pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>, id: &Uuid) {
+pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>, id: &Uuid, monitor: usize) {
     use evalexpr::Value;
     let input = preprocess_math(input);
     let context = match context_map! {
@@ -79,12 +79,13 @@ pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>, id: &Uuid) {
         Ok(res) => {
             sender
                 .send(DaemonEvt {
-                    evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Math {
+                    evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Math {
                         expression: expr,
                         result: post_process_result(res),
                     })),
                     sender: None,
                     uuid: Some(*id),
+                    monitors: vec![monitor],
                 })
                 .unwrap_or_else(|e| println!("Dvoty: Failed to send math result: {}", e));
         }
@@ -92,12 +93,13 @@ pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>, id: &Uuid) {
             println!("Dvoty: Failed to evaluate math: {}", e);
             sender
                 .send(DaemonEvt {
-                    evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Math {
+                    evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Math {
                         expression: expr,
                         result: e.to_string(),
                     })),
                     sender: None,
                     uuid: Some(*id),
+                    monitors: vec![monitor],
                 })
                 .unwrap_or_else(|e| println!("Dvoty: Failed to send math result: {}", e));
         }
@@ -108,8 +110,9 @@ pub fn populate_math_entry(
     config: Arc<AppConf>,
     list: &ListBox,
     result: String,
-    context: &mut RefMut<AppContext>,
+    context: &mut DvotyContext,
     sender: UnboundedSender<DaemonEvt>,
+    monitor: usize,
 ) {
     let row = super::entry::create_base_entry(
         &config.dvoty.math_icon,
@@ -117,19 +120,20 @@ pub fn populate_math_entry(
         "Click to copy",
         sender,
         config.clone(),
+        monitor,
     );
 
     let result_clone = result.clone();
 
-    context.dvoty.dvoty_entries.push((
+    context.dvoty_entries[monitor].push((
         DvotyUIEntry::Math {
             result: result_clone,
         },
         row.clone(),
     ));
 
-    if context.dvoty.dvoty_entries.len() <= 1 {
-        adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
+    if context.dvoty_entries.len() <= 1 {
+        adjust_class(0, 0, &mut context.dvoty_entries[monitor]);
     }
 
     list.append(&row);

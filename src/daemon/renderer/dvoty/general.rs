@@ -5,7 +5,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::daemon::{
     renderer::config::AppConf,
-    structs::{DaemonCmd, DaemonEvt, Dvoty},
+    structs::{DaemonCmdType, DaemonEvt, Dvoty},
 };
 
 use super::{
@@ -57,42 +57,45 @@ pub async fn process_general(
     input: &str,
     id: &uuid::Uuid,
     config: Arc<AppConf>,
+    monitor: usize,
 ) {
     // math
     if let Ok(val) = identify_math(input) {
         sender
             .send(DaemonEvt {
-                evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Math {
+                evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Math {
                     expression: input.to_string(),
                     result: post_process_result(val),
                 })),
                 sender: None,
                 uuid: Some(*id),
+                monitors: vec![monitor],
             })
             .unwrap_or_else(|e| println!("Dvoty: Failed to send math result: {}", e));
     }
 
     // letter
-    process_greek_letters(input.to_string(), sender.clone(), id);
+    process_greek_letters(input.to_string(), sender.clone(), id, monitor);
 
     // app launcher
-    process_apps(input, sender.clone(), id, config.clone());
+    process_apps(input, sender.clone(), id, config.clone(), monitor);
 
     // search
     sender
         .send(DaemonEvt {
-            evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Search {
+            evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Search {
                 keyword: input.into(),
             })),
             sender: None,
             uuid: Some(*id),
+            monitors: vec![monitor],
         })
         .unwrap_or_else(|e| {
             println!("Dvoty: Error adding search entry: {}", e);
         });
 
     // website
-    process_history(input, config, sender.clone(), id)
+    process_history(input, config, sender.clone(), id, monitor)
         .await
         .unwrap_or_else(|e| {
             println!("{}", e);

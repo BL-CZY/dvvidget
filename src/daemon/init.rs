@@ -6,6 +6,8 @@ use super::renderer::{app::start_app, config::read_config};
 use super::server;
 use super::structs::DaemonEvt;
 use crate::utils::{detect_display, DaemonErr};
+use glib::object::Cast;
+use gtk4::prelude::DisplayExt;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 pub fn start_daemon(
@@ -46,13 +48,31 @@ pub fn start_daemon(
         },
     );
 
+    let _g = handle.enter();
+
+    gtk4::init().unwrap();
+
+    let display = gtk4::gdk::Display::default().unwrap();
+    let monitors = display.monitors();
+
+    let mut monitor_list = vec![];
+
+    for monitor in &monitors {
+        if let Ok(monitor) = monitor {
+            if let Ok(mon) = monitor.downcast::<gtk4::gdk::Monitor>() {
+                monitor_list.push(mon);
+            }
+        }
+    }
+
     // run the server in a different thread
     let evt_sender_clone = evt_sender.clone();
+    let len = monitor_list.len();
     std::thread::Builder::new()
         .name("dvvidget server".into())
         .spawn(move || {
             rt.block_on(async {
-                if let Err(e) = server::run_server(&config_path, socket_path, evt_sender.clone()).await {
+                if let Err(e) = server::run_server(&config_path, socket_path, evt_sender.clone(), len).await {
                     println!("Error running the IPC server: {:?}. Dvvidget will keep running, but the cli won't work", e);
                 }
                 // use tokio::spawn if there are more tasks here, such as information puller
@@ -60,9 +80,13 @@ pub fn start_daemon(
         })
         .expect("Failed to start the async thread.");
 
-    let _g = handle.enter();
-
-    start_app(backend, evt_receiver, evt_sender_clone.clone(), config);
+    start_app(
+        backend,
+        evt_receiver,
+        evt_sender_clone.clone(),
+        config,
+        monitor_list,
+    );
 
     Ok(())
 }

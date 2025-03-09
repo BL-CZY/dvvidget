@@ -1,4 +1,4 @@
-use crate::daemon::structs::{Bri, DaemonCmd, Vol};
+use crate::daemon::structs::{Bri, DaemonCmdClient, DaemonCmdType, MonitorClient, Vol};
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -11,33 +11,55 @@ pub struct Args {
 pub enum Command {
     #[clap(about = "Start the daemon and the graphics")]
     Daemon {
-        #[clap(short, long = "path")]
+        #[clap(
+            short,
+            long = "path",
+            help = "Specify custom socket path for daemon communication"
+        )]
         socket_path: Option<String>,
-        #[clap(short, long = "config")]
+        #[clap(
+            short,
+            long = "config",
+            help = "Specify custom configuration file path"
+        )]
         config_path: Option<String>,
         #[clap(subcommand)]
         option: Option<DaemonSubCmd>,
     },
-
     #[clap(about = "Configure the volume panel")]
     Volume {
+        #[clap(
+            short,
+            long = "monitor",
+            help = "Specify which monitor to display the volume panel on (defaults to all monitors if not specified)"
+        )]
+        monitor: Option<usize>,
         #[clap(subcommand)]
         actions: VolCmd,
     },
-
     #[clap(about = "Configure the brightness panel")]
     Brightness {
+        #[clap(
+            short,
+            long = "monitor",
+            help = "Specify which monitor to display the brightness panel on (defaults to all monitors if not specified)"
+        )]
+        monitor: Option<usize>,
         #[clap(subcommand)]
         actions: BriCmd,
     },
-
     #[clap(about = "Configure dvoty")]
     Dvoty {
+        #[clap(
+            short,
+            long = "monitor",
+            help = "Specify which monitor to display dvoty on (defaults to all monitors if not specified)"
+        )]
+        monitor: Option<usize>,
         #[clap(subcommand)]
         actions: DvotyCmd,
     },
 }
-
 #[derive(Subcommand)]
 pub enum DaemonSubCmd {
     #[clap(about = "Start the daemon")]
@@ -117,7 +139,10 @@ fn daemon_args(
                 };
             }
             DaemonSubCmd::Shutdown => {
-                if let Err(e) = crate::cli::send_evt(DaemonCmd::ShutDown) {
+                if let Err(e) = crate::cli::send_evt(crate::daemon::structs::DaemonCmdClient {
+                    monitor: MonitorClient::All,
+                    cmd: DaemonCmdType::ShutDown,
+                }) {
                     println!("Error sending event: {:?}", e)
                 }
             }
@@ -125,60 +150,72 @@ fn daemon_args(
     }
 }
 
-fn volume_args(actions: VolCmd) {
+fn volume_args(actions: VolCmd, monitor: Option<usize>) {
     let evt = match actions {
         VolCmd::SetMute { value } => match value {
-            Some(val) => DaemonCmd::Vol(Vol::SetMute(val)),
-            None => DaemonCmd::Vol(Vol::ToggleMute),
+            Some(val) => DaemonCmdType::Vol(Vol::SetMute(val)),
+            None => DaemonCmdType::Vol(Vol::ToggleMute),
         },
-        VolCmd::GetMute => DaemonCmd::Vol(Vol::GetMute),
-        VolCmd::Get => DaemonCmd::Vol(Vol::Get),
-        VolCmd::SetRough { value } => DaemonCmd::Vol(Vol::SetRough(value as f64)),
-        VolCmd::Set { value } => DaemonCmd::Vol(Vol::Set(value as f64)),
-        VolCmd::Inc { value } => DaemonCmd::Vol(Vol::Inc(value as f64)),
-        VolCmd::Dec { value } => DaemonCmd::Vol(Vol::Dec(value as f64)),
-        VolCmd::Close => DaemonCmd::Vol(Vol::Close),
+        VolCmd::GetMute => DaemonCmdType::Vol(Vol::GetMute),
+        VolCmd::Get => DaemonCmdType::Vol(Vol::Get),
+        VolCmd::SetRough { value } => DaemonCmdType::Vol(Vol::SetRough(value as f64)),
+        VolCmd::Set { value } => DaemonCmdType::Vol(Vol::Set(value as f64)),
+        VolCmd::Inc { value } => DaemonCmdType::Vol(Vol::Inc(value as f64)),
+        VolCmd::Dec { value } => DaemonCmdType::Vol(Vol::Dec(value as f64)),
+        VolCmd::Close => DaemonCmdType::Vol(Vol::Close),
         VolCmd::Open { time } => {
             if let Some(t) = time {
-                DaemonCmd::Vol(Vol::OpenTimed(t))
+                DaemonCmdType::Vol(Vol::OpenTimed(t))
             } else {
-                DaemonCmd::Vol(Vol::Open)
+                DaemonCmdType::Vol(Vol::Open)
             }
         }
     };
-    if let Err(e) = crate::cli::send_evt(evt) {
+    if let Err(e) = crate::cli::send_evt(DaemonCmdClient {
+        monitor: monitor.map_or_else(|| MonitorClient::All, |v| MonitorClient::One(v)),
+        cmd: evt,
+    }) {
         println!("Err Sending event: {:?}", e);
     }
 }
 
-fn bri_args(actions: BriCmd) {
+fn bri_args(actions: BriCmd, monitor: Option<usize>) {
     let evt = match actions {
-        BriCmd::Get => DaemonCmd::Bri(Bri::Get),
-        BriCmd::SetRough { value } => DaemonCmd::Bri(Bri::SetRough(value as f64)),
-        BriCmd::Set { value } => DaemonCmd::Bri(Bri::Set(value as f64)),
-        BriCmd::Inc { value } => DaemonCmd::Bri(Bri::Inc(value as f64)),
-        BriCmd::Dec { value } => DaemonCmd::Bri(Bri::Dec(value as f64)),
-        BriCmd::Close => DaemonCmd::Bri(Bri::Close),
+        BriCmd::Get => DaemonCmdType::Bri(Bri::Get),
+        BriCmd::SetRough { value } => DaemonCmdType::Bri(Bri::SetRough(value as f64)),
+        BriCmd::Set { value } => DaemonCmdType::Bri(Bri::Set(value as f64)),
+        BriCmd::Inc { value } => DaemonCmdType::Bri(Bri::Inc(value as f64)),
+        BriCmd::Dec { value } => DaemonCmdType::Bri(Bri::Dec(value as f64)),
+        BriCmd::Close => DaemonCmdType::Bri(Bri::Close),
         BriCmd::Open { time } => {
             if let Some(t) = time {
-                DaemonCmd::Bri(Bri::OpenTimed(t))
+                DaemonCmdType::Bri(Bri::OpenTimed(t))
             } else {
-                DaemonCmd::Bri(Bri::Open)
+                DaemonCmdType::Bri(Bri::Open)
             }
         }
     };
-    if let Err(e) = crate::cli::send_evt(evt) {
+    if let Err(e) = crate::cli::send_evt(DaemonCmdClient {
+        monitor: monitor.map_or_else(|| MonitorClient::All, |v| MonitorClient::One(v)),
+        cmd: evt,
+    }) {
         println!("Err Sending event: {:?}", e);
     }
 }
 
-fn dvoty_args(actions: DvotyCmd) {
-    crate::cli::send_evt(match actions {
-        DvotyCmd::Open => DaemonCmd::Dvoty(crate::daemon::structs::Dvoty::Open),
-        DvotyCmd::Close => DaemonCmd::Dvoty(crate::daemon::structs::Dvoty::Close),
-        DvotyCmd::Toggle => DaemonCmd::Dvoty(crate::daemon::structs::Dvoty::Toggle),
-    })
-    .unwrap_or_else(|e| println!("Error seding event: {:?}", e));
+fn dvoty_args(actions: DvotyCmd, monitor: Option<usize>) {
+    let command = {
+        let cmd = match actions {
+            DvotyCmd::Open => DaemonCmdType::Dvoty(crate::daemon::structs::Dvoty::Open),
+            DvotyCmd::Close => DaemonCmdType::Dvoty(crate::daemon::structs::Dvoty::Close),
+            DvotyCmd::Toggle => DaemonCmdType::Dvoty(crate::daemon::structs::Dvoty::Toggle),
+        };
+        DaemonCmdClient {
+            monitor: monitor.map_or_else(|| MonitorClient::All, |v| MonitorClient::One(v)),
+            cmd,
+        }
+    };
+    crate::cli::send_evt(command).unwrap_or_else(|e| println!("Error seding event: {:?}", e));
 }
 
 pub fn handle_args(args: Args) {
@@ -191,16 +228,16 @@ pub fn handle_args(args: Args) {
             daemon_args(config_path, socket_path, option);
         }
 
-        Command::Volume { actions } => {
-            volume_args(actions);
+        Command::Volume { monitor, actions } => {
+            volume_args(actions, monitor);
         }
 
-        Command::Brightness { actions } => {
-            bri_args(actions);
+        Command::Brightness { monitor, actions } => {
+            bri_args(actions, monitor);
         }
 
-        Command::Dvoty { actions } => {
-            dvoty_args(actions);
+        Command::Dvoty { monitor, actions } => {
+            dvoty_args(actions, monitor);
         }
     }
 }

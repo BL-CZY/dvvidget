@@ -1,4 +1,4 @@
-use std::{cell::RefMut, collections::HashMap, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use freedesktop_file_parser::{EntryType, IconString};
 use gtk4::ListBox;
@@ -11,13 +11,13 @@ use uuid::Uuid;
 
 use crate::{
     daemon::{
-        renderer::{app::AppContext, config::AppConf, dvoty::DvotyEntry},
-        structs::{DaemonCmd, DaemonEvt, Dvoty},
+        renderer::{config::AppConf, dvoty::DvotyEntry},
+        structs::{DaemonCmdType, DaemonEvt, Dvoty},
     },
     utils::get_paths,
 };
 
-use super::{class::adjust_class, entry::DvotyUIEntry, event::CURRENT_ID};
+use super::{class::adjust_class, entry::DvotyUIEntry, event::CURRENT_IDS, DvotyContext};
 
 use std::sync::Mutex;
 
@@ -119,10 +119,11 @@ fn send(
     terminal: bool,
     icon: IconString,
     id: Uuid,
+    monitor: usize,
 ) {
     sender
         .send(DaemonEvt {
-            evt: DaemonCmd::Dvoty(Dvoty::AddEntry(DvotyEntry::Launch {
+            evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Launch {
                 terminal,
                 name: name.to_string(),
                 exec: exec.to_string(),
@@ -130,6 +131,7 @@ fn send(
             })),
             sender: None,
             uuid: Some(id),
+            monitors: vec![monitor],
         })
         .unwrap_or_else(|e| println!("Dvoty: failed to send: {}", e));
 }
@@ -159,9 +161,14 @@ fn process_content(
     sender: UnboundedSender<DaemonEvt>,
     id: &Uuid,
     config: Arc<AppConf>,
+    monitor: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let input = &input.to_lowercase();
-    if *id != *CURRENT_ID.lock().unwrap_or_else(|p| p.into_inner()) {
+    if *id
+        != *CURRENT_IDS.get().unwrap()[monitor]
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+    {
         return Ok(());
     }
 
@@ -200,6 +207,7 @@ fn process_content(
                         terminal,
                         icon.clone(),
                         *id,
+                        monitor,
                     );
 
                     for (_, value) in content.actions.clone() {
@@ -214,6 +222,7 @@ fn process_content(
                             terminal,
                             icon.clone(),
                             *id,
+                            monitor,
                         );
                     }
 
@@ -234,6 +243,7 @@ fn process_content(
                         terminal,
                         icon.clone(),
                         *id,
+                        monitor,
                     );
                 }
             }
@@ -248,6 +258,7 @@ pub fn process_apps(
     sender: UnboundedSender<DaemonEvt>,
     id: &Uuid,
     config: Arc<AppConf>,
+    monitor: usize,
 ) {
     DESKTOP_FILES
         .get()
@@ -256,7 +267,7 @@ pub fn process_apps(
         .unwrap_or_else(|p| p.into_inner())
         .iter()
         .for_each(|file| {
-            let _ = process_content(file, input, sender.clone(), id, config.clone());
+            let _ = process_content(file, input, sender.clone(), id, config.clone(), monitor);
         });
 }
 
@@ -275,8 +286,9 @@ pub fn populate_launcher_entry(
     terminal: bool,
     mut exec: String,
     icon: Option<PathBuf>,
-    context: &mut RefMut<AppContext>,
+    context: &mut DvotyContext,
     sender: UnboundedSender<DaemonEvt>,
+    monitor: usize,
 ) {
     let row = super::entry::create_base_entry(
         match icon {
@@ -293,6 +305,7 @@ pub fn populate_launcher_entry(
         "Click to launch",
         sender,
         config.clone(),
+        monitor,
     );
 
     clense_cmd(&mut exec, "%u");
@@ -303,13 +316,10 @@ pub fn populate_launcher_entry(
     clense_cmd(&mut exec, "%c");
     clense_cmd(&mut exec, "%k");
 
-    context
-        .dvoty
-        .dvoty_entries
-        .push((DvotyUIEntry::Launch { terminal, exec }, row.clone()));
+    context.dvoty_entries[monitor].push((DvotyUIEntry::Launch { terminal, exec }, row.clone()));
 
-    if context.dvoty.dvoty_entries.len() <= 1 {
-        adjust_class(0, 0, &mut context.dvoty.dvoty_entries);
+    if context.dvoty_entries[monitor].len() <= 1 {
+        adjust_class(0, 0, &mut context.dvoty_entries[monitor]);
     }
 
     list.append(&row);

@@ -5,8 +5,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use crate::daemon::renderer::dvoty::event::CURRENT_ID;
-use crate::daemon::structs::DaemonCmd;
+use crate::daemon::structs::DaemonCmdType;
 use crate::daemon::structs::DaemonEvt;
 use crate::daemon::structs::DaemonRes;
 use crate::utils::DaemonErr;
@@ -17,6 +16,7 @@ use gtk4::gdk;
 use gtk4::prelude::*;
 use gtk4::Application;
 use gtk4::CssProvider;
+use gtk4::Window;
 use lazy_static::lazy_static;
 use std::process::Command;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -27,6 +27,7 @@ use super::bri::handle_bri_cmd;
 use super::bri::BriContext;
 use super::config::AppConf;
 use super::dvoty::create_dvoty;
+use super::dvoty::event::CURRENT_IDS;
 use super::dvoty::handle_dvoty_cmd;
 use super::dvoty::DvotyContext;
 use super::vol::create_sound_osd;
@@ -45,118 +46,123 @@ pub struct AppContext {
     pub vol: VolContext,
     pub bri: BriContext,
     pub dvoty: DvotyContext,
+    pub monitor_count: usize,
 }
 
 pub static IS_GUI_SHUT: AtomicBool = AtomicBool::new(false);
 
 impl AppContext {
-    pub fn from_config(config: &Arc<AppConf>) -> Self {
+    pub fn from_config(config: &Arc<AppConf>, monitor_count: usize) -> Self {
+        let vol = VolContext::from_config(config, monitor_count);
+        let bri = BriContext::from_config(config, monitor_count);
+        let dvoty=  DvotyContext::from_config(config, monitor_count);
+
         AppContext {
-            vol: VolContext::from_config(config),
-            bri: BriContext::from_config(config),
-            dvoty: DvotyContext::default(),
+            vol,
+            bri,
+            dvoty,
+            monitor_count,
         }
-    }
-
-    pub fn set_virtual_volume(&mut self, val: f64) -> f64 {
-        if val > self.vol.max_vol {
-            self.vol.cur_vol = self.vol.max_vol;
-        } else if val < 0f64 {
-            self.vol.cur_vol = 0f64;
-        } else {
-            self.vol.cur_vol = val;
-        }
-
-        self.vol.cur_vol
-    }
-
-    pub fn set_virtual_brightness(&mut self, val: f64) -> f64 {
-        if val > 100f64 {
-            self.bri.cur_bri = 100f64;
-        } else if val < 0f64 {
-            self.bri.cur_bri = 0f64;
-        } else {
-            self.bri.cur_bri = val;
-        }
-
-        self.bri.cur_bri
     }
 }
 
 pub fn register_widget(widget: Widget, id: u32) {
-    let mut guard = match IDS.lock() {
+    let mut guard = match WINDOWS.lock() {
         Ok(g) => g,
         Err(poisoned) => poisoned.into_inner(),
     };
 
-    guard.insert(widget, id);
+    match guard.get_mut(&widget) {
+        Some(v) => {
+            v.push(id);
+        }
+        None => {
+            guard.insert(widget, vec![id]);
+        }
+    }
+
 }
 
 lazy_static! {
-    pub static ref IDS: Mutex<HashMap<Widget, u32>> = Mutex::new(HashMap::new());
+    pub static ref WINDOWS: Mutex<HashMap<Widget, Vec<u32>>> = Mutex::new(HashMap::new());
+}
+
+fn get_windows(widget: Widget, guard: &HashMap<Widget, Vec<u32>>, app: &Rc<Application>) -> Vec<Window> {
+    guard.get(&widget).unwrap().iter().map(|id|{
+        app.window_by_id(*id).unwrap()
+    }).collect::<Vec<Window>>()
 }
 
 fn process_evt(
-    evt: DaemonCmd,
+    evt: DaemonCmdType,
     app: Rc<Application>,
     sender: UnboundedSender<DaemonEvt>,
     config: Arc<AppConf>,
     app_context: Rc<RefCell<AppContext>>,
+    monitors: Vec<usize>,
+    id: Option<uuid::Uuid>
 ) -> Result<DaemonRes, DaemonErr> {
     match evt {
-        DaemonCmd::ShutDown => {
+        DaemonCmdType::ShutDown => {
             app.quit();
         }
 
-        DaemonCmd::Vol(evt) => {
-            let guard = match IDS.lock() {
+        DaemonCmdType::Vol(evt) => {
+            let guard = match WINDOWS.lock() {
                 Ok(g) => g,
                 Err(poisoned) => poisoned.into_inner(),
             };
+
+            let vol_context = &mut app_context.borrow_mut().vol;
 
             let result = handle_vol_cmd(
                 evt,
-                &app.window_by_id(*guard.get(&Widget::Volume).unwrap())
-                    .unwrap(),
+                &get_windows(Widget::Volume, &guard, &app),
                 sender,
-                app_context,
+                vol_context,
                 config,
+                monitors
             )?;
 
             return Ok(result);
         }
 
-        DaemonCmd::Bri(evt) => {
-            let guard = match IDS.lock() {
+        DaemonCmdType::Bri(evt) => {
+            let guard = match WINDOWS.lock() {
                 Ok(g) => g,
                 Err(poisoned) => poisoned.into_inner(),
             };
+
+            let bri_context = &mut app_context.borrow_mut().bri;
 
             let result = handle_bri_cmd(
                 evt,
-                &app.window_by_id(*guard.get(&Widget::Brightness).unwrap())
-                    .unwrap(),
+                &get_windows(Widget::Brightness, &guard, &app),
                 sender,
-                app_context,
+                bri_context,
                 config,
+                monitors
             )?;
 
             return Ok(result);
         }
 
-        DaemonCmd::Dvoty(evt) => {
-            let guard = match IDS.lock() {
+        DaemonCmdType::Dvoty(evt) => {
+            let guard = match WINDOWS.lock() {
                 Ok(g) => g,
                 Err(poisoned) => poisoned.into_inner(),
             };
 
+            let dvoty_context = &mut app_context.borrow_mut().dvoty;
+
             let result = handle_dvoty_cmd(
                 evt,
-                &app.window_by_id(*guard.get(&Widget::Dvoty).unwrap())
-                    .unwrap(),
+                &get_windows(Widget::Dvoty, &guard, &app),
                 sender,
-                app_context,
+                dvoty_context,
                 config,
+                monitors,
+                id
             )?;
 
             return Ok(result);
@@ -177,8 +183,12 @@ fn send_res(sender: Option<UnboundedSender<DaemonRes>>, res: DaemonRes) {
 }
 
 #[derive(Hash, PartialEq, Eq)]
-pub enum VolBriTaskType {
+pub enum VolBriTaskTypeWindow {
     AwaitClose,
+}
+
+#[derive(Hash, PartialEq, Eq)]
+pub enum VolBriTaskType {
     MurphValue,
 }
 
@@ -187,8 +197,9 @@ pub fn init_gtk_async(
     evt_sender: UnboundedSender<DaemonEvt>,
     app: Rc<Application>,
     config: Arc<AppConf>,
+    monitor_count: &Vec<gdk::Monitor>,
 ) -> Result<(), DaemonErr> {
-    let context = Rc::new(RefCell::new(AppContext::from_config(&config)));
+    let context = Rc::new(RefCell::new(AppContext::from_config(&config, monitor_count.len())));
 
     glib::MainContext::default().spawn_local(async move {
         loop {
@@ -213,18 +224,9 @@ pub fn init_gtk_async(
                 }
 
                 Some(evt) = evt_receiver.recv() => {
-                    if let Some(id) = evt.uuid {
-                        if id == *CURRENT_ID.lock().unwrap(){
-                            match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), context.clone()) {
-                                Err(e) => send_res(evt.sender, DaemonRes::Failure(format!("{:?}", e))),
-                                Ok(res) => send_res(evt.sender, res),
-                            }
-                        }
-                    } else {
-                        match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), context.clone()) {
-                            Err(e) => send_res(evt.sender, DaemonRes::Failure(format!("{:?}", e))),
-                            Ok(res) => send_res(evt.sender, res),
-                        }
+                    match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), context.clone(), evt.monitors, evt.uuid) {
+                        Err(e) => send_res(evt.sender, DaemonRes::Failure(format!("{:?}", e))),
+                        Ok(res) => send_res(evt.sender, res),
                     }
                 }
             }
@@ -239,17 +241,21 @@ fn activate(
     app: &gtk4::Application,
     config: Arc<AppConf>,
     sender: UnboundedSender<DaemonEvt>,
+    monitors: Vec<gdk::Monitor>
 ) {
     let css = CssProvider::new();
     css.load_from_path(&config.general.css_path);
     gtk4::style_context_add_provider_for_display(
-        &gdk::Display::default().expect("cant get display"),
+        &gdk::Display::default().expect("Cannot open display"),
         &css,
         gtk4::STYLE_PROVIDER_PRIORITY_SETTINGS,
     );
-    create_sound_osd(backend, app, config.clone());
-    create_bri_osd(backend, app, config.clone());
-    create_dvoty(backend, app, config.clone(), sender.clone());
+
+    for (ind, monitor ) in monitors.iter().enumerate() {
+        create_sound_osd(backend, app, config.clone(), monitor);
+        create_bri_osd(backend, app, config.clone(), monitor);
+        create_dvoty(backend, app, config.clone(), sender.clone(), ind, monitor);
+    }
 }
 
 pub fn start_app(
@@ -257,12 +263,17 @@ pub fn start_app(
     evt_receiver: UnboundedReceiver<DaemonEvt>,
     evt_sender: UnboundedSender<DaemonEvt>,
     config: Arc<AppConf>,
+    monitor_list: Vec<gdk::Monitor>
 ) {
     super::dvoty::app_launcher::DESKTOP_FILES
         .set(Arc::new(Mutex::new(vec![])))
         .unwrap();
-
-    gtk4::init().unwrap();
+    
+    let mut ids = vec![];
+    for _ in 0..monitor_list.len() {
+        ids.push(Arc::new(Mutex::new(uuid::Uuid::new_v4())));
+    }
+    CURRENT_IDS.set(ids).unwrap();
 
     //let recent_manager = gtk4::RecentManager::default();
     //let recent_items = recent_manager.items();
@@ -279,9 +290,12 @@ pub fn start_app(
     //    .collect();
     //
     //println!("{:?}", recent_file_names);
-
+    
     let app = Rc::new(gtk4::Application::new(
+        #[cfg(not(debug_assertions))]
         Some("org.dvida.dvvidgets"),
+        #[cfg(debug_assertions)]
+        Some("org.dvida.dvvidgets.debug"),
         ApplicationFlags::default(),
     ));
 
@@ -290,11 +304,12 @@ pub fn start_app(
         evt_sender.clone(),
         app.clone(),
         config.clone(),
+        &monitor_list
     ) {
         println!("Err handling command: {:?}", e);
     }
 
-    app.connect_activate(move |app| activate(backend, app, config.clone(), evt_sender.clone()));
+    app.connect_activate(move |app| activate(backend, app, config.clone(), evt_sender.clone(), monitor_list.clone()));
 
     app.run_with_args(&[""]);
 }

@@ -1,4 +1,4 @@
-use std::{cell::RefMut, time::Duration};
+use std::time::Duration;
 
 use glib::object::CastNone;
 use gtk4::{
@@ -8,23 +8,21 @@ use gtk4::{
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
-    daemon::{
-        renderer::app::AppContext,
-        structs::{DaemonCmd, DaemonEvt, Dvoty},
-    },
+    daemon::structs::{DaemonCmdType, DaemonEvt, Dvoty},
     utils::DaemonErr,
 };
 
-use super::DvotyTaskType;
+use super::{DvotyContext, DvotyTaskType};
 
-async fn murph(sender: UnboundedSender<DaemonEvt>, target: f64, mut current: f64) {
+async fn murph(sender: UnboundedSender<DaemonEvt>, target: f64, mut current: f64, monitor: usize) {
     for _ in 0..100 {
         current += (target - current) * 0.15f64;
         sender
             .send(DaemonEvt {
-                evt: DaemonCmd::Dvoty(Dvoty::SetScroll(current)),
+                evt: DaemonCmdType::Dvoty(Dvoty::SetScroll(current)),
                 sender: None,
                 uuid: None,
+                monitors: vec![monitor],
             })
             .unwrap_or_else(|e| {
                 println!("Dvoty: Can't send scroll: {}", e);
@@ -34,9 +32,10 @@ async fn murph(sender: UnboundedSender<DaemonEvt>, target: f64, mut current: f64
 
     sender
         .send(DaemonEvt {
-            evt: DaemonCmd::Dvoty(Dvoty::SetScroll(target)),
+            evt: DaemonCmdType::Dvoty(Dvoty::SetScroll(target)),
             sender: None,
             uuid: None,
+            monitors: vec![monitor],
         })
         .unwrap_or_else(|e| {
             println!("Dvoty: Can't send scroll: {}", e);
@@ -44,45 +43,35 @@ async fn murph(sender: UnboundedSender<DaemonEvt>, target: f64, mut current: f64
 }
 
 fn init_murph(
-    context_ref: &mut RefMut<AppContext>,
+    context: &mut DvotyContext,
     sender: UnboundedSender<DaemonEvt>,
     current: f64,
+    monitor: usize,
 ) {
-    if context_ref
-        .dvoty
-        .dvoty_tasks
-        .contains_key(&DvotyTaskType::MurphViewport)
-    {
-        context_ref
-            .dvoty
-            .dvoty_tasks
+    if context.dvoty_tasks[monitor].contains_key(&DvotyTaskType::MurphViewport) {
+        context.dvoty_tasks[monitor]
             .get(&DvotyTaskType::MurphViewport)
             .unwrap()
             .abort();
-        context_ref
-            .dvoty
-            .dvoty_tasks
-            .remove(&DvotyTaskType::MurphViewport);
+        context.dvoty_tasks[monitor].remove(&DvotyTaskType::MurphViewport);
     }
 
-    let target = context_ref.dvoty.target_scroll;
+    let target = context.target_scroll[monitor];
 
     let handle = tokio::spawn(async move {
-        murph(sender, target, current).await;
+        murph(sender, target, current, monitor).await;
     });
 
-    context_ref
-        .dvoty
-        .dvoty_tasks
-        .insert(DvotyTaskType::MurphViewport, handle);
+    context.dvoty_tasks[monitor].insert(DvotyTaskType::MurphViewport, handle);
 }
 
 fn adjust_row(
     row: ListBoxRow,
     viewport: Viewport,
     scroll: ScrolledWindow,
-    context_ref: &mut RefMut<AppContext>,
+    context: &mut DvotyContext,
     sender: UnboundedSender<DaemonEvt>,
+    monitor: usize,
 ) -> Result<(), DaemonErr> {
     let viewport_bound = if let Some(bound) = viewport.compute_bounds(&viewport) {
         bound
@@ -101,31 +90,32 @@ fn adjust_row(
     if row_bound.y() < viewport_bound.y() {
         // if the top of the row is not in the viewport, reduce the adjustment value by the
         // difference
-        context_ref.dvoty.target_scroll =
+        context.target_scroll[monitor] =
             adjustment.value() - (viewport_bound.y() - row_bound.y()) as f64;
-        init_murph(context_ref, sender, adjustment.value());
+        init_murph(context, sender, adjustment.value(), monitor);
     } else if row_bound.y() + row_bound.height() > viewport_bound.y() + viewport_bound.height() {
         // if the bottom of the row is not in the viewport, increase the adjustment value by the
         // difference
-        context_ref.dvoty.target_scroll = adjustment.value()
+        context.target_scroll[monitor] = adjustment.value()
             + (row_bound.y() + row_bound.height() - viewport_bound.y() - viewport_bound.height())
                 as f64;
-        init_murph(context_ref, sender, adjustment.value());
+        init_murph(context, sender, adjustment.value(), monitor);
     }
 
     Ok(())
 }
 
 pub fn set_scroll(
-    context_ref: &mut RefMut<AppContext>,
+    context: &mut DvotyContext,
     window: &Window,
     value: f64,
+    monitor: usize,
 ) -> Result<(), DaemonErr> {
-    let scroll = if let Some(s) = &context_ref.dvoty.dvoty_scroll {
+    let scroll = if let Some(s) = &context.dvoty_scroll[monitor] {
         s
     } else if let Ok(res) = super::utils::get_scrolled_window(window) {
-        context_ref.dvoty.dvoty_scroll = Some(res);
-        context_ref.dvoty.dvoty_scroll.as_ref().unwrap()
+        context.dvoty_scroll[monitor] = Some(res);
+        context.dvoty_scroll[monitor].as_ref().unwrap()
     } else {
         println!("Dvoty: can't find scrolled window");
         return Err(DaemonErr::CannotFindWidget);
@@ -137,15 +127,16 @@ pub fn set_scroll(
 }
 
 pub fn ensure_row_in_viewport(
-    context_ref: &mut RefMut<AppContext>,
+    context: &mut DvotyContext,
     window: &Window,
     sender: UnboundedSender<DaemonEvt>,
+    monitor: usize,
 ) -> Result<(), DaemonErr> {
-    let scroll = if let Some(s) = &context_ref.dvoty.dvoty_scroll {
+    let scroll = if let Some(s) = &context.dvoty_scroll[monitor] {
         s
     } else if let Ok(res) = super::utils::get_scrolled_window(window) {
-        context_ref.dvoty.dvoty_scroll = Some(res);
-        context_ref.dvoty.dvoty_scroll.as_ref().unwrap()
+        context.dvoty_scroll[monitor] = Some(res);
+        context.dvoty_scroll[monitor].as_ref().unwrap()
     } else {
         println!("Dvoty: can't find scrolled window");
         return Err(DaemonErr::CannotFindWidget);
@@ -159,11 +150,11 @@ pub fn ensure_row_in_viewport(
         return Err(DaemonErr::CannotFindWidget);
     };
 
-    let row = context_ref.dvoty.dvoty_entries[context_ref.dvoty.cur_ind]
+    let row = context.dvoty_entries[monitor][context.cur_ind[monitor]]
         .1
         .clone();
 
-    adjust_row(row, viewport, scroll.clone(), context_ref, sender)?;
+    adjust_row(row, viewport, scroll.clone(), context, sender, monitor)?;
 
     Ok(())
 }

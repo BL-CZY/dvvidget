@@ -1,14 +1,14 @@
-use std::{cell::RefCell, path::PathBuf, process::Stdio, rc::Rc, sync::Arc};
+use std::{path::PathBuf, process::Stdio, sync::Arc};
 
 use crate::{
     daemon::{
-        renderer::{app::AppContext, config::AppConf},
-        structs::{DaemonCmd, DaemonEvt, DaemonRes, Dvoty},
+        renderer::config::AppConf,
+        structs::{DaemonCmdType, DaemonEvt, DaemonRes, Dvoty},
     },
     utils::DaemonErr,
 };
 
-use super::{math, search, url};
+use super::{math, search, url, DvotyContext};
 use gtk4::{
     prelude::{BoxExt, WidgetExt},
     Box, GestureClick, Image, Label, ListBoxRow, ScrolledWindow, Window,
@@ -112,6 +112,7 @@ pub fn create_base_entry(
     tip: &str,
     sender: UnboundedSender<DaemonEvt>,
     config: Arc<AppConf>,
+    monitor: usize,
 ) -> ListBoxRow {
     let icon = Image::from_file(icon_path);
     icon.add_css_class("dvoty-icon");
@@ -157,9 +158,10 @@ pub fn create_base_entry(
     gesture_click.connect_pressed(move |_, _, _, _| {
         sender
             .send(DaemonEvt {
-                evt: DaemonCmd::Dvoty(Dvoty::TriggerEntry),
+                evt: DaemonCmdType::Dvoty(Dvoty::TriggerEntry),
                 sender: None,
                 uuid: None,
+                monitors: vec![monitor],
             })
             .unwrap_or_else(|e| println!("Dvoty: Failed to send trigger event by clicking: {}", e))
     });
@@ -171,17 +173,16 @@ pub fn create_base_entry(
 
 pub fn add_entry(
     entry: DvotyEntry,
-    window: &Window,
-    context: Rc<RefCell<AppContext>>,
+    windows: &[Window],
+    context: &mut DvotyContext,
     config: Arc<AppConf>,
     sender: UnboundedSender<DaemonEvt>,
+    monitor: usize,
 ) -> Result<DaemonRes, DaemonErr> {
-    let context_ref = &mut context.borrow_mut();
-
-    let list = if let Some(l) = &context_ref.dvoty.dvoty_list {
+    let list = if let Some(l) = &context.dvoty_list[monitor] {
         l.clone()
-    } else if let Ok(res) = super::utils::get_list(window) {
-        context_ref.dvoty.dvoty_list = Some(res.clone());
+    } else if let Ok(res) = super::utils::get_list(&windows[monitor]) {
+        context.dvoty_list[monitor] = Some(res.clone());
         res
     } else {
         println!("Dvoty: can't find list");
@@ -190,13 +191,13 @@ pub fn add_entry(
 
     match entry {
         DvotyEntry::Empty => {
-            super::instruction::populate_instructions(&list, config, context_ref, sender);
+            super::instruction::populate_instructions(&list, config, context, sender, monitor);
         }
         DvotyEntry::Math { result, .. } => {
-            super::math::populate_math_entry(config, &list, result, context_ref, sender);
+            super::math::populate_math_entry(config, &list, result, context, sender, monitor);
         }
         DvotyEntry::Search { keyword } => {
-            super::search::populate_search_entry(config, &list, keyword, context_ref, sender);
+            super::search::populate_search_entry(config, &list, keyword, context, sender, monitor);
         }
         DvotyEntry::Url { url, title } => match title {
             Some(s) => super::url::populate_url_entry(
@@ -204,20 +205,22 @@ pub fn add_entry(
                 &list,
                 &format!("{} <i><span foreground=\"grey\">{}</span></i>", &s, &url),
                 url,
-                context_ref,
+                context,
                 sender,
+                monitor,
             ),
             None => super::url::populate_url_entry(
                 config,
                 &list,
                 &url.clone(),
                 url,
-                context_ref,
+                context,
                 sender,
+                monitor,
             ),
         },
         DvotyEntry::Command { exec } => {
-            super::cmd::populate_cmd_entry(config, &list, exec, context_ref, sender);
+            super::cmd::populate_cmd_entry(config, &list, exec, context, sender, monitor);
         }
         DvotyEntry::Launch {
             terminal,
@@ -226,18 +229,11 @@ pub fn add_entry(
             icon,
         } => {
             super::app_launcher::populate_launcher_entry(
-                config,
-                &list,
-                name,
-                terminal,
-                exec,
-                icon,
-                context_ref,
-                sender,
+                config, &list, name, terminal, exec, icon, context, sender, monitor,
             );
         }
         DvotyEntry::Letter { letter } => {
-            super::letter::populate_letter_entry(config, &list, letter, context_ref, sender);
+            super::letter::populate_letter_entry(config, &list, letter, context, sender, monitor);
         }
         _ => {}
     }
