@@ -35,6 +35,10 @@ pub fn populate_instructions(
             config.dvoty.instruction_icon.clone(),
         ),
         (
+            "# for recent files".into(),
+            config.dvoty.instruction_icon.clone(),
+        ),
+        (
             ": for opening url".into(),
             config.dvoty.instruction_icon.clone(),
         ),
