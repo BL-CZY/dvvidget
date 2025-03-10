@@ -137,7 +137,8 @@ LIMIT {};
                         println!("Dvoty: Failed to send url: {}", e);
                     });
 
-                tokio::task::yield_now().await;
+                // so that we dont overload the gtk app
+                tokio::time::sleep(std::time::Duration::from_millis(5)).await;
             }
 
             #[derive(Debug, sqlx::FromRow)]
@@ -166,13 +167,13 @@ LIMIT {};",
                 .fetch_all(&pool)
                 .await?;
 
-            places.iter().for_each(|place| {
+            for place in places.iter() {
                 if *id
                     != *CURRENT_IDS.get().unwrap()[monitor]
                         .lock()
                         .unwrap_or_else(|p| p.into_inner())
                 {
-                    return;
+                    break;
                 }
 
                 sender
@@ -188,7 +189,10 @@ LIMIT {};",
                     .unwrap_or_else(|e| {
                         println!("Dvoty: Failed to send url: {}", e);
                     });
-            });
+
+                // so that we dont overload the gtk app
+                tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+            }
         }
     }
 
