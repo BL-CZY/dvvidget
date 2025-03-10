@@ -6,6 +6,7 @@ use gtk4::gdk::ModifierType;
 use gtk4::prelude::*;
 use gtk4::{Application, ApplicationWindow, Box, Entry, ListBox, ListBoxRow, ScrolledWindow};
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
@@ -128,9 +129,20 @@ fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
     input.add_controller(key_controller);
 
     input.connect_changed(move |entry| {
+        let recent_manager = gtk4::RecentManager::default();
+        let recent_items = recent_manager.items();
+
+        let recent_file_paths: Vec<PathBuf> = recent_items
+            .iter()
+            .filter_map(|item| {
+                let uri = item.uri();
+                gio::File::for_uri(&uri).path()
+            })
+            .collect();
+
         let content: String = entry.text().into();
         if let Err(e) = sender.send(DaemonEvt {
-            evt: DaemonCmdType::Dvoty(Dvoty::Update(content)),
+            evt: DaemonCmdType::Dvoty(Dvoty::Update(content, recent_file_paths)),
             sender: None,
             uuid: None,
             monitors: vec![monitor],
@@ -201,7 +213,7 @@ pub fn create_dvoty(
 
     // update the list after creation
     if let Err(e) = sender.send(DaemonEvt {
-        evt: DaemonCmdType::Dvoty(Dvoty::Update("".into())),
+        evt: DaemonCmdType::Dvoty(Dvoty::Update("".into(), vec![])),
         sender: None,
         uuid: None,
         monitors: vec![monitor_ind],

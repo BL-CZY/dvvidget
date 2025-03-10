@@ -27,7 +27,7 @@ fn handle_dvoty_cmd_single(
     monitor: usize,
 ) -> Result<DaemonRes, DaemonErr> {
     match cmd {
-        Dvoty::Update(str) => {
+        Dvoty::Update(str, recent_paths) => {
             super::input::process_input(
                 str.clone(),
                 context,
@@ -35,6 +35,7 @@ fn handle_dvoty_cmd_single(
                 windows,
                 config.clone(),
                 monitor,
+                recent_paths,
             )?;
         }
 

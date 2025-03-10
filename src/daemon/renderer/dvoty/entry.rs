@@ -1,4 +1,8 @@
-use std::{path::PathBuf, process::Stdio, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    process::Stdio,
+    sync::Arc,
+};
 
 use crate::{
     daemon::{
@@ -43,6 +47,11 @@ pub enum DvotyEntry {
     Letter {
         letter: String,
     },
+    File {
+        path: PathBuf,
+        name: String,
+        icon: Option<PathBuf>,
+    },
 }
 
 #[derive(Clone)]
@@ -54,6 +63,7 @@ pub enum DvotyUIEntry {
     Search { keyword: String },
     Url { url: String },
     Letter { letter: String },
+    File { path: PathBuf },
 }
 
 impl DvotyUIEntry {
@@ -100,20 +110,30 @@ impl DvotyUIEntry {
             DvotyUIEntry::Letter { letter } => {
                 math::set_clipboard_text(&letter);
             }
+            DvotyUIEntry::File { path } => {
+                tokio::spawn(async move {
+                    open::that(path).unwrap_or_else(|e| {
+                        println!("Dvoty: Cannot open file: {}", e);
+                    });
+                });
+            }
 
             DvotyUIEntry::Instruction => {}
         }
     }
 }
 
-pub fn create_base_entry(
-    icon_path: &str,
+pub fn create_base_entry<P>(
+    icon_path: P,
     content: &str,
     tip: &str,
     sender: UnboundedSender<DaemonEvt>,
     config: Arc<AppConf>,
     monitor: usize,
-) -> ListBoxRow {
+) -> ListBoxRow
+where
+    P: AsRef<Path>,
+{
     let icon = Image::from_file(icon_path);
     icon.add_css_class("dvoty-icon");
     icon.set_halign(gtk4::Align::Start);
@@ -235,6 +255,13 @@ pub fn add_entry(
         DvotyEntry::Letter { letter } => {
             super::letter::populate_letter_entry(config, &list, letter, context, sender, monitor);
         }
+
+        DvotyEntry::File { path, name, icon } => {
+            super::files::populate_search_entry(
+                config, &list, path, name, icon, context, sender, monitor,
+            );
+        }
+
         _ => {}
     }
 

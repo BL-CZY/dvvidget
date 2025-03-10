@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use evalexpr::{context_map, EvalexprError, Value};
 use tokio::sync::mpsc::UnboundedSender;
@@ -10,6 +10,7 @@ use crate::daemon::{
 
 use super::{
     app_launcher::process_apps,
+    files::process_recent_files,
     letter::process_greek_letters,
     math::{post_process_result, preprocess_math},
     search::process_history,
@@ -58,6 +59,7 @@ pub async fn process_general(
     id: &uuid::Uuid,
     config: Arc<AppConf>,
     monitor: usize,
+    recent_paths: Vec<PathBuf>,
 ) {
     // math
     if let Ok(val) = identify_math(input) {
@@ -94,8 +96,11 @@ pub async fn process_general(
             println!("Dvoty: Error adding search entry: {}", e);
         });
 
+    // recent files
+    process_recent_files(input.to_string(), sender.clone(), id, monitor, recent_paths);
+
     // website
-    process_history(input, config, sender.clone(), id, monitor)
+    process_history(input, config, sender, id, monitor)
         .await
         .unwrap_or_else(|e| {
             println!("{}", e);

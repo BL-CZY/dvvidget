@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use gtk4::Window;
 use tokio::sync::mpsc::UnboundedSender;
@@ -20,6 +20,7 @@ async fn process_input_str(
     sender: UnboundedSender<DaemonEvt>,
     config: Arc<AppConf>,
     monitor: usize,
+    recent_paths: Vec<PathBuf>,
 ) {
     let id = *CURRENT_IDS.get().unwrap()[monitor]
         .lock()
@@ -96,8 +97,17 @@ async fn process_input_str(
                 monitor,
             );
         }
+        '#' => {
+            super::files::process_recent_files(
+                input.chars().skip(1).collect::<String>(),
+                sender,
+                &id,
+                monitor,
+                recent_paths,
+            );
+        }
         _ => {
-            process_general(sender, input, &id, config, monitor).await;
+            process_general(sender, input, &id, config, monitor, recent_paths).await;
         }
     }
 }
@@ -109,6 +119,7 @@ pub fn process_input(
     windows: &[Window],
     config: Arc<AppConf>,
     monitor: usize,
+    recent_paths: Vec<PathBuf>,
 ) -> Result<(), DaemonErr> {
     let id = uuid::Uuid::new_v4();
     {
@@ -127,7 +138,7 @@ pub fn process_input(
     }
 
     let handle = tokio::spawn(async move {
-        process_input_str(&input, sender.clone(), config, monitor).await;
+        process_input_str(&input, sender.clone(), config, monitor, recent_paths).await;
     });
 
     task_map[monitor].insert(DvotyTaskType::ProcessInput, handle);

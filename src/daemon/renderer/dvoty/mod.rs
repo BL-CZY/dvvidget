@@ -4,6 +4,7 @@ pub mod class;
 pub mod cmd;
 pub mod entry;
 pub mod event;
+pub mod files;
 pub mod general;
 pub mod input;
 pub mod instruction;

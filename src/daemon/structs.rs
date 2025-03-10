@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 use uuid::Uuid;
@@ -63,7 +65,7 @@ pub enum Bri {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Dvoty {
     AddEntry(DvotyEntry),
-    Update(String),
+    Update(String, Vec<PathBuf>),
     SetScroll(f64),
     ScrollEnd,
     ScrollStart,

@@ -274,28 +274,14 @@ pub fn start_app(
         ids.push(Arc::new(Mutex::new(uuid::Uuid::new_v4())));
     }
     CURRENT_IDS.set(ids).unwrap();
-
-    //let recent_manager = gtk4::RecentManager::default();
-    //let recent_items = recent_manager.items();
-
-    //let recent_file_names: Vec<String> = recent_items
-    //    .iter()
-    //    .filter_map(|item| {
-    //        let uri = item.uri();
-    //        gio::File::for_uri(&uri)
-    //            .path()
-    //            .map(|path| path.to_string_lossy().into_owned())
-    //            .or_else(|| Some(uri.to_string()))
-    //    })
-    //    .collect();
-    //
-    //println!("{:?}", recent_file_names);
     
-    let app = Rc::new(gtk4::Application::new(
-        #[cfg(not(debug_assertions))]
-        Some("org.dvida.dvvidgets"),
-        #[cfg(debug_assertions)]
-        Some("org.dvida.dvvidgets.debug"),
+    #[cfg(not(debug_assertions))]
+    let name = Some("org.dvida.dvvidgets");
+
+    #[cfg(debug_assertions)]
+    let name = Some("org.dvida.dvvidgets.debug");
+
+    let app = Rc::new(gtk4::Application::new(name,
         ApplicationFlags::default(),
     ));
 
