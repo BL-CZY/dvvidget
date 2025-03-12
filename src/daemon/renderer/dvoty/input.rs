@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
-use gtk4::Window;
+use gtk4::{prelude::EditableExt, Window};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
@@ -8,11 +8,12 @@ use crate::{
         renderer::config::AppConf,
         structs::{DaemonCmdType, DaemonEvt, Dvoty},
     },
-    utils::DaemonErr,
+    utils::{cache_dir, DaemonErr},
 };
 
 use super::{
-    event::CURRENT_IDS, general::process_general, DvotyContext, DvotyEntry, DvotyTaskType,
+    event::CURRENT_IDS, general::process_general, utils::get_input, DvotyContext, DvotyEntry,
+    DvotyTaskType,
 };
 
 async fn process_input_str(
@@ -21,16 +22,13 @@ async fn process_input_str(
     config: Arc<AppConf>,
     monitor: usize,
     recent_paths: Vec<PathBuf>,
+    id: uuid::Uuid,
 ) {
-    let id = *CURRENT_IDS.get().unwrap()[monitor]
-        .lock()
-        .unwrap_or_else(|p| p.into_inner());
-
     if input.is_empty() {
         if let Err(e) = sender.send(DaemonEvt {
             evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Empty)),
             sender: None,
-            uuid: None,
+            uuid: Some(id),
             monitors: vec![monitor],
         }) {
             println!("Dvoty: Failed to send entry: {}, ignoring...", e);
@@ -142,22 +140,42 @@ pub fn process_input(
         *CURRENT_IDS.get().unwrap()[monitor].lock().unwrap() = id;
     }
 
+    if context.should_autofill[monitor] {
+        // find cache
+        let mut cache_dir = cache_dir();
+        cache_dir.push("histfile");
+
+        if let Ok(content) = std::fs::read_to_string(cache_dir) {
+            let histories: Vec<&str> = content
+                .split("\n")
+                .filter(|s| if *s == "" { false } else { true })
+                .collect();
+            for ele in histories.iter() {
+                if ele.starts_with(&input) && input != "" && ele.len() > input.len() {
+                    if let Ok(input_ui) = get_input(&windows[monitor]) {
+                        input_ui.set_text(ele);
+                        input_ui.select_region(input.len() as i32, -1);
+                    }
+                    //sender
+                    //    .send(DaemonEvt {
+                    //        evt: DaemonCmdType::Dvoty(Dvoty::Update(ele.to_string(), recent_paths)),
+                    //        sender: None,
+                    //        uuid: None,
+                    //        monitors: vec![monitor],
+                    //    })
+                    //    .unwrap_or_else(|e| {
+                    //        println!("Dvoty: Cannot resend input: {}", e);
+                    //    });
+
+                    return Ok(());
+                }
+            }
+        }
+    }
+
     context.dvoty_entries[monitor].clear();
     context.cur_ind[monitor] = 0;
     context.target_scroll[monitor] = 0.0f64;
-
-    let task_map = &mut context.dvoty_tasks;
-
-    if let Some(handle) = task_map[monitor].get(&DvotyTaskType::ProcessInput) {
-        handle.abort();
-        task_map[monitor].remove(&DvotyTaskType::ProcessInput);
-    }
-
-    let handle = tokio::spawn(async move {
-        process_input_str(&input, sender.clone(), config, monitor, recent_paths).await;
-    });
-
-    task_map[monitor].insert(DvotyTaskType::ProcessInput, handle);
 
     let list = if let Some(l) = &context.dvoty_list[monitor] {
         l
@@ -170,6 +188,19 @@ pub fn process_input(
     };
 
     list.remove_all();
+
+    let task_map = &mut context.dvoty_tasks;
+
+    if let Some(handle) = task_map[monitor].get(&DvotyTaskType::ProcessInput) {
+        handle.abort();
+        task_map[monitor].remove(&DvotyTaskType::ProcessInput);
+    }
+
+    let handle = tokio::spawn(async move {
+        process_input_str(&input, sender.clone(), config, monitor, recent_paths, id).await;
+    });
+
+    task_map[monitor].insert(DvotyTaskType::ProcessInput, handle);
 
     Ok(())
 }

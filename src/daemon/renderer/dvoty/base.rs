@@ -1,12 +1,14 @@
-use crate::daemon::renderer::app::register_widget;
+use crate::daemon::renderer::app::{register_widget, AppContext};
 use crate::daemon::renderer::config::AppConf;
 use crate::daemon::structs::{DaemonCmdType, DaemonEvt, Dvoty};
 use crate::utils::DisplayBackend;
 use gtk4::gdk::ModifierType;
 use gtk4::prelude::*;
 use gtk4::{Application, ApplicationWindow, Box, Entry, ListBox, ListBoxRow, ScrolledWindow};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
@@ -28,6 +30,7 @@ pub struct DvotyContext {
     pub dvoty_entries: Vec<Vec<(DvotyUIEntry, ListBoxRow)>>,
     pub cur_ind: Vec<usize>,
     pub target_scroll: Vec<f64>,
+    pub should_autofill: Vec<bool>,
 }
 
 impl DvotyContext {
@@ -39,15 +42,23 @@ impl DvotyContext {
             dvoty_entries: create_list_of(monitor_count),
             cur_ind: create_list_of(monitor_count),
             target_scroll: create_list_of(monitor_count),
+            should_autofill: vec![true; monitor_count],
         }
     }
 }
 
-fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
+fn input(
+    sender: UnboundedSender<DaemonEvt>,
+    monitor: usize,
+    context: Rc<RefCell<AppContext>>,
+) -> Entry {
     let input = Entry::builder().css_classes(["dvoty-input"]).build();
 
     let key_controller = gtk4::EventControllerKey::new();
     let sender_clone = sender.clone();
+
+    key_controller.set_propagation_phase(gtk4::PropagationPhase::Capture);
+
     key_controller.connect_key_pressed(
         move |_controller, keyval, _keycode, state: ModifierType| match keyval {
             gtk4::gdk::Key::Tab => glib::Propagation::Stop,
@@ -108,23 +119,38 @@ fn input(sender: UnboundedSender<DaemonEvt>, monitor: usize) -> Entry {
                     .unwrap_or_else(|e| println!("Dvoty: Failed to send triggering event: {}", e));
                 glib::Propagation::Stop
             }
-            _ => glib::Propagation::Proceed,
+
+            gtk4::gdk::Key::Return | gtk4::gdk::Key::KP_Enter => {
+                let mut context_ref = context.borrow_mut();
+                context_ref.dvoty.should_autofill[monitor] = false;
+
+                sender_clone
+                    .send(DaemonEvt {
+                        evt: DaemonCmdType::Dvoty(Dvoty::TriggerEntry),
+                        sender: None,
+                        uuid: None,
+                        monitors: vec![monitor],
+                    })
+                    .unwrap_or_else(|e| println!("Dvoty: Failed to send triggering event: {}", e));
+
+                glib::Propagation::Proceed
+            }
+
+            gtk4::gdk::Key::BackSpace | gtk4::gdk::Key::Delete => {
+                let mut context_ref = context.borrow_mut();
+                context_ref.dvoty.should_autofill[monitor] = false;
+                glib::Propagation::Proceed
+            }
+
+            gtk4::gdk::Key::Left | gtk4::gdk::Key::Right => glib::Propagation::Proceed,
+
+            _ => {
+                let mut context_ref = context.borrow_mut();
+                context_ref.dvoty.should_autofill[monitor] = true;
+                glib::Propagation::Proceed
+            }
         },
     );
-
-    let sender_clone = sender.clone();
-    key_controller.connect_key_released(move |_, keyval, _, _| {
-        if keyval == gtk4::gdk::Key::Return || keyval == gtk4::gdk::Key::KP_Enter {
-            sender_clone
-                .send(DaemonEvt {
-                    evt: DaemonCmdType::Dvoty(Dvoty::TriggerEntry),
-                    sender: None,
-                    uuid: None,
-                    monitors: vec![monitor],
-                })
-                .unwrap_or_else(|e| println!("Dvoty: Failed to send triggering event: {}", e));
-        }
-    });
 
     input.add_controller(key_controller);
 
@@ -179,6 +205,7 @@ pub fn create_dvoty(
     sender: UnboundedSender<DaemonEvt>,
     monitor_ind: usize,
     monitor: &gtk4::gdk::Monitor,
+    context: Rc<RefCell<AppContext>>,
 ) -> ApplicationWindow {
     let result = crate::daemon::renderer::window::create_window(
         &backend,
@@ -189,7 +216,7 @@ pub fn create_dvoty(
     );
     result.add_css_class("dvoty-window");
 
-    let input = input(sender.clone(), monitor_ind);
+    let input = input(sender.clone(), monitor_ind, context);
     let outer_wrapper = list(config.clone());
 
     let wrapper = Box::builder()

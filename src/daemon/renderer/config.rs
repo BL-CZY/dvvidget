@@ -285,6 +285,10 @@ pub struct AppConfDvoty {
     #[serde_inline_default(DvotyGeneralOptions::default())]
     #[default(_code = "DvotyGeneralOptions::default()")]
     pub general_options: DvotyGeneralOptions,
+
+    #[serde_inline_default(500)]
+    #[default(500)]
+    pub hist_length: usize,
 }
 
 #[serde_inline_default]

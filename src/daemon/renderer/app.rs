@@ -197,10 +197,9 @@ pub fn init_gtk_async(
     evt_sender: UnboundedSender<DaemonEvt>,
     app: Rc<Application>,
     config: Arc<AppConf>,
-    monitor_count: &Vec<gdk::Monitor>,
+    _monitor_list: &Vec<gdk::Monitor>,
+    app_context: Rc<RefCell<AppContext>>
 ) -> Result<(), DaemonErr> {
-    let context = Rc::new(RefCell::new(AppContext::from_config(&config, monitor_count.len())));
-
     glib::MainContext::default().spawn_local(async move {
         loop {
             tokio::select! {
@@ -224,7 +223,7 @@ pub fn init_gtk_async(
                 }
 
                 Some(evt) = evt_receiver.recv() => {
-                    match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), context.clone(), evt.monitors, evt.uuid) {
+                    match process_evt(evt.evt, app.clone(), evt_sender.clone(), config.clone(), app_context.clone(), evt.monitors, evt.uuid) {
                         Err(e) => send_res(evt.sender, DaemonRes::Failure(format!("{:?}", e))),
                         Ok(res) => send_res(evt.sender, res),
                     }
@@ -241,7 +240,8 @@ fn activate(
     app: &gtk4::Application,
     config: Arc<AppConf>,
     sender: UnboundedSender<DaemonEvt>,
-    monitors: Vec<gdk::Monitor>
+    monitors: Vec<gdk::Monitor>,
+    app_context: Rc<RefCell<AppContext>>
 ) {
     let css = CssProvider::new();
     css.load_from_path(&config.general.css_path);
@@ -254,7 +254,7 @@ fn activate(
     for (ind, monitor ) in monitors.iter().enumerate() {
         create_sound_osd(backend, app, config.clone(), monitor);
         create_bri_osd(backend, app, config.clone(), monitor);
-        create_dvoty(backend, app, config.clone(), sender.clone(), ind, monitor);
+        create_dvoty(backend, app, config.clone(), sender.clone(), ind, monitor, app_context.clone());
     }
 }
 
@@ -285,17 +285,20 @@ pub fn start_app(
         ApplicationFlags::default(),
     ));
 
+    let context = Rc::new(RefCell::new(AppContext::from_config(&config, monitor_list.len())));
+
     if let Err(e) = init_gtk_async(
         evt_receiver,
         evt_sender.clone(),
         app.clone(),
         config.clone(),
-        &monitor_list
+        &monitor_list,
+        context.clone()
     ) {
         println!("Err handling command: {:?}", e);
     }
 
-    app.connect_activate(move |app| activate(backend, app, config.clone(), evt_sender.clone(), monitor_list.clone()));
+    app.connect_activate(move |app| activate(backend, app, config.clone(), evt_sender.clone(), monitor_list.clone(), context.clone()));
 
     app.run_with_args(&[""]);
 }

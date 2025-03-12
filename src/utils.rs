@@ -6,12 +6,8 @@ use once_cell::sync::Lazy;
 use tokio::sync::broadcast;
 
 pub fn cache_dir() -> PathBuf {
-    let mut result = PathBuf::from(std::env::var("HOME").expect("Cannot create home dir"));
+    let mut result = PathBuf::from(std::env::var("HOME").expect("Cannot find home dir"));
     result.push(".cache/dvvidget");
-
-    if let Err(_) = std::fs::read_dir(&result) {
-        std::fs::create_dir_all(&result).expect("Cannot create cache directory");
-    }
 
     result
 }

@@ -9,7 +9,7 @@ use crate::{
         renderer::config::AppConf,
         structs::{DaemonCmdType, DaemonEvt, DaemonRes, Dvoty},
     },
-    utils::DaemonErr,
+    utils::{cache_dir, DaemonErr},
 };
 
 use std::sync::Mutex;
@@ -126,6 +126,41 @@ fn handle_dvoty_cmd_single(
                     .clone()
                     .run(config.clone());
             }
+
+            if let Ok(input) = get_input(&windows[monitor]) {
+                let mut cache_dir = cache_dir();
+                cache_dir.push("histfile");
+                if let Ok(str) = std::fs::read_to_string(&cache_dir) {
+                    let mut history = vec![];
+                    let text = input.text().to_string();
+                    history.push(text.as_str());
+
+                    str.split("\n").for_each(|ele| {
+                        history.push(ele);
+                    });
+
+                    if let Some(ele) = history.last() {
+                        if *ele == "" {
+                            history.pop();
+                        }
+                    }
+
+                    while history.len() > config.dvoty.hist_length {
+                        history.pop();
+                    }
+
+                    let content = history.iter().fold(String::new(), |mut acc, str| {
+                        acc.push_str(str);
+                        acc.push('\n');
+                        acc
+                    });
+
+                    std::fs::write(cache_dir, content).unwrap_or_else(|e| {
+                        println!("Dvoty: Can't update history: {}", e);
+                    });
+                }
+            }
+
             windows[monitor].set_visible(false);
         }
 
@@ -145,6 +180,9 @@ fn handle_dvoty_cmd_single(
                 windows[monitor].set_visible(false);
             } else {
                 windows[monitor].set_visible(true);
+                if let Ok(input) = get_input(&windows[monitor]) {
+                    input.select_region(0, -1);
+                }
             }
         }
 
@@ -166,7 +204,6 @@ pub fn handle_dvoty_cmd(
     id: Option<uuid::Uuid>,
 ) -> Result<DaemonRes, DaemonErr> {
     // dvoty events all only have one monitor, so it's fine to have one id
-
     for monitor in monitors {
         if let Some(uuid) = id {
             if *CURRENT_IDS.get().unwrap()[monitor]

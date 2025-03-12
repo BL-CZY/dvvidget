@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::renderer::config::default_config_path;
@@ -14,6 +15,25 @@ pub fn start_daemon(
     config_path: Option<String>,
     socket_path: Option<String>,
 ) -> Result<(), DaemonErr> {
+    // init cache
+    let mut cache_dir = PathBuf::from(std::env::var("HOME").expect("Cannot find home dir"));
+    cache_dir.push(".cache/dvvidget");
+
+    if let Err(_) = std::fs::read_dir(&cache_dir) {
+        std::fs::create_dir_all(&cache_dir).expect("Cannot create cache directory");
+    }
+
+    println!("Cache directory at {:?}", cache_dir);
+
+    cache_dir.push("histfile");
+
+    if let Err(_) = std::fs::read(&cache_dir) {
+        std::fs::write(&cache_dir, "")
+            .unwrap_or_else(|_| println!("Cannot create histfile in cache directory"));
+    }
+
+    println!("Dvoty histfile at {:?}", cache_dir);
+
     let backend = detect_display();
 
     let config_path = if let Some(p) = config_path {
