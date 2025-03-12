@@ -172,7 +172,7 @@ fn volume_args(actions: VolCmd, monitor: Option<usize>) {
         }
     };
     if let Err(e) = crate::cli::send_evt(DaemonCmdClient {
-        monitor: monitor.map_or_else(|| MonitorClient::All, |v| MonitorClient::One(v)),
+        monitor: monitor.map_or_else(|| MonitorClient::All, MonitorClient::One),
         cmd: evt,
     }) {
         println!("Err Sending event: {:?}", e);
@@ -196,7 +196,7 @@ fn bri_args(actions: BriCmd, monitor: Option<usize>) {
         }
     };
     if let Err(e) = crate::cli::send_evt(DaemonCmdClient {
-        monitor: monitor.map_or_else(|| MonitorClient::All, |v| MonitorClient::One(v)),
+        monitor: monitor.map_or_else(|| MonitorClient::All, MonitorClient::One),
         cmd: evt,
     }) {
         println!("Err Sending event: {:?}", e);
@@ -211,7 +211,7 @@ fn dvoty_args(actions: DvotyCmd, monitor: Option<usize>) {
             DvotyCmd::Toggle => DaemonCmdType::Dvoty(crate::daemon::structs::Dvoty::Toggle),
         };
         DaemonCmdClient {
-            monitor: monitor.map_or_else(|| MonitorClient::All, |v| MonitorClient::One(v)),
+            monitor: monitor.map_or_else(|| MonitorClient::All, MonitorClient::One),
             cmd,
         }
     };

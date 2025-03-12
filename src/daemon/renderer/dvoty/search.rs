@@ -45,12 +45,10 @@ pub async fn process_history(
 
     let mut found = false;
     let mut name = "";
-    for section in sections {
-        if let Some(str) = section {
-            if str.starts_with("Install") {
-                name = str;
-                found = true;
-            }
+    for section in sections.flatten() {
+        if section.starts_with("Install") {
+            name = section;
+            found = true;
         }
     }
 
@@ -74,7 +72,7 @@ pub async fn process_history(
 
             let pool = sqlx::SqlitePool::connect(&format!(
                 "sqlite:{}?immutable=1",
-                &path.to_str().unwrap_or_else(|| { "" })
+                &path.to_str().unwrap_or("")
             ))
             .await
             .with_context(|| "Cannot open connection")?;
@@ -229,7 +227,7 @@ pub async fn handle_search(
             println!("Dvoty: Error adding search entry: {}", e);
         });
 
-    process_history(&keyword, config, sender.clone(), &id, monitor, true, true)
+    process_history(&keyword, config, sender.clone(), id, monitor, true, true)
         .await
         .unwrap_or_else(|e| {
             println!("{}", e);

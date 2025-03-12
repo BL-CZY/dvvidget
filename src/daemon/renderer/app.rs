@@ -197,7 +197,7 @@ pub fn init_gtk_async(
     evt_sender: UnboundedSender<DaemonEvt>,
     app: Rc<Application>,
     config: Arc<AppConf>,
-    _monitor_list: &Vec<gdk::Monitor>,
+    _monitor_list: &[gdk::Monitor],
     app_context: Rc<RefCell<AppContext>>
 ) -> Result<(), DaemonErr> {
     glib::MainContext::default().spawn_local(async move {

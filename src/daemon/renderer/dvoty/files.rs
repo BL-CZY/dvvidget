@@ -134,23 +134,22 @@ fn get_extension_icon(ext: &str) -> Option<PathBuf> {
 pub fn populate_search_entry(
     config: std::sync::Arc<AppConf>,
     list: &ListBox,
-    path: PathBuf,
-    name: String,
-    icon: Option<PathBuf>,
+    // path, name, icon
+    body: (PathBuf, String, Option<PathBuf>),
     context: &mut DvotyContext,
     sender: UnboundedSender<DaemonEvt>,
     monitor: usize,
 ) {
     let row = create_base_entry(
-        icon.unwrap_or(PathBuf::default()),
-        &name,
+        body.2.unwrap_or_default(),
+        &body.1,
         "Click to search",
         sender,
         config.clone(),
         monitor,
     );
 
-    context.dvoty_entries[monitor].push((DvotyUIEntry::File { path }, row.clone()));
+    context.dvoty_entries[monitor].push((DvotyUIEntry::File { path: body.0 }, row.clone()));
 
     if context.dvoty_entries[monitor].len() <= 1 {
         adjust_class(0, 0, &mut context.dvoty_entries[monitor]);

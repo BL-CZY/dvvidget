@@ -79,7 +79,7 @@ pub async fn process_paths() -> Result<(), Box<dyn std::error::Error>> {
             let path = entry.path();
 
             // Check if it's a .desktop file
-            if path.is_file() && path.extension().map_or(false, |ext| ext == "desktop") {
+            if path.is_file() && path.extension().is_some_and(|ext| ext == "desktop") {
                 // Get the filename as the key
                 if let Some(filename) = path.file_name().and_then(|f| f.to_str()) {
                     // Add or replace in the map
@@ -137,7 +137,7 @@ fn send(
 }
 
 pub fn underline_string(input: &str, str: &str) -> String {
-    if input.len() == 0 {
+    if input.is_empty() {
         return str.to_string();
     }
 
@@ -282,16 +282,14 @@ fn clense_cmd(exec: &mut String, str: &str) {
 pub fn populate_launcher_entry(
     config: Arc<AppConf>,
     list: &ListBox,
-    name: String,
-    terminal: bool,
-    mut exec: String,
-    icon: Option<PathBuf>,
+    //name, terminal, exec, icon
+    mut body: (String, bool, String, Option<PathBuf>),
     context: &mut DvotyContext,
     sender: UnboundedSender<DaemonEvt>,
     monitor: usize,
 ) {
     let row = super::entry::create_base_entry(
-        match icon {
+        match body.3 {
             Some(ref buf) => {
                 if let Some(str) = buf.to_str() {
                     str
@@ -301,22 +299,28 @@ pub fn populate_launcher_entry(
             }
             None => &config.dvoty.instruction_icon,
         },
-        &name,
+        &body.0,
         "Click to launch",
         sender,
         config.clone(),
         monitor,
     );
 
-    clense_cmd(&mut exec, "%u");
-    clense_cmd(&mut exec, "%U");
-    clense_cmd(&mut exec, "%f");
-    clense_cmd(&mut exec, "%F");
-    clense_cmd(&mut exec, "%i");
-    clense_cmd(&mut exec, "%c");
-    clense_cmd(&mut exec, "%k");
+    clense_cmd(&mut body.2, "%u");
+    clense_cmd(&mut body.2, "%U");
+    clense_cmd(&mut body.2, "%f");
+    clense_cmd(&mut body.2, "%F");
+    clense_cmd(&mut body.2, "%i");
+    clense_cmd(&mut body.2, "%c");
+    clense_cmd(&mut body.2, "%k");
 
-    context.dvoty_entries[monitor].push((DvotyUIEntry::Launch { terminal, exec }, row.clone()));
+    context.dvoty_entries[monitor].push((
+        DvotyUIEntry::Launch {
+            terminal: body.1,
+            exec: body.2,
+        },
+        row.clone(),
+    ));
 
     if context.dvoty_entries[monitor].len() <= 1 {
         adjust_class(0, 0, &mut context.dvoty_entries[monitor]);

@@ -140,7 +140,7 @@ fn handle_dvoty_cmd_single(
                     });
 
                     if let Some(ele) = history.last() {
-                        if *ele == "" {
+                        if ele.is_empty() {
                             history.pop();
                         }
                     }

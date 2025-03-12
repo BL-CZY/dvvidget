@@ -195,7 +195,7 @@ fn handle_close_notification(ctx: &mut Context, server: &Arc<Mutex<NotificationS
         )
         .append2(id, reason);
 
-        let _ = ctx.push_msg(signal);
+        ctx.push_msg(signal);
     }
 }
 

@@ -249,7 +249,12 @@ pub fn add_entry(
             icon,
         } => {
             super::app_launcher::populate_launcher_entry(
-                config, &list, name, terminal, exec, icon, context, sender, monitor,
+                config,
+                &list,
+                (name, terminal, exec, icon),
+                context,
+                sender,
+                monitor,
             );
         }
         DvotyEntry::Letter { letter } => {
@@ -258,7 +263,12 @@ pub fn add_entry(
 
         DvotyEntry::File { path, name, icon } => {
             super::files::populate_search_entry(
-                config, &list, path, name, icon, context, sender, monitor,
+                config,
+                &list,
+                (path, name, icon),
+                context,
+                sender,
+                monitor,
             );
         }
 

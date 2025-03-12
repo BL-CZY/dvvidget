@@ -1,3 +1,3 @@
-pub mod server;
+pub mod denote;
 
-pub use server::start_notification_server;
+pub use denote::start_notification_server;

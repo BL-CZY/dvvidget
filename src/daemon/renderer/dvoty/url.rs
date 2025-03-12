@@ -55,7 +55,7 @@ pub fn populate_url_entry(
 ) {
     let row = super::entry::create_base_entry(
         &config.dvoty.url_icon,
-        &keyword,
+        keyword,
         "Click to open",
         sender,
         config.clone(),

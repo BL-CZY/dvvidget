@@ -146,12 +146,9 @@ pub fn process_input(
         cache_dir.push("histfile");
 
         if let Ok(content) = std::fs::read_to_string(cache_dir) {
-            let histories: Vec<&str> = content
-                .split("\n")
-                .filter(|s| if *s == "" { false } else { true })
-                .collect();
+            let histories: Vec<&str> = content.split("\n").filter(|s| !s.is_empty()).collect();
             for ele in histories.iter() {
-                if ele.starts_with(&input) && input != "" && ele.len() > input.len() {
+                if ele.starts_with(&input) && !input.is_empty() && ele.len() > input.len() {
                     if let Ok(input_ui) = get_input(&windows[monitor]) {
                         input_ui.set_text(ele);
                         input_ui.select_region(input.len() as i32, -1);

@@ -19,7 +19,7 @@ pub fn start_daemon(
     let mut cache_dir = PathBuf::from(std::env::var("HOME").expect("Cannot find home dir"));
     cache_dir.push(".cache/dvvidget");
 
-    if let Err(_) = std::fs::read_dir(&cache_dir) {
+    if std::fs::read_dir(&cache_dir).is_err() {
         std::fs::create_dir_all(&cache_dir).expect("Cannot create cache directory");
     }
 
@@ -27,7 +27,7 @@ pub fn start_daemon(
 
     cache_dir.push("histfile");
 
-    if let Err(_) = std::fs::read(&cache_dir) {
+    if std::fs::read(&cache_dir).is_err() {
         std::fs::write(&cache_dir, "")
             .unwrap_or_else(|_| println!("Cannot create histfile in cache directory"));
     }
@@ -77,11 +77,9 @@ pub fn start_daemon(
 
     let mut monitor_list = vec![];
 
-    for monitor in &monitors {
-        if let Ok(monitor) = monitor {
-            if let Ok(mon) = monitor.downcast::<gtk4::gdk::Monitor>() {
-                monitor_list.push(mon);
-            }
+    for monitor in (&monitors).into_iter().flatten() {
+        if let Ok(mon) = monitor.downcast::<gtk4::gdk::Monitor>() {
+            monitor_list.push(mon);
         }
     }
 

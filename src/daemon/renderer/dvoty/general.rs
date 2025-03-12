@@ -93,7 +93,7 @@ fn is_mathable(input: &str) -> bool {
     }
 
     // Common math operators and symbols
-    let math_operators = vec!['+', '-', '*', '/', '=', '<', '>', '^', '√', '(', ')'];
+    let math_operators = ['+', '-', '*', '/', '=', '<', '>', '^', '√', '(', ')'];
 
     // Count math-related characters and symbols
     let mut math_char_count = 0;
@@ -101,7 +101,7 @@ fn is_mathable(input: &str) -> bool {
     let mut potential_function = String::new();
 
     for c in input.chars() {
-        if c.is_digit(10) {
+        if c.is_ascii_digit() {
             has_digit = true;
             math_char_count += 1;
         } else if math_operators.contains(&c) {

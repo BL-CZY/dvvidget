@@ -78,7 +78,7 @@ fn search_letter(kwd: &str, mode: &[bool; 2]) -> Option<Vec<String>> {
     if let Some(val) = LETTERS.get(kwd) {
         return Some(
             val.iter()
-                .map(|letter| {
+                .flat_map(|letter| {
                     let mut result = vec![];
 
                     if letter.uppercase == letter.lowercase {
@@ -96,7 +96,6 @@ fn search_letter(kwd: &str, mode: &[bool; 2]) -> Option<Vec<String>> {
 
                     result
                 })
-                .flatten()
                 .collect(),
         );
     }
