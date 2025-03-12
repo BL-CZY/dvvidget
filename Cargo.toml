@@ -21,7 +21,7 @@ anyhow = "1.0"
 toml = "0.8.19"
 lazy_static = "1.5.0"
 backlight = "0.1.1"
-evalexpr = "11.3.0"
+evalexpr = { version = "11.3.0", features = ["rand"] }
 open = "5.3.0"
 rayon = "1.10.0"
 freedesktop-file-parser = "0.1.3"

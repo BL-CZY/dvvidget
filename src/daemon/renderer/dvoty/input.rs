@@ -40,7 +40,12 @@ async fn process_input_str(
 
     match input.chars().next().unwrap() {
         '=' => {
-            super::math::eval_math(input, sender, &id, monitor);
+            super::math::eval_math(
+                input.chars().skip(1).collect::<String>().to_lowercase(),
+                sender,
+                &id,
+                monitor,
+            );
         }
         '@' => {
             super::app_launcher::process_apps(

@@ -24,12 +24,43 @@ pub fn set_clipboard_text(text: &str) {
 pub fn preprocess_math(input: &str) -> String {
     input
         .replace(" ", "")
+        // Math functions
+        .replace("is_nan", "math::is_nan")
+        .replace("is_finite", "math::is_finite")
+        .replace("is_infinite", "math::is_infinite")
+        .replace("is_normal", "math::is_normal")
         .replace("ln", "math::ln")
         .replace("log", "math::log")
-        .replace("sin", "math::sin")
+        .replace("log2", "math::log2")
+        .replace("log10", "math::log10")
+        .replace("exp", "math::exp")
+        .replace("exp2", "math::exp2")
+        .replace("pow", "math::pow")
         .replace("cos", "math::cos")
+        .replace("acos", "math::acos")
+        .replace("cosh", "math::cosh")
+        .replace("acosh", "math::acosh")
+        .replace("sin", "math::sin")
+        .replace("asin", "math::asin")
+        .replace("sinh", "math::sinh")
+        .replace("asinh", "math::asinh")
         .replace("tan", "math::tan")
+        .replace("atan", "math::atan")
+        .replace("atan2", "math::atan2")
+        .replace("tanh", "math::tanh")
+        .replace("atanh", "math::atanh")
         .replace("sqrt", "math::sqrt")
+        .replace("cbrt", "math::cbrt")
+        .replace("hypot", "math::hypot")
+        .replace("abs", "math::abs")
+        // String functions
+        .replace("regex_matches", "str::regex_matches")
+        .replace("regex_replace", "str::regex_replace")
+        .replace("to_lowercase", "str::to_lowercase")
+        .replace("to_uppercase", "str::to_uppercase")
+        .replace("trim", "str::trim")
+        .replace("from", "str::from")
+        .replace("substring", "str::substring")
 }
 
 pub fn post_process_result(input: Value) -> String {
@@ -39,10 +70,11 @@ pub fn post_process_result(input: Value) -> String {
     }
 }
 
-pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>, id: &Uuid, monitor: usize) {
+pub fn eval_math(input: String, sender: UnboundedSender<DaemonEvt>, id: &Uuid, monitor: usize) {
     use evalexpr::Value;
-    let input = preprocess_math(input);
+    let input = preprocess_math(&input);
     let context = match context_map! {
+        "e" => Value::Float(f64::consts::E),
         "pi" => Value::Float(f64::consts::PI),
         "deg" => Function::new(|argument| {
             let arguments = argument.as_number()?;
@@ -74,13 +106,12 @@ pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>, id: &Uuid, mon
         }
     };
 
-    let expr = input.chars().skip(1).collect::<String>();
-    match evalexpr::eval_with_context(&expr, &context) {
+    match evalexpr::eval_with_context(&input, &context) {
         Ok(res) => {
             sender
                 .send(DaemonEvt {
                     evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Math {
-                        expression: expr,
+                        expression: input,
                         result: post_process_result(res),
                     })),
                     sender: None,
@@ -90,11 +121,10 @@ pub fn eval_math(input: &str, sender: UnboundedSender<DaemonEvt>, id: &Uuid, mon
                 .unwrap_or_else(|e| println!("Dvoty: Failed to send math result: {}", e));
         }
         Err(e) => {
-            println!("Dvoty: Failed to evaluate math: {}", e);
             sender
                 .send(DaemonEvt {
                     evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Math {
-                        expression: expr,
+                        expression: input,
                         result: e.to_string(),
                     })),
                     sender: None,
