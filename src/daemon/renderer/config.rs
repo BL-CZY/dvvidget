@@ -287,14 +287,22 @@ pub struct AppConfDvoty {
     pub general_options: DvotyGeneralOptions,
 }
 
+#[serde_inline_default]
 #[derive(Deserialize, SmartDefault, Debug, Clone)]
 pub struct DvotyGeneralOptions {
+    #[serde_inline_default(true)]
     pub math: bool,
+    #[serde_inline_default(true)]
     pub search: bool,
+    #[serde_inline_default(false)]
     pub history: bool,
+    #[serde_inline_default(true)]
     pub bookmark: bool,
+    #[serde_inline_default(true)]
     pub letter: bool,
+    #[serde_inline_default(true)]
     pub launch: bool,
+    #[serde_inline_default(true)]
     pub files: bool,
 }
 
