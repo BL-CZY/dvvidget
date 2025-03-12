@@ -1,4 +1,5 @@
 use std::{path::PathBuf, sync::atomic::AtomicBool, time::Duration};
+use thiserror::Error;
 
 use crate::daemon::structs::{DaemonCmdClient, DaemonEvt, DaemonRes};
 use gtk4::Image;
@@ -105,17 +106,27 @@ pub fn shutdown(msg: &str) -> ! {
     std::process::exit(0);
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum DaemonErr {
+    #[error("Server failed to initialize")]
     InitServerFailed,
+    #[error("A server is already running")]
     ServerAlreadyRunning,
+    #[error("Failed to read request {0}")]
     ReadingFailed(String),
+    #[error("Failed to deserialize {0}")]
     DeserializeError(String),
+    #[error("Failed to send {:?}", .0)]
     SendFailed(DaemonEvt),
+    #[error("Failed to shutdown: {0}")]
     ShutdownFailed(String),
+    #[error("Failed to write to stream: {0}")]
     WriteErr(String),
+    #[error("Failed to write to serialize evet {:?}: {}", .0, .1)]
     SerializeError(DaemonRes, String),
+    #[error("Failed to initialize the file watcher: {0}")]
     FileWatchError(String),
+    #[error("Failed to find widget")]
     CannotFindWidget,
 }
 

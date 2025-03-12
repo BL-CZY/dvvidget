@@ -98,7 +98,7 @@ pub fn start_daemon(
                 // use tokio::spawn if there are more tasks here, such as information puller
             });
         })
-        .expect("Failed to start the async thread.");
+        .expect("Failed to start the async thread: thread failed to initialize");
 
     start_app(
         backend,

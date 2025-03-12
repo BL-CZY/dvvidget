@@ -1,5 +1,6 @@
 pub mod info;
 pub mod init;
+pub mod notification;
 pub mod renderer;
 pub mod server;
 pub mod structs;

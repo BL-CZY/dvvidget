@@ -1,16 +1,19 @@
 use crate::daemon::renderer::dvoty::app_launcher;
 use crate::utils::{get_paths, shutdown, DaemonErr, ExitType, EXIT_BROADCAST, EXIT_SENT};
 use anyhow::Context;
+use dbus::nonblock::SyncConnection;
 use notify::{Event, Watcher};
 use std::fs;
 use std::path::Path;
 use std::rc::Rc;
+use std::sync::Arc;
 use tokio;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::unix::ReadHalf;
 use tokio::net::UnixStream;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
+use super::notification;
 use super::structs::{DaemonCmdClient, DaemonCmdType, DaemonEvt, DaemonRes};
 use crate::utils::receive_exit;
 
@@ -32,7 +35,7 @@ pub async fn run_server(
     socket_path: Option<String>,
     evt_sender: UnboundedSender<DaemonEvt>,
     monitor_count: usize,
-) -> Result<(), DaemonErr> {
+) -> Result<(), Box<dyn std::error::Error>> {
     let socket_path = if let Some(p) = socket_path {
         p
     } else {
@@ -85,10 +88,13 @@ pub async fn run_server(
 
     let _ = watcher.watch(&path, notify::RecursiveMode::NonRecursive);
 
+    // denote
+    let (handle, conn) = notification::start_notification_server().await?;
+
     loop {
         tokio::select! {
             Ok(t) = receive_exit() => {
-                process_exit(t, listener, &socket_path);
+                process_exit(t, listener, &socket_path, handle, conn);
 
                 return Ok(());
             }
@@ -124,10 +130,19 @@ pub async fn run_server(
     //Ok(())
 }
 
-fn process_exit(t: ExitType, listener: Rc<tokio::net::UnixListener>, socket_path: &str) {
+fn process_exit(
+    t: ExitType,
+    listener: Rc<tokio::net::UnixListener>,
+    socket_path: &str,
+    handle: tokio::task::JoinHandle<()>,
+    conn: Arc<SyncConnection>,
+) {
     println!("shutting down the server..");
     drop(listener);
     fs::remove_file(socket_path).unwrap();
+    println!("shutting down the notification server");
+    handle.abort();
+    drop(conn);
 
     match t {
         ExitType::Restart => {}
