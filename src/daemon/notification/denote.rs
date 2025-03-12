@@ -201,18 +201,18 @@ fn handle_close_notification(ctx: &mut Context, server: &Arc<Mutex<NotificationS
 
 pub async fn start_notification_server(
 ) -> Result<(tokio::task::JoinHandle<()>, Arc<SyncConnection>), Box<dyn std::error::Error>> {
-    // Connect to the session bus
-    let (resource, connection) = dbus_tokio::connection::new_session_sync()?;
-
-    // Request the Notifications service name
-    connection
-        .request_name(NOTIFICATIONS_INTERFACE, false, true, false)
-        .await?;
-
     // Create a new Crossroads instance
     let mut cr = Crossroads::new();
 
-    // Enable introspection on crossroads
+    // Connect to the session bus
+    let (resource, connection) = dbus_tokio::connection::new_session_sync()?;
+
+    cr.set_async_support(Some((
+        connection.clone(),
+        Box::new(|x| {
+            tokio::spawn(x);
+        }),
+    )));
 
     // Create server state and register interface
     let server = Arc::new(Mutex::new(NotificationServer::new()));
@@ -237,6 +237,11 @@ pub async fn start_notification_server(
             err
         ));
     });
+
+    // Request the Notifications service name
+    connection
+        .request_name(NOTIFICATIONS_INTERFACE, false, true, false)
+        .await?;
 
     Ok((handle, connection))
 }
