@@ -154,37 +154,53 @@ pub async fn process_general(
     recent_paths: Vec<PathBuf>,
 ) {
     // math
-    if is_mathable(input) {
+    if is_mathable(input) && config.dvoty.general_options.math {
         eval_math(input.to_lowercase(), sender.clone(), id, monitor);
     }
 
     // letter
-    process_greek_letters(input.to_string(), sender.clone(), id, monitor);
+    if config.dvoty.general_options.letter {
+        process_greek_letters(input.to_string(), sender.clone(), id, monitor);
+    }
 
     // app launcher
-    process_apps(input, sender.clone(), id, config.clone(), monitor);
+    if config.dvoty.general_options.launch {
+        process_apps(input, sender.clone(), id, config.clone(), monitor);
+    }
 
     // search
-    sender
-        .send(DaemonEvt {
-            evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Search {
-                keyword: input.into(),
-            })),
-            sender: None,
-            uuid: Some(*id),
-            monitors: vec![monitor],
-        })
-        .unwrap_or_else(|e| {
-            println!("Dvoty: Error adding search entry: {}", e);
-        });
+    if config.dvoty.general_options.search {
+        sender
+            .send(DaemonEvt {
+                evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Search {
+                    keyword: input.into(),
+                })),
+                sender: None,
+                uuid: Some(*id),
+                monitors: vec![monitor],
+            })
+            .unwrap_or_else(|e| {
+                println!("Dvoty: Error adding search entry: {}", e);
+            });
+    }
 
     // recent files
-    process_recent_files(input.to_string(), sender.clone(), id, monitor, recent_paths);
+    if config.dvoty.general_options.files {
+        process_recent_files(input.to_string(), sender.clone(), id, monitor, recent_paths);
+    }
 
     // website
-    process_history(input, config, sender, id, monitor)
-        .await
-        .unwrap_or_else(|e| {
-            println!("{}", e);
-        });
+    process_history(
+        input,
+        config.clone(),
+        sender,
+        id,
+        monitor,
+        config.dvoty.general_options.history,
+        config.dvoty.general_options.bookmark,
+    )
+    .await
+    .unwrap_or_else(|e| {
+        println!("{}", e);
+    });
 }

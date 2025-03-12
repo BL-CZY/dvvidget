@@ -27,7 +27,13 @@ pub async fn process_history(
     sender: UnboundedSender<DaemonEvt>,
     id: &Uuid,
     monitor: usize,
+    history: bool,
+    bookmark: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if !history && !bookmark {
+        return Ok(());
+    }
+
     let keyword = keyword.to_lowercase();
 
     let mut path = PathBuf::from(&config.dvoty.firefox_path);
@@ -73,16 +79,17 @@ pub async fn process_history(
             .await
             .with_context(|| "Cannot open connection")?;
 
-            #[derive(Debug, sqlx::FromRow)]
-            struct BookmarkPlace {
-                folder_name: String,
-                bookmark_title: String,
-                url: String,
-            }
+            if bookmark {
+                #[derive(Debug, sqlx::FromRow)]
+                struct BookmarkPlace {
+                    folder_name: String,
+                    bookmark_title: String,
+                    url: String,
+                }
 
-            // for bookmarks
-            let command = format!(
-                "
+                // for bookmarks
+                let command = format!(
+                    "
 SELECT
     b.title AS bookmark_title,
     p.url AS url,
@@ -101,97 +108,100 @@ AND
 	OR LOWER(folder_name) LIKE LOWER('%{}%'))
 LIMIT {};
 ",
-                keyword, keyword, keyword, config.dvoty.bookmark_search_limit
-            );
+                    keyword, keyword, keyword, config.dvoty.bookmark_search_limit
+                );
 
-            // Build the query using query_as to map results to your struct
-            let places = sqlx::query_as::<_, BookmarkPlace>(&command)
-                .fetch_all(&pool)
-                .await?;
+                // Build the query using query_as to map results to your struct
+                let places = sqlx::query_as::<_, BookmarkPlace>(&command)
+                    .fetch_all(&pool)
+                    .await?;
 
-            for place in places {
-                if *id
-                    != *CURRENT_IDS.get().unwrap()[monitor]
-                        .lock()
-                        .unwrap_or_else(|p| p.into_inner())
-                {
-                    return Ok(());
+                for place in places {
+                    if *id
+                        != *CURRENT_IDS.get().unwrap()[monitor]
+                            .lock()
+                            .unwrap_or_else(|p| p.into_inner())
+                    {
+                        return Ok(());
+                    }
+
+                    sender
+                        .send(DaemonEvt {
+                            evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
+                                url: place.url.clone(),
+                                title: Some(format!(
+                                    "<span color=\"{}\"> <u><b>{}:</b></u></span> {}",
+                                    config.dvoty.highlight_color,
+                                    underline_string(&keyword, &place.folder_name),
+                                    underline_string(&keyword, &place.bookmark_title)
+                                )),
+                            })),
+                            sender: None,
+                            uuid: Some(*id),
+                            monitors: vec![monitor],
+                        })
+                        .unwrap_or_else(|e| {
+                            println!("Dvoty: Failed to send url: {}", e);
+                        });
+
+                    // so that we dont overload the gtk app
+                    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+                }
+            }
+
+            if history {
+                #[derive(Debug, sqlx::FromRow)]
+                struct Place {
+                    url: String,
+                    title: String,
                 }
 
-                sender
-                    .send(DaemonEvt {
-                        evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
-                            url: place.url.clone(),
-                            title: Some(format!(
-                                "<span color=\"{}\"> <u><b>{}:</b></u></span> {}",
-                                config.dvoty.highlight_color,
-                                underline_string(&keyword, &place.folder_name),
-                                underline_string(&keyword, &place.bookmark_title)
-                            )),
-                        })),
-                        sender: None,
-                        uuid: Some(*id),
-                        monitors: vec![monitor],
-                    })
-                    .unwrap_or_else(|e| {
-                        println!("Dvoty: Failed to send url: {}", e);
-                    });
-
-                // so that we dont overload the gtk app
-                tokio::time::sleep(std::time::Duration::from_millis(5)).await;
-            }
-
-            #[derive(Debug, sqlx::FromRow)]
-            struct Place {
-                url: String,
-                title: String,
-            }
-
-            // for history
-            let command = format!(
-                "SELECT url, title FROM moz_places
+                // for history
+                let command = format!(
+                    "SELECT url, title FROM moz_places
 WHERE 
   (LOWER(title) LIKE LOWER('%{}%')
   OR LOWER(url) LIKE LOWER('%{}%'))
   AND last_visit_date >= strftime('%s', 'now', '-{} days') * 1000000
 ORDER BY id DESC
 LIMIT {};",
-                keyword,
-                keyword,
-                config.dvoty.past_search_date_limit,
-                config.dvoty.past_search_limit
-            );
+                    keyword,
+                    keyword,
+                    config.dvoty.past_search_date_limit,
+                    config.dvoty.past_search_limit
+                );
 
-            // Build the query using query_as to map results to your struct
-            let places = sqlx::query_as::<_, Place>(&command)
-                .fetch_all(&pool)
-                .await?;
+                // Build the query using query_as to map results to your struct
+                let places = sqlx::query_as::<_, Place>(&command)
+                    .fetch_all(&pool)
+                    .await?;
 
-            for place in places.iter() {
-                if *id
-                    != *CURRENT_IDS.get().unwrap()[monitor]
-                        .lock()
-                        .unwrap_or_else(|p| p.into_inner())
-                {
-                    break;
+                for place in places.iter() {
+                    if *id
+                        != *CURRENT_IDS.get().unwrap()[monitor]
+                            .lock()
+                            .unwrap_or_else(|p| p.into_inner())
+                    {
+                        break;
+                    }
+
+                    sender
+                        .send(DaemonEvt {
+                            evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
+                                url: place.url.clone(),
+                                title: Some(underline_string(&keyword, &place.title)),
+                            })),
+                            sender: None,
+                            uuid: Some(*id),
+                            monitors: vec![monitor],
+                        })
+                        .unwrap_or_else(|e| {
+                            println!("Dvoty: Failed to send url: {}", e);
+                        });
+
+                    // so that we dont overload the gtk app
+                    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
                 }
-
-                sender
-                    .send(DaemonEvt {
-                        evt: DaemonCmdType::Dvoty(Dvoty::AddEntry(DvotyEntry::Url {
-                            url: place.url.clone(),
-                            title: Some(underline_string(&keyword, &place.title)),
-                        })),
-                        sender: None,
-                        uuid: Some(*id),
-                        monitors: vec![monitor],
-                    })
-                    .unwrap_or_else(|e| {
-                        println!("Dvoty: Failed to send url: {}", e);
-                    });
-
-                // so that we dont overload the gtk app
-                tokio::time::sleep(std::time::Duration::from_millis(5)).await;
             }
         }
     }
@@ -219,7 +229,7 @@ pub async fn handle_search(
             println!("Dvoty: Error adding search entry: {}", e);
         });
 
-    process_history(&keyword, config, sender.clone(), &id, monitor)
+    process_history(&keyword, config, sender.clone(), &id, monitor, true, true)
         .await
         .unwrap_or_else(|e| {
             println!("{}", e);

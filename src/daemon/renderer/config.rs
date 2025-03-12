@@ -281,6 +281,21 @@ pub struct AppConfDvoty {
     #[serde_inline_default("#f9e2af".to_string())]
     #[default = "#f9e2af"]
     pub highlight_color: String,
+
+    #[serde_inline_default(DvotyGeneralOptions::default())]
+    #[default(_code = "DvotyGeneralOptions::default()")]
+    pub general_options: DvotyGeneralOptions,
+}
+
+#[derive(Deserialize, SmartDefault, Debug, Clone)]
+pub struct DvotyGeneralOptions {
+    pub math: bool,
+    pub search: bool,
+    pub history: bool,
+    pub bookmark: bool,
+    pub letter: bool,
+    pub launch: bool,
+    pub files: bool,
 }
 
 fn default_firefox_path() -> String {
