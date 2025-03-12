@@ -111,6 +111,17 @@ async fn process_input_str(
                 recent_paths,
             );
         }
+        '\\' => {
+            process_general(
+                sender,
+                &input.chars().skip(1).collect::<String>(),
+                &id,
+                config,
+                monitor,
+                recent_paths,
+            )
+            .await;
+        }
         _ => {
             process_general(sender, input, &id, config, monitor, recent_paths).await;
         }
