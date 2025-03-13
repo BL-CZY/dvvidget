@@ -10,7 +10,8 @@ use gtk4::prelude::*;
 use x11rb::connection::Connection;
 use x11rb::errors::ReplyError;
 use x11rb::protocol::xproto::{
-    AtomEnum, ChangeWindowAttributesAux, ConfigureWindowAux, ConnectionExt, PropMode, StackMode,
+    AtomEnum, ChangeWindowAttributesAux, ConfigureWindowAux, ConnectionExt, EventMask, PropMode,
+    StackMode,
 };
 use x11rb::rust_connection::RustConnection;
 
@@ -201,34 +202,115 @@ fn wayland_window(
 }
 
 fn set_window_layer(xid: u64, conn: &RustConnection) -> Result<(), ReplyError> {
-    let state_atom = conn.intern_atom(false, b"_NET_WM_STATE")?.reply()?.atom;
-    let layer_atom = conn
+    let override_attr = ChangeWindowAttributesAux::new()
+        .override_redirect(1)
+        .event_mask(EventMask::SUBSTRUCTURE_REDIRECT);
+    conn.change_window_attributes(xid as u32, &override_attr)?;
+
+    conn.unmap_window(xid as u32)?;
+
+    let wm_window_type_atom = conn
+        .intern_atom(false, b"_NET_WM_WINDOW_TYPE")?
+        .reply()?
+        .atom;
+    let wm_window_type_notification_atom = conn
+        .intern_atom(false, b"_NET_WM_WINDOW_TYPE_NOTIFICATION")?
+        .reply()?
+        .atom;
+    let wm_state_atom = conn.intern_atom(false, b"_NET_WM_STATE")?.reply()?.atom;
+    let wm_state_sticky_atom = conn
+        .intern_atom(false, b"_NET_WM_STATE_STICKY")?
+        .reply()?
+        .atom;
+    let wm_state_skip_taskbar_atom = conn
+        .intern_atom(false, b"_NET_WM_STATE_SKIP_TASKBAR")?
+        .reply()?
+        .atom;
+    let wm_state_skip_pager_atom = conn
+        .intern_atom(false, b"_NET_WM_STATE_SKIP_PAGER")?
+        .reply()?
+        .atom;
+    let wm_state_above_atom = conn
         .intern_atom(false, b"_NET_WM_STATE_BELOW")?
         .reply()?
         .atom;
-    let attribute = ChangeWindowAttributesAux::new().override_redirect(1);
 
-    conn.change_window_attributes(xid as u32, &attribute)?;
+    // Set _NET_WM_WINDOW_TYPE property
+    conn.change_property(
+        PropMode::REPLACE,
+        xid as u32,
+        wm_window_type_atom,
+        AtomEnum::ATOM,
+        32, // 32 bits per element
+        1,  // 1 element
+        &wm_window_type_notification_atom.to_ne_bytes(),
+    )?;
+
+    // Set _NET_WM_STATE property with multiple atoms
+    let state_atoms = [
+        wm_state_sticky_atom,
+        wm_state_skip_taskbar_atom,
+        wm_state_skip_pager_atom,
+        wm_state_above_atom,
+    ];
+
+    // Convert atoms to bytes (each atom is 32 bits)
+    let mut state_data = Vec::with_capacity(state_atoms.len() * 4);
+    for atom in &state_atoms {
+        state_data.extend_from_slice(&atom.to_ne_bytes());
+    }
 
     conn.change_property(
         PropMode::REPLACE,
         xid as u32,
-        state_atom,
+        wm_state_atom,
         AtomEnum::ATOM,
-        32,
-        1,
-        &layer_atom.to_ne_bytes(),
+        32, // 32 bits per element
+        state_atoms.len() as u32,
+        &state_data,
     )?;
 
-    let values = ConfigureWindowAux::default().stack_mode(StackMode::BELOW);
+    // After window creation but before mapping it
+    let values = x11rb::protocol::xproto::ConfigureWindowAux::new()
+        .x(200) // x position
+        .y(300) // y position
+        .width(400) // width
+        .height(300); // height
+
     conn.configure_window(xid as u32, &values)?;
 
     conn.flush()?;
 
+    conn.map_window(xid as u32)?;
+
+    // Get required atoms
+    let state_atom = conn.intern_atom(false, b"_NET_WM_STATE")?.reply()?.atom;
+    let above_atom = conn
+        .intern_atom(false, b"_NET_WM_STATE_ABOVE")?
+        .reply()?
+        .atom;
+
+    // Set EWMH state property (32-bit format)
+    conn.change_property(
+        PropMode::REPLACE,         // Mode: Replace existing properties
+        xid as u32,                // Window ID
+        state_atom,                // Property: _NET_WM_STATE
+        AtomEnum::ATOM,            // Type: ATOM (32-bit)
+        32,                        // Format: 32-bit values
+        1,                         // Data length: 1 element
+        &above_atom.to_ne_bytes(), // Data: Single atom value as u32 slice
+    )?;
+
+    // Configure window stacking
+    let values = ConfigureWindowAux::default().stack_mode(StackMode::ABOVE);
+    conn.configure_window(xid as u32, &values)?;
+
+    conn.flush()?;
     Ok(())
 }
 
 fn x11_window(app: &Application, _descriptor: &WindowDescriptor) -> ApplicationWindow {
+    let (conn, _) = x11rb::connect(None).unwrap();
     let window = gtk4::ApplicationWindow::new(app);
     window.present();
     let xid = window
@@ -240,7 +322,6 @@ fn x11_window(app: &Application, _descriptor: &WindowDescriptor) -> ApplicationW
         .unwrap()
         .xid();
 
-    let (conn, _) = x11rb::connect(None).unwrap();
     if let Err(e) = set_window_layer(xid, &conn) {
         println!("Failed to create window: {}", e);
     }
