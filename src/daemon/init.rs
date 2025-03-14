@@ -6,6 +6,7 @@ use super::renderer::window::KeyboardModeWrapper;
 use super::renderer::{app::start_app, config::read_config};
 use super::server;
 use super::structs::DaemonEvt;
+use crate::daemon::notification::denote::Notification;
 use crate::utils::{detect_display, DaemonErr};
 use glib::object::Cast;
 use gtk4::prelude::DisplayExt;
@@ -83,6 +84,9 @@ pub fn start_daemon(
         }
     }
 
+    let (notification_sender, notification_receiver) =
+        tokio::sync::mpsc::unbounded_channel::<Notification>();
+
     // run the server in a different thread
     let evt_sender_clone = evt_sender.clone();
     let config_clone = config.clone();
@@ -91,7 +95,7 @@ pub fn start_daemon(
         .name("dvvidget server".into())
         .spawn(move || {
             rt.block_on(async {
-                if let Err(e) = server::run_server(&config_path, socket_path, evt_sender.clone(), len, config).await {
+                if let Err(e) = server::run_server(&config_path, socket_path, evt_sender.clone(), len, config, notification_sender).await {
                     println!("Error running the IPC server: {:?}. Dvvidget will keep running, but the cli won't work", e);
                 }
                 // use tokio::spawn if there are more tasks here, such as information puller
@@ -103,6 +107,7 @@ pub fn start_daemon(
         backend,
         evt_receiver,
         evt_sender_clone.clone(),
+        notification_receiver,
         config_clone,
         monitor_list,
     );

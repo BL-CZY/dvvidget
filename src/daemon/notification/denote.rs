@@ -6,6 +6,7 @@ use chrono::Local;
 use dbus::channel::MatchingReceiver;
 use dbus::message::MatchRule;
 use dbus_crossroads::{Context, Crossroads};
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::utils::shutdown;
 
@@ -30,13 +31,15 @@ pub struct Notification {
 struct NotificationServer {
     notifications: HashMap<u32, Notification>,
     next_id: u32,
+    sender: UnboundedSender<Notification>,
 }
 
 impl NotificationServer {
-    fn new() -> Self {
+    fn new(sender: UnboundedSender<Notification>) -> Self {
         NotificationServer {
             notifications: HashMap::new(),
             next_id: 1,
+            sender,
         }
     }
 
@@ -95,7 +98,7 @@ impl NotificationServer {
                         .notifications
                         .insert(notification_id, notification.clone());
 
-                    handle_notify(notification);
+                    handle_notify(server_lock.sender.clone(), notification);
 
                     Ok((notification_id,))
                 },
@@ -145,7 +148,7 @@ impl NotificationServer {
 }
 
 // Handle the Notify method call
-fn handle_notify(notification: Notification) {
+fn handle_notify(sender: UnboundedSender<Notification>, notification: Notification) {
     // Print notification details
     let time = Local::now().format("%H:%M:%S").to_string();
     println!(
@@ -155,6 +158,10 @@ fn handle_notify(notification: Notification) {
     if !notification.body.is_empty() {
         println!("  Body: {}", notification.body);
     }
+
+    sender.send(notification).unwrap_or_else(|e| {
+        println!("Denote: Cannot send notification: {}", e);
+    });
 }
 
 // Handle the CloseNotification method call
@@ -177,7 +184,9 @@ fn handle_close_notification(ctx: &mut Context, server: &Arc<Mutex<NotificationS
     }
 }
 
-pub async fn start_notification_server() -> Result<Box<dyn FnOnce()>, Box<dyn std::error::Error>> {
+pub async fn start_notification_server(
+    sender: UnboundedSender<Notification>,
+) -> Result<Box<dyn FnOnce()>, Box<dyn std::error::Error>> {
     // Create a new Crossroads instance
     let mut cr = Crossroads::new();
 
@@ -192,7 +201,7 @@ pub async fn start_notification_server() -> Result<Box<dyn FnOnce()>, Box<dyn st
     )));
 
     // Create server state and register interface
-    let server = Arc::new(Mutex::new(NotificationServer::new()));
+    let server = Arc::new(Mutex::new(NotificationServer::new(sender)));
     let iface_token = NotificationServer::register_interface(&mut cr);
 
     // Register server state at object path

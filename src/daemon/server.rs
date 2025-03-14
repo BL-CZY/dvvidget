@@ -13,6 +13,7 @@ use tokio::net::UnixStream;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 use super::notification;
+use super::notification::denote::Notification;
 use super::renderer::config::AppConf;
 use super::structs::{DaemonCmdClient, DaemonCmdType, DaemonEvt, DaemonRes};
 use crate::utils::receive_exit;
@@ -36,6 +37,7 @@ pub async fn run_server(
     evt_sender: UnboundedSender<DaemonEvt>,
     monitor_count: usize,
     config: Arc<AppConf>,
+    notification_sender: UnboundedSender<Notification>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let socket_path = if let Some(p) = socket_path {
         p
@@ -93,7 +95,7 @@ pub async fn run_server(
 
     // denote
     if config.denote.enable {
-        let handle = notification::start_notification_server().await?;
+        let handle = notification::start_notification_server(notification_sender).await?;
         handles.push(handle);
     }
 

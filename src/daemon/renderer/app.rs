@@ -5,6 +5,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use crate::daemon::notification::denote::Notification;
 use crate::daemon::structs::DaemonCmdType;
 use crate::daemon::structs::DaemonEvt;
 use crate::daemon::structs::DaemonRes;
@@ -55,7 +56,7 @@ impl AppContext {
     pub fn from_config(config: &Arc<AppConf>, monitor_count: usize) -> Self {
         let vol = VolContext::from_config(config, monitor_count);
         let bri = BriContext::from_config(config, monitor_count);
-        let dvoty=  DvotyContext::from_config(config, monitor_count);
+        let dvoty = DvotyContext::from_config(config, monitor_count);
 
         AppContext {
             vol,
@@ -80,17 +81,23 @@ pub fn register_widget(widget: Widget, id: u32) {
             guard.insert(widget, vec![id]);
         }
     }
-
 }
 
 lazy_static! {
     pub static ref WINDOWS: Mutex<HashMap<Widget, Vec<u32>>> = Mutex::new(HashMap::new());
 }
 
-fn get_windows(widget: Widget, guard: &HashMap<Widget, Vec<u32>>, app: &Rc<Application>) -> Vec<Window> {
-    guard.get(&widget).unwrap().iter().map(|id|{
-        app.window_by_id(*id).unwrap()
-    }).collect::<Vec<Window>>()
+fn get_windows(
+    widget: Widget,
+    guard: &HashMap<Widget, Vec<u32>>,
+    app: &Rc<Application>,
+) -> Vec<Window> {
+    guard
+        .get(&widget)
+        .unwrap()
+        .iter()
+        .map(|id| app.window_by_id(*id).unwrap())
+        .collect::<Vec<Window>>()
 }
 
 fn process_evt(
@@ -100,7 +107,7 @@ fn process_evt(
     config: Arc<AppConf>,
     app_context: Rc<RefCell<AppContext>>,
     monitors: Vec<usize>,
-    id: Option<uuid::Uuid>
+    id: Option<uuid::Uuid>,
 ) -> Result<DaemonRes, DaemonErr> {
     match evt {
         DaemonCmdType::ShutDown => {
@@ -121,7 +128,7 @@ fn process_evt(
                 sender,
                 vol_context,
                 config,
-                monitors
+                monitors,
             )?;
 
             return Ok(result);
@@ -141,7 +148,7 @@ fn process_evt(
                 sender,
                 bri_context,
                 config,
-                monitors
+                monitors,
             )?;
 
             return Ok(result);
@@ -162,7 +169,7 @@ fn process_evt(
                 dvoty_context,
                 config,
                 monitors,
-                id
+                id,
             )?;
 
             return Ok(result);
@@ -192,13 +199,106 @@ pub enum VolBriTaskType {
     MurphValue,
 }
 
+fn activate(
+    backend: DisplayBackend,
+    app: &gtk4::Application,
+    config: Arc<AppConf>,
+    sender: UnboundedSender<DaemonEvt>,
+    monitors: Vec<gdk::Monitor>,
+    app_context: Rc<RefCell<AppContext>>,
+) {
+    let css = CssProvider::new();
+    css.load_from_path(&config.general.css_path);
+    gtk4::style_context_add_provider_for_display(
+        &gdk::Display::default().expect("Cannot open display"),
+        &css,
+        gtk4::STYLE_PROVIDER_PRIORITY_SETTINGS,
+    );
+
+    for (ind, monitor) in monitors.iter().enumerate() {
+        create_sound_osd(backend, app, config.clone(), monitor);
+        create_bri_osd(backend, app, config.clone(), monitor);
+        create_dvoty(
+            backend,
+            app,
+            config.clone(),
+            sender.clone(),
+            ind,
+            monitor,
+            app_context.clone(),
+        );
+    }
+}
+
+pub fn start_app(
+    backend: DisplayBackend,
+    evt_receiver: UnboundedReceiver<DaemonEvt>,
+    evt_sender: UnboundedSender<DaemonEvt>,
+    notification_receiver: UnboundedReceiver<Notification>,
+    config: Arc<AppConf>,
+    monitor_list: Vec<gdk::Monitor>,
+) {
+    super::dvoty::app_launcher::DESKTOP_FILES
+        .set(Arc::new(Mutex::new(vec![])))
+        .unwrap();
+
+    let mut ids = vec![];
+    for _ in 0..monitor_list.len() {
+        ids.push(Arc::new(Mutex::new(uuid::Uuid::new_v4())));
+    }
+    CURRENT_IDS.set(ids).unwrap();
+
+    #[cfg(not(debug_assertions))]
+    let name = Some("org.dvida.dvvidgets");
+
+    #[cfg(debug_assertions)]
+    let name = Some("org.dvida.dvvidgets.debug");
+
+    let app = Rc::new(gtk4::Application::new(name, ApplicationFlags::default()));
+
+    let context = Rc::new(RefCell::new(AppContext::from_config(
+        &config,
+        monitor_list.len(),
+    )));
+
+    if let Err(e) = init_gtk_async(
+        evt_receiver,
+        evt_sender.clone(),
+        app.clone(),
+        config.clone(),
+        &monitor_list,
+        context.clone(),
+        notification_receiver,
+    ) {
+        println!("Err handling command: {:?}", e);
+    }
+
+    app.connect_activate(move |app| {
+        activate(
+            backend,
+            app,
+            config.clone(),
+            evt_sender.clone(),
+            monitor_list.clone(),
+            context.clone(),
+        )
+    });
+
+    app.run_with_args(&[""]);
+}
+
+fn handle_notification(notification: Notification) {
+    println!("{:?}", notification);
+}
+
 pub fn init_gtk_async(
     mut evt_receiver: UnboundedReceiver<DaemonEvt>,
     evt_sender: UnboundedSender<DaemonEvt>,
     app: Rc<Application>,
     config: Arc<AppConf>,
     _monitor_list: &[gdk::Monitor],
-    app_context: Rc<RefCell<AppContext>>
+    app_context: Rc<RefCell<AppContext>>,
+    mut notification_receiver: UnboundedReceiver<Notification>,
 ) -> Result<(), DaemonErr> {
     glib::MainContext::default().spawn_local(async move {
         loop {
@@ -206,8 +306,8 @@ pub fn init_gtk_async(
                 Ok(t) = crate::utils::receive_exit() => {
                     println!("Shutting down the GUI...");
                     app.quit();
-                    
-                    if let ExitType::Restart = t {                
+
+                    if let ExitType::Restart = t {
                         let args: Vec<String> = std::env::args().collect();
                         let executable = &args[0];
 
@@ -228,77 +328,13 @@ pub fn init_gtk_async(
                         Ok(res) => send_res(evt.sender, res),
                     }
                 }
+
+                Some(notification) = notification_receiver.recv() => {
+                    handle_notification(notification);
+                }
             }
         }
     });
 
     Ok(())
-}
-
-fn activate(
-    backend: DisplayBackend,
-    app: &gtk4::Application,
-    config: Arc<AppConf>,
-    sender: UnboundedSender<DaemonEvt>,
-    monitors: Vec<gdk::Monitor>,
-    app_context: Rc<RefCell<AppContext>>
-) {
-    let css = CssProvider::new();
-    css.load_from_path(&config.general.css_path);
-    gtk4::style_context_add_provider_for_display(
-        &gdk::Display::default().expect("Cannot open display"),
-        &css,
-        gtk4::STYLE_PROVIDER_PRIORITY_SETTINGS,
-    );
-
-    for (ind, monitor ) in monitors.iter().enumerate() {
-        create_sound_osd(backend, app, config.clone(), monitor);
-        create_bri_osd(backend, app, config.clone(), monitor);
-        create_dvoty(backend, app, config.clone(), sender.clone(), ind, monitor, app_context.clone());
-    }
-}
-
-pub fn start_app(
-    backend: DisplayBackend,
-    evt_receiver: UnboundedReceiver<DaemonEvt>,
-    evt_sender: UnboundedSender<DaemonEvt>,
-    config: Arc<AppConf>,
-    monitor_list: Vec<gdk::Monitor>
-) {
-    super::dvoty::app_launcher::DESKTOP_FILES
-        .set(Arc::new(Mutex::new(vec![])))
-        .unwrap();
-    
-    let mut ids = vec![];
-    for _ in 0..monitor_list.len() {
-        ids.push(Arc::new(Mutex::new(uuid::Uuid::new_v4())));
-    }
-    CURRENT_IDS.set(ids).unwrap();
-    
-    #[cfg(not(debug_assertions))]
-    let name = Some("org.dvida.dvvidgets");
-
-    #[cfg(debug_assertions)]
-    let name = Some("org.dvida.dvvidgets.debug");
-
-    let app = Rc::new(gtk4::Application::new(name,
-        ApplicationFlags::default(),
-    ));
-
-    let context = Rc::new(RefCell::new(AppContext::from_config(&config, monitor_list.len())));
-
-    if let Err(e) = init_gtk_async(
-        evt_receiver,
-        evt_sender.clone(),
-        app.clone(),
-        config.clone(),
-        &monitor_list,
-        context.clone()
-    ) {
-        println!("Err handling command: {:?}", e);
-    }
-
-    app.connect_activate(move |app| activate(backend, app, config.clone(), evt_sender.clone(), monitor_list.clone(), context.clone()));
-
-    app.run_with_args(&[""]);
 }
