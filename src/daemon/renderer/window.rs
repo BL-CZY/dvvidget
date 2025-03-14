@@ -1,3 +1,6 @@
+use gdk4_x11::X11Surface;
+use glib::object::Cast;
+use gtk4::prelude::{GtkWindowExt, NativeExt, WidgetExt};
 use gtk4::{Application, ApplicationWindow};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use serde::Deserialize;
@@ -6,12 +9,10 @@ use smart_default::SmartDefault;
 use toml::map::Map;
 use toml::value::Value;
 
-use gtk4::prelude::*;
 use x11rb::connection::Connection;
 use x11rb::errors::ReplyError;
 use x11rb::protocol::xproto::{
-    AtomEnum, ChangeWindowAttributesAux, ConfigureWindowAux, ConnectionExt, EventMask, PropMode,
-    StackMode,
+    AtomEnum, ChangeWindowAttributesAux, ConnectionExt, EventMask, PropMode, StackMode,
 };
 use x11rb::rust_connection::RustConnection;
 
@@ -201,13 +202,13 @@ fn wayland_window(
     window
 }
 
-fn set_window_layer(xid: u64, conn: &RustConnection) -> Result<(), ReplyError> {
+fn set_window_layer(xid: u32, conn: &RustConnection) -> Result<(), ReplyError> {
+    conn.unmap_window(xid)?;
+
     let override_attr = ChangeWindowAttributesAux::new()
         .override_redirect(1)
         .event_mask(EventMask::SUBSTRUCTURE_REDIRECT);
     conn.change_window_attributes(xid as u32, &override_attr)?;
-
-    conn.unmap_window(xid as u32)?;
 
     conn.flush()?;
 
@@ -236,7 +237,7 @@ fn set_window_layer(xid: u64, conn: &RustConnection) -> Result<(), ReplyError> {
     // Set _NET_WM_WINDOW_TYPE property
     conn.change_property(
         PropMode::REPLACE,
-        xid as u32,
+        xid,
         wm_window_type_atom,
         AtomEnum::ATOM,
         32, // 32 bits per element
@@ -247,7 +248,7 @@ fn set_window_layer(xid: u64, conn: &RustConnection) -> Result<(), ReplyError> {
     // _NET_WM_STATE
     conn.change_property(
         PropMode::REPLACE,
-        xid as u32,
+        xid,
         wm_state_atom,
         AtomEnum::ATOM,
         32, // 32 bits per element
@@ -257,7 +258,7 @@ fn set_window_layer(xid: u64, conn: &RustConnection) -> Result<(), ReplyError> {
 
     conn.change_property(
         PropMode::REPLACE,
-        xid as u32,
+        xid,
         wm_state_atom,
         AtomEnum::ATOM,
         32, // 32 bits per element
@@ -267,7 +268,7 @@ fn set_window_layer(xid: u64, conn: &RustConnection) -> Result<(), ReplyError> {
 
     conn.change_property(
         PropMode::REPLACE,
-        xid as u32,
+        xid,
         wm_state_atom,
         AtomEnum::ATOM,
         32, // 32 bits per element
@@ -285,13 +286,12 @@ fn set_window_layer(xid: u64, conn: &RustConnection) -> Result<(), ReplyError> {
         .height(300) // height
         .stack_mode(StackMode::BELOW);
 
-    conn.configure_window(xid as u32, &values)?;
-
+    conn.configure_window(xid, &values)?;
     conn.flush()?;
 
-    conn.map_window(xid as u32)?;
-
+    conn.map_window(xid)?;
     conn.flush()?;
+
     Ok(())
 }
 
@@ -299,6 +299,7 @@ fn x11_window(app: &Application, _descriptor: &WindowDescriptor) -> ApplicationW
     let (conn, _) = x11rb::connect(None).unwrap();
     let window = gtk4::ApplicationWindow::new(app);
     window.present();
+
     let xid = window
         .native()
         .unwrap()
@@ -306,12 +307,14 @@ fn x11_window(app: &Application, _descriptor: &WindowDescriptor) -> ApplicationW
         .unwrap()
         .downcast_ref::<gdk4_x11::X11Surface>()
         .unwrap()
-        .xid();
+        .xid() as u32;
 
     if let Err(e) = set_window_layer(xid, &conn) {
         println!("Failed to create window: {}", e);
     }
     println!("Create window, id: {}", xid);
+
+    window.set_visible(true);
 
     window
 }
