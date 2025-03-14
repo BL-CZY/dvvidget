@@ -85,12 +85,13 @@ pub fn start_daemon(
 
     // run the server in a different thread
     let evt_sender_clone = evt_sender.clone();
+    let config_clone = config.clone();
     let len = monitor_list.len();
     std::thread::Builder::new()
         .name("dvvidget server".into())
         .spawn(move || {
             rt.block_on(async {
-                if let Err(e) = server::run_server(&config_path, socket_path, evt_sender.clone(), len).await {
+                if let Err(e) = server::run_server(&config_path, socket_path, evt_sender.clone(), len, config).await {
                     println!("Error running the IPC server: {:?}. Dvvidget will keep running, but the cli won't work", e);
                 }
                 // use tokio::spawn if there are more tasks here, such as information puller
@@ -102,7 +103,7 @@ pub fn start_daemon(
         backend,
         evt_receiver,
         evt_sender_clone.clone(),
-        config,
+        config_clone,
         monitor_list,
     );
 

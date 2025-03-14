@@ -60,29 +60,44 @@ impl NotificationServer {
                     "expire_timeout",
                 ),
                 ("id",),
-                |ctx: &mut Context,
+                |_ctx: &mut Context,
                  server: &mut Arc<Mutex<NotificationServer>>,
                  (
                     app_name,
                     replaces_id,
-                    app_icon,
+                    _app_icon,
                     summary,
                     body,
-                    actions,
-                    hints,
-                    expire_timeout,
+                    _actions,
+                    _hints,
+                    _expire_timeout,
                 ): (String, u32, String, String, String, Actions, Hints, i32)| {
-                    let notification_id = handle_notify(
-                        server,
-                        app_name,
-                        replaces_id,
-                        app_icon,
-                        summary,
-                        body,
-                        actions,
-                        hints,
-                        expire_timeout,
-                    );
+                    let mut server_lock = server.lock().unwrap();
+                    let notification_id: u32;
+
+                    // Check if this is replacing an existing notification
+                    if replaces_id > 0 && server_lock.notifications.contains_key(&replaces_id) {
+                        notification_id = replaces_id;
+                    } else {
+                        notification_id = server_lock.next_id;
+                        server_lock.next_id += 1;
+                    }
+
+                    // Create and store the notification
+                    let notification = Notification {
+                        id: notification_id,
+                        app_name: app_name.clone(),
+                        summary: summary.clone(),
+                        body: body.clone(),
+                        timestamp: SystemTime::now(),
+                    };
+
+                    server_lock
+                        .notifications
+                        .insert(notification_id, notification.clone());
+
+                    handle_notify(notification);
+
                     Ok((notification_id,))
                 },
             );
@@ -131,52 +146,16 @@ impl NotificationServer {
 }
 
 // Handle the Notify method call
-fn handle_notify(
-    server: &Arc<Mutex<NotificationServer>>,
-    app_name: String,
-    replaces_id: u32,
-    _app_icon: String,
-    summary: String,
-    body: String,
-    _actions: Actions,
-    _hints: Hints,
-    _expire_timeout: i32,
-) -> u32 {
-    let mut server_lock = server.lock().unwrap();
-    let notification_id: u32;
-
-    // Check if this is replacing an existing notification
-    if replaces_id > 0 && server_lock.notifications.contains_key(&replaces_id) {
-        notification_id = replaces_id;
-    } else {
-        notification_id = server_lock.next_id;
-        server_lock.next_id += 1;
-    }
-
-    // Create and store the notification
-    let notification = Notification {
-        id: notification_id,
-        app_name: app_name.clone(),
-        summary: summary.clone(),
-        body: body.clone(),
-        timestamp: SystemTime::now(),
-    };
-
-    server_lock
-        .notifications
-        .insert(notification_id, notification.clone());
-
+fn handle_notify(notification: Notification) {
     // Print notification details
     let time = Local::now().format("%H:%M:%S").to_string();
     println!(
         "[{}] Notification #{} from {}: {}",
-        time, notification_id, app_name, summary
+        time, notification.id, notification.app_name, notification.summary
     );
-    if !body.is_empty() {
-        println!("  Body: {}", body);
+    if !notification.body.is_empty() {
+        println!("  Body: {}", notification.body);
     }
-
-    notification_id
 }
 
 // Handle the CloseNotification method call
@@ -199,8 +178,7 @@ fn handle_close_notification(ctx: &mut Context, server: &Arc<Mutex<NotificationS
     }
 }
 
-pub async fn start_notification_server(
-) -> Result<(tokio::task::JoinHandle<()>, Arc<SyncConnection>), Box<dyn std::error::Error>> {
+pub async fn start_notification_server() -> Result<Box<dyn FnOnce()>, Box<dyn std::error::Error>> {
     // Create a new Crossroads instance
     let mut cr = Crossroads::new();
 
@@ -243,5 +221,9 @@ pub async fn start_notification_server(
         .request_name(NOTIFICATIONS_INTERFACE, false, true, false)
         .await?;
 
-    Ok((handle, connection))
+    Ok(Box::new(move || {
+        println!("shutting down the notification server");
+        handle.abort();
+        drop(connection);
+    }))
 }

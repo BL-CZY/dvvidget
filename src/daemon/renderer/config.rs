@@ -16,6 +16,15 @@ pub struct AppConf {
     pub vol: AppConfVol,
     pub bri: AppConfBri,
     pub dvoty: AppConfDvoty,
+    pub denote: AppConfDenote,
+}
+
+#[serde_inline_default]
+#[derive(Clone, Deserialize, Debug, SmartDefault)]
+pub struct AppConfDenote {
+    #[serde_inline_default(true)]
+    #[default = true]
+    pub enable: bool,
 }
 
 #[serde_inline_default]
