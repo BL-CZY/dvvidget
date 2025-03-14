@@ -1,4 +1,3 @@
-use gdk4_x11::X11Surface;
 use glib::object::Cast;
 use gtk4::prelude::{GtkWindowExt, NativeExt, WidgetExt};
 use gtk4::{Application, ApplicationWindow};
