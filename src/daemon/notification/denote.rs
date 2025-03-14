@@ -5,7 +5,6 @@ use std::time::SystemTime;
 use chrono::Local;
 use dbus::channel::MatchingReceiver;
 use dbus::message::MatchRule;
-use dbus::nonblock::SyncConnection;
 use dbus_crossroads::{Context, Crossroads};
 
 use crate::utils::shutdown;

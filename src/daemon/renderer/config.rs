@@ -329,11 +329,20 @@ fn default_firefox_path() -> String {
 pub fn default_config_path() -> PathBuf {
     if let Ok(val) = std::env::var("XDG_CONFIG_HOME") {
         let mut path = PathBuf::from(&val);
+
+        #[cfg(not(debug_assertions))]
         path.push("dvvidget/config.toml");
+        #[cfg(debug_assertions)]
+        path.push("dvvidget/debug/config.toml");
         path
     } else if let Ok(val) = std::env::var("HOME") {
         let mut path = PathBuf::from(&val);
+
+        #[cfg(not(debug_assertions))]
         path.push(".config/dvvidget/config.toml");
+        #[cfg(debug_assertions)]
+        path.push(".config/dvvidget/debug/config.toml");
+
         path
     } else {
         println!("Failed to get config directory");
