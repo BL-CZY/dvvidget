@@ -11,12 +11,18 @@ pub const DEFAULT_VOL_CMD: VolCmdProvider = VolCmdProvider::Wpctl;
 pub const DEFAULT_BRI_CMD: BriCmdProvider = BriCmdProvider::BrightnessCtl;
 
 #[derive(Clone, Deserialize, Debug, SmartDefault)]
+#[serde_inline_default]
 pub struct AppConf {
+    #[serde(default = "AppConfGeneral::default")]
     pub general: AppConfGeneral,
+    #[serde(default = "AppConfVol::default")]
     pub vol: AppConfVol,
+    #[serde(default = "AppConfBri::default")]
     pub bri: AppConfBri,
+    #[serde(default = "AppConfDvoty::default")]
     pub dvoty: AppConfDvoty,
-    // pub denote: AppConfDenote,
+    #[serde(default = "AppConfDenote::default")]
+    pub denote: AppConfDenote,
 }
 
 #[serde_inline_default]
