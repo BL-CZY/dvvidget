@@ -16,59 +16,12 @@ you can use ```-c``` or ```--config``` flag to set the config. The default path 
 you can use ```-p``` or ```--path``` flag to set the socket path. The default path is ```/tmp/dvvidget-[version].sock```
 you can use ```-m``` or ```--monitor``` flag to run commands for a specific monitor
 <br />
-Here is a sample config file:
-```toml
-[general]
-css_path = "/path/to/style.css"
+The sample config file is in src/config.toml, and you can put the config in ~/.config/dvvidget/config.toml <br />
 
-[vol]
-enable = true
-max_vol = 100
-use_svg = true
-icons = [
-    { "lower" = 0, "upper" = 5, "icon" = "/path/to/vol-off.svg" }, # if use_svg is set, put the path of the icon here, otherwise, put the glyph
-    { "lower" = 5, "upper" = 35, "icon" = "/path/to/vol-low.svg" },
-    { "lower" = 35, "upper" = 70, "icon" = "/path/to/vol-mid.svg" },
-    { "lower" = 70, "upper" = 101, "icon" = "/path/to/vol-high.svg" },
-]
-mute_icon = "/path/to/vol-mute.svg"
+dvvidget has a client and a server. If you want to use dvvidget, you can use ```dvvidget daemon``` to start the daemon. 
+You can then use ```dvvidget volume -h```, ```dvvidget brightness -h```, and ```dvvidget dvoty -h``` to learn how to 
+use the client. <br />
 
-[vol.window]
-visible_on_start = false
-anchor_bottom = true
-margin_bottom = 130
-
-[bri]
-enable = true
-use_svg = true
-icons = [
-    { "lower" = 0, "upper" = 50, "icon"= "/path/to/bri-low.svg" },
-    { "lower" = 50, "upper" = 101, "icon"= "/path/to/bri-high.svg" },
-]
-
-[bri.window]
-visible_on_start = false
-anchor_bottom = true
-margin_bottom = 130
-
-[dvoty]
-enable = true
-max_height = 300
-instruction_icon = "/path/to/dvoty/instruction.svg"
-math_icon = "/path/to/dvoty/math.svg"
-search_icon = "/path/to/dvoty/search.svg"
-cmd_icon = "/path/to/dvoty/cmd.svg"
-url_icon = "/path/to/dvoty/url.svg"
-letter_icon = "/path/to/dvoty/letter.svg"
-launch_icon = "/path/to/dvoty/app.svg"
-search_engine = "google" # other options are ddg and wikipedia
-terminal_exec = "kitty" # this terminal will be used to run commands. For example, if you want to use Alacritty, set this to Alacritty -e
-spacing = 0
-
-[dvoty.window]
-visible_on_start = false
-layer = "top"
-```
 There is a style.css in src that has a sample css. <br />
 It uses gtk css. <br />
 
@@ -101,4 +54,5 @@ for ENTRY: <br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|--label: .dvoty-label .dvoty-label-mid<br />
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|--label: .dvoty-label, .dvoty-label-end<br />
 
-TODO: cache, recent files
+Dependencies: <br />
+wpctl, brightnessctl, gvfs, gtk4-layer-shell

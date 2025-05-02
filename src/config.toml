@@ -1,0 +1,38 @@
+[general]
+css_path = "/absolute/path/to/style.css"
+
+[vol]
+enable = true
+max_vol = 100
+
+[vol.window]
+visible_on_start = false
+anchor_bottom = true
+margin_bottom = 130
+
+[bri]
+enable = true
+
+[bri.window]
+visible_on_start = false
+anchor_bottom = true
+margin_bottom = 130
+
+[dvoty]
+enable = true
+max_height = 300
+search_engine = "google"
+spacing = 0
+
+[dvoty.window]
+visible_on_start = false
+layer = "top"
+
+[dvoty.general_options]
+math = true
+search = true
+history = false
+bookmark = true
+letter = true
+launch = true
+files = true
