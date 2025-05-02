@@ -16,7 +16,7 @@ pub struct AppConf {
     pub vol: AppConfVol,
     pub bri: AppConfBri,
     pub dvoty: AppConfDvoty,
-    pub denote: AppConfDenote,
+    // pub denote: AppConfDenote,
 }
 
 #[serde_inline_default]
