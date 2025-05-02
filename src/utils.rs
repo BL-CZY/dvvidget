@@ -17,7 +17,7 @@ pub fn cache_dir() -> PathBuf {
 /// end
 pub fn get_paths() -> Vec<PathBuf> {
     let mut result = std::env::var("XDG_DATA_DIRS")
-        .unwrap()
+        .unwrap_or("/usr/share/".into())
         .split(":")
         .filter_map(|s| {
             let mut res = PathBuf::from(s);

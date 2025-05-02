@@ -212,7 +212,7 @@ fn activate(
     gtk4::style_context_add_provider_for_display(
         &gdk::Display::default().expect("Cannot open display"),
         &css,
-        gtk4::STYLE_PROVIDER_PRIORITY_SETTINGS,
+        gtk4::STYLE_PROVIDER_PRIORITY_USER,
     );
 
     for (ind, monitor) in monitors.iter().enumerate() {
@@ -254,7 +254,10 @@ pub fn start_app(
     #[cfg(debug_assertions)]
     let name = Some("org.dvida.dvvidgets.debug");
 
-    let app = Rc::new(gtk4::Application::new(name, ApplicationFlags::default()));
+    let app = Rc::new(gtk4::Application::new(
+        name,
+        ApplicationFlags::NON_UNIQUE | ApplicationFlags::ALLOW_REPLACEMENT,
+    ));
 
     let context = Rc::new(RefCell::new(AppContext::from_config(
         &config,

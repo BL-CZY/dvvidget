@@ -12,7 +12,7 @@ use tokio::net::unix::ReadHalf;
 use tokio::net::UnixStream;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
-use super::notification;
+// use super::notification;
 use super::notification::denote::Notification;
 use super::renderer::config::AppConf;
 use super::structs::{DaemonCmdClient, DaemonCmdType, DaemonEvt, DaemonRes};
@@ -36,8 +36,8 @@ pub async fn run_server(
     socket_path: Option<String>,
     evt_sender: UnboundedSender<DaemonEvt>,
     monitor_count: usize,
-    config: Arc<AppConf>,
-    notification_sender: UnboundedSender<Notification>,
+    _config: Arc<AppConf>,
+    _notification_sender: UnboundedSender<Notification>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let socket_path = if let Some(p) = socket_path {
         p
@@ -91,13 +91,13 @@ pub async fn run_server(
 
     let _ = watcher.watch(&path, notify::RecursiveMode::NonRecursive);
 
-    let mut handles = vec![];
+    let handles = vec![];
 
     // denote
-    if config.denote.enable {
-        let handle = notification::start_notification_server(notification_sender).await?;
-        handles.push(handle);
-    }
+    // if config.denote.enable {
+    //     let handle = notification::start_notification_server(notification_sender).await?;
+    //     handles.push(handle);
+    // }
 
     loop {
         tokio::select! {
