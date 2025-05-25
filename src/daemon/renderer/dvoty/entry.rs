@@ -1,4 +1,5 @@
 use std::{
+    fs::File,
     path::{Path, PathBuf},
     process::Stdio,
     sync::Arc,
@@ -9,10 +10,11 @@ use crate::{
         renderer::config::AppConf,
         structs::{DaemonCmdType, DaemonEvt, DaemonRes, Dvoty},
     },
-    utils::DaemonErr,
+    utils::{cache_dir, DaemonErr},
 };
 
 use super::{math, search, url, DvotyContext};
+use chrono::Utc;
 use gtk4::{
     prelude::{BoxExt, WidgetExt},
     Box, GestureClick, Image, Label, ListBoxRow, ScrolledWindow, Window,
@@ -66,6 +68,24 @@ pub enum DvotyUIEntry {
     File { path: PathBuf },
 }
 
+fn create_log_dir(exec: &str) -> Result<(File, File), std::boxed::Box<dyn std::error::Error>> {
+    let mut cache_dir = cache_dir();
+    let timestamp = Utc::now().format("%Y%m%d_%H%M%S").to_string();
+
+    cache_dir.push(format!("{}-{}", timestamp, exec));
+    std::fs::create_dir_all(&cache_dir)?;
+
+    // Create output and error file paths
+    let stdout_path = cache_dir.join("output.txt");
+    let stderr_path = cache_dir.join("error.txt");
+
+    // Create the files
+    let stdout_file = File::create(stdout_path)?;
+    let stderr_file = File::create(stderr_path)?;
+
+    Ok((stdout_file, stderr_file))
+}
+
 impl DvotyUIEntry {
     pub fn run(self, config: Arc<AppConf>) {
         match self {
@@ -79,11 +99,23 @@ impl DvotyUIEntry {
                 url::spawn_url(url);
             }
             DvotyUIEntry::Command { exec } => {
+                let log_files = create_log_dir(&exec).map_or_else(
+                    |e| {
+                        println!(
+                            "Cache: Cannot create log files for app, using null... {}",
+                            e
+                        );
+                        (Stdio::null(), Stdio::null())
+                    },
+                    |(output, error)| (Stdio::from(output), Stdio::from(error)),
+                );
+
                 if let Err(e) = std::process::Command::new("setsid")
                     .arg("/bin/sh")
                     .arg("-c")
                     .arg(format!("{} {}", config.dvoty.terminal_exec, &exec))
-                    .stdout(Stdio::null())
+                    .stdout(log_files.0)
+                    .stderr(log_files.1)
                     .spawn()
                 {
                     println!("Dvoty: Failed to spawn command: {}", e);
@@ -96,12 +128,23 @@ impl DvotyUIEntry {
                     format!("{} {}", config.dvoty.terminal_exec, exec)
                 };
 
+                let log_files = create_log_dir(&exec).map_or_else(
+                    |e| {
+                        println!(
+                            "Cache: Cannot create log files for app, using null... {}",
+                            e
+                        );
+                        (Stdio::null(), Stdio::null())
+                    },
+                    |(output, error)| (Stdio::from(output), Stdio::from(error)),
+                );
+
                 if let Err(e) = std::process::Command::new("setsid")
                     .arg("/bin/sh")
                     .arg("-c")
                     .arg(&exec)
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null())
+                    .stdout(log_files.0)
+                    .stderr(log_files.1)
                     .spawn()
                 {
                     println!("Dvoty: Failed to spawn command: {}", e);
